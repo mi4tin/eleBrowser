@@ -5,35 +5,200 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelloWorld</title>
+    <title>Ele Browser</title>
     <style>
-        #refresh-btn {
-            position: fixed;
-            top: 8px;
-            left: 8px;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            overflow: hidden;
+        }
+        .toolbar {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            background: #f3f3f3;
+            border-bottom: 1px solid #ddd;
+            padding: 0 8px;
+        }
+        #tabs {
+            display: flex;
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        .tab {
+            display: flex;
+            align-items: center;
             padding: 4px 10px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            background-color: #f5f5f5;
+            margin-right: 4px;
+            border-radius: 4px 4px 0 0;
+            background: #e0e0e0;
             cursor: pointer;
             font-size: 12px;
+            user-select: none;
+            white-space: nowrap;
         }
-        #refresh-btn:hover {
-            background-color: #e6e6e6;
+        .tab.active {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-bottom-color: #ffffff;
+        }
+        .tab .close {
+            margin-left: 6px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        #add-tab {
+            width: 28px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background-color: #fafafa;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+        #add-tab:hover {
+            background-color: #eaeaea;
+        }
+        #webviews {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #ffffff;
+        }
+        webview {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        webview.active {
+            display: inline-flex;
         }
     </style>
 </head>
 
 <body>
-<button id="refresh-btn">刷新</button>
-<h1>HelloWorld</h1>
+<div class="toolbar">
+    <div id="tabs"></div>
+    <button id="add-tab">+</button>
+</div>
+<div id="webviews"></div>
 
 <script>
-    const btn = document.getElementById('refresh-btn');
-    btn.addEventListener('click', () => {
-        // 刷新当前窗口内容
-        window.location.reload();
+    const { ipcRenderer } = require('electron');
+
+    const DEFAULT_URL = 'https://www.douyin.com';
+    const tabsContainer = document.getElementById('tabs');
+    const webviewsContainer = document.getElementById('webviews');
+    const addTabBtn = document.getElementById('add-tab');
+
+    let tabIdCounter = 0;
+    let currentTabId = null;
+
+    function createTab(url = DEFAULT_URL, title = '新标签页') {
+        const id = ++tabIdCounter;
+
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab';
+        tabEl.dataset.id = id;
+        tabEl.textContent = title;
+
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+
+        tabsContainer.appendChild(tabEl);
+
+        // 创建对应的 webview
+        const wv = document.createElement('webview');
+        wv.src = url;
+        wv.dataset.id = id;
+        webviewsContainer.appendChild(wv);
+
+        // 点击切换标签
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return; // 关闭按钮单独处理
+            activateTab(id);
+        });
+
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(id);
+        });
+
+        // webview 加载完成后尝试更新标题
+        wv.addEventListener('page-title-updated', (event) => {
+            tabEl.firstChild.textContent = event.title || title;
+        });
+
+        // 激活新建的标签
+        activateTab(id);
+    }
+
+    function activateTab(id) {
+        currentTabId = id;
+
+        // 切换 tab 样式
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === id);
+        });
+
+        // 切换 webview 显示
+        document.querySelectorAll('webview').forEach(wv => {
+            wv.classList.toggle('active', Number(wv.dataset.id) === id);
+        });
+    }
+
+    function closeTab(id) {
+        const tabEl = document.querySelector('.tab[data-id="' + id + '"]');
+        const wv = document.querySelector('webview[data-id="' + id + '"]');
+
+        if (tabEl) tabEl.remove();
+        if (wv) wv.remove();
+
+        // 如果关的是当前标签，自动激活一个相邻的
+        if (currentTabId === id) {
+            const remainingTabs = document.querySelectorAll('.tab');
+            if (remainingTabs.length > 0) {
+                const lastTab = remainingTabs[remainingTabs.length - 1];
+                activateTab(Number(lastTab.dataset.id));
+            } else {
+                currentTabId = null;
+            }
+        }
+    }
+
+    // "+" 按钮：新建标签
+    addTabBtn.addEventListener('click', () => {
+        createTab();
     });
+
+    // 监听主进程菜单：新建标签
+    ipcRenderer.on('new-tab', () => {
+        createTab();
+    });
+
+    // 监听主进程菜单：刷新当前标签
+    ipcRenderer.on('refresh-tab', () => {
+        if (currentTabId == null) return;
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv) {
+            wv.reload();
+        }
+    });
+
+    // 启动时自动创建一个标签
+    createTab();
 </script>
 </body>
 

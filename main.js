@@ -1,4 +1,4 @@
-const { app , BrowserWindow, Menu } = require('electron');
+const { app , BrowserWindow, Menu, BrowserWindow: BW } = require('electron');
 
 app.whenReady().then(() => {
     newWindow();
@@ -7,15 +7,15 @@ app.whenReady().then(() => {
 
 function newWindow() {
     const myWindow = new BrowserWindow({
-        width: 500,
-        height: 300,
+        width: 1000,
+        height: 700,
         webPreferences: {
             nodeIntegration: true,
-            contextIsolation: false
+            contextIsolation: false,
+            webviewTag: true
         }
     });
-    // myWindow.loadFile('html/index.html');
-    myWindow.loadURL('https://www.douyin.com');
+    myWindow.loadFile('html/index.html');
 }
 
 // 自定义应用菜单（包括 File / 文件 菜单）
@@ -39,12 +39,24 @@ const template = [
         label: '文件',
         submenu: [
             {
-                label: '刷新',
+                label: '新建页卡',
+                accelerator: isMac ? 'Cmd+T' : 'Ctrl+T',
+                click: () => {
+                    const win = BrowserWindow.getFocusedWindow();
+                    if (win) {
+                        win.webContents.send('new-tab');
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '刷新当前页卡',
                 accelerator: 'F5',
                 click: (menuItem, browserWindow) => {
-                    if (browserWindow) {
-                        browserWindow.reload();
-                    }
+                    const win = browserWindow || BrowserWindow.getFocusedWindow();
+                    if (win) {
+                        win.webContents.send('refresh-tab');
+                    } 
                 }
             },
             { type: 'separator' },
