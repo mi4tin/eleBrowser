@@ -16,14 +16,53 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
             overflow: hidden;
         }
-        .toolbar {
-            height: 40px;
-            display: flex;
-            align-items: center;
-            background: #f3f3f3;
-            border-bottom: 1px solid #ddd;
-            padding: 0 8px;
-        }
+    .toolbar {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        background: #f3f3f3;
+        border-bottom: 1px solid #ddd;
+        padding: 0 8px;
+    }
+    .address-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-bottom: 1px solid #ddd;
+        background: #fff;
+    }
+    .address-input {
+        flex: 1;
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .address-input:focus {
+        border-color: #4b8bff;
+        box-shadow: 0 0 0 2px rgba(75, 139, 255, 0.15);
+    }
+    .address-go {
+        height: 30px;
+        padding: 0 12px;
+        border: 1px solid #4b8bff;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #5c9dff, #3f7dff);
+        color: #fff;
+        cursor: pointer;
+        font-size: 13px;
+        transition: opacity 0.15s, transform 0.1s;
+    }
+    .address-go:active {
+        transform: translateY(1px);
+    }
+    .address-go:hover {
+        opacity: 0.9;
+    }
         #tabs {
             display: flex;
             flex: 1;
@@ -65,14 +104,14 @@
         #add-tab:hover {
             background-color: #eaeaea;
         }
-        #webviews {
-            position: absolute;
-            top: 40px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #ffffff;
-        }
+#webviews {
+    position: absolute;
+    top: 82px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+}
         webview {
             width: 100%;
             height: 100%;
@@ -89,6 +128,10 @@
     <div id="tabs"></div>
     <button id="add-tab">+</button>
 </div>
+<div class="address-bar">
+    <input id="address-input" class="address-input" type="text" placeholder="输入网址并回车，或点击“前往”" />
+    <button id="address-go" class="address-go">前往</button>
+</div>
 <div id="webviews"></div>
 
 <script>
@@ -98,9 +141,31 @@
     const tabsContainer = document.getElementById('tabs');
     const webviewsContainer = document.getElementById('webviews');
     const addTabBtn = document.getElementById('add-tab');
+    const addressInput = document.getElementById('address-input');
+    const goBtn = document.getElementById('address-go');
 
     let tabIdCounter = 0;
     let currentTabId = null;
+
+    function formatUrl(input) {
+        if (!input) return DEFAULT_URL;
+        const trimmed = input.trim();
+        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+        return 'https://' + trimmed;
+    }
+
+    function updateAddressBar(url) {
+        if (currentTabId == null) return;
+        addressInput.value = url || '';
+    }
+
+    function loadAddressForCurrentTab() {
+        if (currentTabId == null) return;
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (!wv) return;
+        const target = formatUrl(addressInput.value);
+        wv.src = target;
+    }
 
     function createTab(url = DEFAULT_URL, title = '新标签页') {
         const id = ++tabIdCounter;
@@ -258,8 +323,18 @@
             tabEl.firstChild.textContent = event.title || title;
         });
 
+        const syncAddress = (nextUrl) => {
+            if (currentTabId === id) {
+                updateAddressBar(nextUrl || wv.getURL?.() || wv.src);
+            }
+        };
+        wv.addEventListener('did-navigate', (event) => syncAddress(event.url));
+        wv.addEventListener('did-navigate-in-page', (event) => syncAddress(event.url));
+        wv.addEventListener('did-stop-loading', () => syncAddress(wv.getURL?.() || wv.src));
+
         // 激活新建的标签
         activateTab(id);
+        syncAddress(url);
     }
 
     function activateTab(id) {
@@ -274,6 +349,11 @@
         document.querySelectorAll('webview').forEach(wv => {
             wv.classList.toggle('active', Number(wv.dataset.id) === id);
         });
+
+        const activeWv = document.querySelector('webview[data-id="' + id + '"]');
+        if (activeWv) {
+            updateAddressBar(activeWv.getURL?.() || activeWv.src);
+        }
     }
 
     function closeTab(id) {
@@ -298,6 +378,15 @@
     // "+" 按钮：新建标签
     addTabBtn.addEventListener('click', () => {
         createTab();
+    });
+
+    addressInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            loadAddressForCurrentTab();
+        }
+    });
+    goBtn.addEventListener('click', () => {
+        loadAddressForCurrentTab();
     });
 
     // 监听主进程菜单：新建标签
