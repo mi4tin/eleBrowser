@@ -1,4 +1,4 @@
-﻿const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol } = require('electron');
+const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol } = require('electron');
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -75,7 +75,18 @@ function setupProtocolBlocking(contents) {
                 console.log('✓ 阻止打开自定义协议窗口:', url);
                 return { action: 'deny' };
             }
-            return { action: 'allow' };
+            // 对于普通 http/https 链接，阻止新窗口并让渲染进程新建标签
+            if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                try {
+                    // 将消息发给宿主（包含标签 UI 的页面）
+                    const hostContents = contents.hostWebContents || contents;
+                    hostContents.send('open-url-in-new-tab', url);
+                } catch (err) {
+                    console.log('转发 open-url-in-new-tab 失败:', err.message);
+                }
+                return { action: 'deny' };
+            }
+            return { action: 'deny' };
         });
     } else {
         // 兼容旧版本 Electron

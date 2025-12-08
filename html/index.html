@@ -170,7 +170,7 @@
 <script>
     const { ipcRenderer } = require('electron');
 
-    const DEFAULT_URL = 'https://www.douyin.com';
+    const DEFAULT_URL = 'https://www.baidu.com';
     const tabsContainer = document.getElementById('tabs');
     const webviewsContainer = document.getElementById('webviews');
     const addTabBtn = document.getElementById('add-tab');
@@ -249,17 +249,18 @@
             }
         }
         
-        // 阻止自定义协议链接打开外部应用（如 bytedance://）
+        // 阻止自定义协议；对于正常 http/https 链接，改为新建标签页打开
         wv.addEventListener('new-window', (e) => {
             if (isCustomProtocol(e.url)) {
                 e.preventDefault();
                 console.log('阻止打开自定义协议链接:', e.url);
                 return;
             }
-            // 如果是 http/https 链接，在当前 webview 中打开
+
             if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
                 e.preventDefault();
-                wv.src = e.url;
+                // 在新标签中打开原本要新窗口打开的链接
+                createTab(e.url, e.url);
             }
         });
         
@@ -471,6 +472,14 @@
         const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
         if (wv) {
             wv.reload();
+        }
+    });
+
+    // 主进程要求在新标签中打开链接
+    ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
+        console.log("open-url-in-new-tab.url:", url);
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+            createTab(url, url);
         }
     });
 
