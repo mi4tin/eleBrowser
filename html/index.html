@@ -32,6 +32,34 @@
         border-bottom: 1px solid #ddd;
         background: #fff;
     }
+    .nav-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .nav-btn {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #d0d0d0;
+        border-radius: 6px;
+        background: #f7f7f7;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        color: #444;
+        transition: background 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+        background: #ededed;
+        border-color: #c0c0c0;
+    }
+    .nav-btn:active:not(:disabled) {
+        transform: translateY(1px);
+    }
+    .nav-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
     .address-input {
         flex: 1;
         height: 30px;
@@ -129,6 +157,11 @@
     <button id="add-tab">+</button>
 </div>
 <div class="address-bar">
+    <div class="nav-group">
+        <button id="nav-back" class="nav-btn" title="后退">←</button>
+        <button id="nav-forward" class="nav-btn" title="前进">→</button>
+        <button id="nav-refresh" class="nav-btn" title="刷新">⟳</button>
+    </div>
     <input id="address-input" class="address-input" type="text" placeholder="输入网址并回车，或点击“前往”" />
     <button id="address-go" class="address-go">前往</button>
 </div>
@@ -143,6 +176,9 @@
     const addTabBtn = document.getElementById('add-tab');
     const addressInput = document.getElementById('address-input');
     const goBtn = document.getElementById('address-go');
+    const backBtn = document.getElementById('nav-back');
+    const forwardBtn = document.getElementById('nav-forward');
+    const refreshBtn = document.getElementById('nav-refresh');
 
     let tabIdCounter = 0;
     let currentTabId = null;
@@ -165,6 +201,17 @@
         if (!wv) return;
         const target = formatUrl(addressInput.value);
         wv.src = target;
+    }
+
+    function updateNavButtons() {
+        const wv = currentTabId != null
+            ? document.querySelector('webview[data-id="' + currentTabId + '"]')
+            : null;
+        const canGoBack = wv && typeof wv.canGoBack === 'function' && wv.canGoBack();
+        const canGoForward = wv && typeof wv.canGoForward === 'function' && wv.canGoForward();
+        backBtn.disabled = !canGoBack;
+        forwardBtn.disabled = !canGoForward;
+        refreshBtn.disabled = !wv;
     }
 
     function createTab(url = DEFAULT_URL, title = '新标签页') {
@@ -330,11 +377,15 @@
         };
         wv.addEventListener('did-navigate', (event) => syncAddress(event.url));
         wv.addEventListener('did-navigate-in-page', (event) => syncAddress(event.url));
-        wv.addEventListener('did-stop-loading', () => syncAddress(wv.getURL?.() || wv.src));
+        wv.addEventListener('did-stop-loading', () => {
+            syncAddress(wv.getURL?.() || wv.src);
+            updateNavButtons();
+        });
 
         // 激活新建的标签
         activateTab(id);
         syncAddress(url);
+        updateNavButtons();
     }
 
     function activateTab(id) {
@@ -354,6 +405,7 @@
         if (activeWv) {
             updateAddressBar(activeWv.getURL?.() || activeWv.src);
         }
+        updateNavButtons();
     }
 
     function closeTab(id) {
@@ -378,6 +430,25 @@
     // "+" 按钮：新建标签
     addTabBtn.addEventListener('click', () => {
         createTab();
+    });
+
+    backBtn.addEventListener('click', () => {
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv && typeof wv.canGoBack === 'function' && wv.canGoBack()) {
+            wv.goBack();
+        }
+    });
+    forwardBtn.addEventListener('click', () => {
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv && typeof wv.canGoForward === 'function' && wv.canGoForward()) {
+            wv.goForward();
+        }
+    });
+    refreshBtn.addEventListener('click', () => {
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv && typeof wv.reload === 'function') {
+            wv.reload();
+        }
     });
 
     addressInput.addEventListener('keydown', (e) => {
