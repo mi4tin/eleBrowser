@@ -110,6 +110,7 @@ app.on('web-contents-created', (event, contents) => {
 });
 
 app.whenReady().then(() => {
+    app.setAppUserModelId('com.elebrowser.app');
     // 在应用内注册空协议处理器，避免抛给系统
     const customProtocols = ['bytedance', 'douyin', 'snssdk'];
     customProtocols.forEach((scheme) => {
@@ -139,9 +140,11 @@ app.whenReady().then(() => {
 
 
 function newWindow() {
+    console.log("icon",__dirname + '/assets/icon.ico')
     const myWindow = new BrowserWindow({
         width: 1000,
         height: 700,
+        icon: __dirname + '/assets/icon.ico',
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
