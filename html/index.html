@@ -122,6 +122,123 @@
         const wv = document.createElement('webview');
         wv.src = url;
         wv.dataset.id = id;
+        // 禁用弹出窗口，防止自定义协议链接打开外部应用
+        wv.setAttribute('allowpopups', 'false');
+        
+        // 辅助函数：检查是否为自定义协议
+        function isCustomProtocol(url) {
+            if (!url) return false;
+            try {
+                const parsedUrl = new URL(url);
+                return parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'file:';
+            } catch (e) {
+                // 如果 URL 解析失败，检查是否以常见协议开头
+                return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://');
+            }
+        }
+        
+        // 阻止自定义协议链接打开外部应用（如 bytedance://）
+        wv.addEventListener('new-window', (e) => {
+            if (isCustomProtocol(e.url)) {
+                e.preventDefault();
+                console.log('阻止打开自定义协议链接:', e.url);
+                return;
+            }
+            // 如果是 http/https 链接，在当前 webview 中打开
+            if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
+                e.preventDefault();
+                wv.src = e.url;
+            }
+        });
+        
+        // 阻止导航到自定义协议
+        wv.addEventListener('will-navigate', (e) => {
+            if (isCustomProtocol(e.url)) {
+                e.preventDefault();
+                console.log('阻止导航到自定义协议:', e.url);
+            }
+        });
+        
+        // 监听 webview 的 webContents 事件（通过 IPC）
+        wv.addEventListener('did-attach', () => {
+            // webview 附加后，主进程的事件监听器会自动处理
+        });
+        
+        // 在页面加载前注入 JavaScript 来拦截所有协议链接
+        wv.addEventListener('did-start-loading', () => {
+            // 在页面开始加载时就注入拦截代码
+            wv.executeJavaScript(`
+                (function() {
+                    // 立即拦截所有可能的协议调用方式
+                    if (window.location && window.location.href) {
+                        const currentHref = window.location.href;
+                        if (currentHref && !currentHref.startsWith('http://') && !currentHref.startsWith('https://') && !currentHref.startsWith('file://') && currentHref.includes('://')) {
+                            console.log('阻止初始加载的自定义协议:', currentHref);
+                            window.stop();
+                            return;
+                        }
+                    }
+                })();
+            `).catch(() => {});
+        });
+        
+        // 在页面加载时注入 JavaScript 来拦截所有协议链接
+        wv.addEventListener('dom-ready', () => {
+            // 注入代码拦截所有链接点击和协议调用
+            wv.executeJavaScript(`
+                (function() {
+                    // 拦截所有链接点击
+                    document.addEventListener('click', function(e) {
+                        let target = e.target;
+                        while (target && target.tagName !== 'A') {
+                            target = target.parentElement;
+                        }
+                        if (target && target.href) {
+                            const url = target.href;
+                            if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && url.includes('://')) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                console.log('阻止自定义协议链接:', url);
+                                return false;
+                            }
+                        }
+                    }, true); // 使用捕获阶段
+                    
+                    // 拦截 window.open 调用
+                    const originalOpen = window.open;
+                    window.open = function(url, target, features) {
+                        if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && url.includes('://')) {
+                            console.log('阻止 window.open 自定义协议:', url);
+                            return null;
+                        }
+                        return originalOpen.call(window, url, target, features);
+                    };
+                    
+                    // 拦截 location.href 赋值
+                    try {
+                        const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+                        if (locationDescriptor && locationDescriptor.set) {
+                            const originalLocationSetter = locationDescriptor.set;
+                            Object.defineProperty(window, 'location', {
+                                set: function(url) {
+                                    if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && url.includes('://')) {
+                                        console.log('阻止 location 跳转到自定义协议:', url);
+                                        return;
+                                    }
+                                    originalLocationSetter.call(window, url);
+                                },
+                                get: locationDescriptor.get
+                            });
+                        }
+                    } catch (e) {
+                        // 某些浏览器可能不允许修改 location
+                        console.log('无法拦截 location:', e);
+                    }
+                })();
+            `).catch(err => console.log('注入脚本失败:', err));
+        });
+        
         webviewsContainer.appendChild(wv);
 
         // 点击切换标签
