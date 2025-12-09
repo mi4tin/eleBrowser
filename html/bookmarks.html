@@ -513,7 +513,8 @@
         }
 
         // 书签数据结构 - 支持嵌套文件夹
-        const bookmarksTree = {
+        // 默认书签数据
+        const defaultBookmarksTree = {
             id: 'root',
             name: '书签',
             type: 'folder',
@@ -609,6 +610,31 @@
             ],
             bookmarks: []
         };
+
+        // 从localStorage加载书签数据
+        function loadBookmarks() {
+            try {
+                const savedBookmarks = localStorage.getItem('eleBrowserBookmarks');
+                if (savedBookmarks) {
+                    return JSON.parse(savedBookmarks);
+                }
+            } catch (e) {
+                console.error('加载书签数据失败:', e);
+            }
+            return defaultBookmarksTree;
+        }
+
+        // 保存书签数据到localStorage
+        function saveBookmarks() {
+            try {
+                localStorage.setItem('eleBrowserBookmarks', JSON.stringify(bookmarksTree));
+            } catch (e) {
+                console.error('保存书签数据失败:', e);
+            }
+        }
+
+        // 初始化书签数据
+        let bookmarksTree = loadBookmarks();
 
         const sidebar = document.getElementById('sidebar');
         const content = document.getElementById('content');
@@ -990,6 +1016,7 @@
                 res.folder.name = newName.trim();
                 renderTree();
                 renderContent(currentFolder.id === id ? res.folder : currentFolder);
+                saveBookmarks();
             }
         }
 
@@ -1004,6 +1031,7 @@
                 }
                 renderTree();
                 renderContent(currentFolder);
+                saveBookmarks();
             }
         }
 
@@ -1037,6 +1065,7 @@
                         bookmark.title = newTitle;
                         bookmark.url = newUrl;
                         renderContent(currentFolder);
+                        saveBookmarks();
                     }
                 }
             ]);
@@ -1059,6 +1088,7 @@
             if (confirm('确定要删除该书签吗？')) {
                 removeFromFolder(bookmarksTree);
                 renderContent(currentFolder);
+                saveBookmarks();
             }
         }
 
@@ -1109,6 +1139,7 @@
                         expandedFolders.add(parentId);
                         renderTree();
                         renderContent(currentFolder);
+                        saveBookmarks();
                     }
                 }
             ]);
@@ -1150,6 +1181,7 @@
                             favicon: '🔗'
                         });
                         renderContent(currentFolder);
+                        saveBookmarks();
                     }
                 }
             ]);
