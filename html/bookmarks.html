@@ -220,60 +220,47 @@
         }
 
         .content-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
-        }
-
-        .folder-card {
             display: flex;
             flex-direction: column;
+            gap: 12px;
+        }
+
+        .folder-card,
+        .bookmark-card {
+            display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 24px 16px;
+            padding: 12px 14px;
             background: white;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
+            transition: box-shadow 0.2s, transform 0.1s, border-color 0.2s;
             cursor: pointer;
-            transition: all 0.2s;
-            min-height: 120px;
         }
 
-        .folder-card:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transform: translateY(-2px);
+        .folder-card:hover,
+        .bookmark-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
             border-color: #4b8bff;
         }
 
         .folder-card-icon {
-            font-size: 48px;
-            margin-bottom: 8px;
+            font-size: 24px;
+            margin-right: 12px;
         }
 
         .folder-card-name {
-            font-size: 14px;
+            font-size: 15px;
             color: #333;
-            text-align: center;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            width: 100%;
         }
 
-        .bookmark-card {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            transition: box-shadow 0.2s, transform 0.1s;
-            cursor: pointer;
-        }
-
-        .bookmark-card:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transform: translateY(-1px);
+        .folder-card-meta {
+            margin-left: auto;
+            font-size: 12px;
+            color: #999;
         }
 
         .bookmark-favicon {
@@ -512,6 +499,7 @@
         const contentPath = document.getElementById('contentPath');
         const contentGrid = document.getElementById('contentGrid');
         const searchInput = document.getElementById('searchInput');
+        let contextMenuEl = null;
         
         let currentFolder = bookmarksTree;
         let expandedFolders = new Set(['root']); // 默认展开根目录
@@ -572,6 +560,17 @@
             contentEl.addEventListener('click', (e) => {
                 e.stopPropagation();
                 selectFolder(item);
+            });
+
+            // 右键菜单：重命名、删除
+            contentEl.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (item.id === 'root') return;
+                showContextMenu(e.clientX, e.clientY, [
+                    { label: '重命名文件夹', action: () => renameFolder(item.id) },
+                    { label: '删除文件夹', action: () => deleteFolder(item.id) }
+                ]);
             });
 
             // 添加展开/折叠事件
@@ -652,6 +651,7 @@
         function createFolderCard(folder) {
             const card = document.createElement('div');
             card.className = 'folder-card';
+            card.dataset.id = folder.id;
             
             const bookmarkCount = (folder.bookmarks && folder.bookmarks.length) || 0;
             const subFolderCount = (folder.children && folder.children.length) || 0;
@@ -660,11 +660,27 @@
             card.innerHTML = `
                 <div class="folder-card-icon">📁</div>
                 <div class="folder-card-name">${escapeHtml(folder.name)}</div>
-                <div style="font-size: 12px; color: #999; margin-top: 4px;">${totalCount} 项</div>
+                <div class="folder-card-meta">${totalCount} 项</div>
             `;
 
             card.addEventListener('click', () => {
                 selectFolder(folder);
+            });
+
+            // 右键菜单：重命名、删除
+            card.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showContextMenu(e.clientX, e.clientY, [
+                    {
+                        label: '重命名文件夹',
+                        action: () => renameFolder(folder.id)
+                    },
+                    {
+                        label: '删除文件夹',
+                        action: () => deleteFolder(folder.id)
+                    }
+                ]);
             });
 
             return card;
@@ -699,6 +715,22 @@
                 if (url) {
                     ipcRenderer.send('open-bookmark', url);
                 }
+            });
+
+            // 右键菜单：修改、删除
+            card.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showContextMenu(e.clientX, e.clientY, [
+                    {
+                        label: '修改书签',
+                        action: () => editBookmark(bookmark)
+                    },
+                    {
+                        label: '删除书签',
+                        action: () => deleteBookmark(bookmark)
+                    }
+                ]);
             });
 
             return card;
@@ -770,6 +802,169 @@
                     contentGrid.appendChild(card);
                 });
             }
+        }
+
+        // ---------- 右键菜单与数据操作 ---------- //
+        function showContextMenu(x, y, items) {
+            hideContextMenu();
+            contextMenuEl = document.createElement('div');
+            Object.assign(contextMenuEl.style, {
+                position: 'fixed',
+                left: x + 'px',
+                top: y + 'px',
+                background: '#fff',
+                border: '1px solid #ddd',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                borderRadius: '6px',
+                padding: '6px 0',
+                zIndex: 10000,
+                minWidth: '160px'
+            });
+            items.forEach(item => {
+                const btn = document.createElement('div');
+                btn.textContent = item.label;
+                Object.assign(btn.style, {
+                    padding: '8px 14px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    color: '#333'
+                });
+                btn.addEventListener('click', () => {
+                    hideContextMenu();
+                    item.action && item.action();
+                });
+                btn.addEventListener('mouseover', () => btn.style.background = '#f5f7fa');
+                btn.addEventListener('mouseout', () => btn.style.background = 'transparent');
+                contextMenuEl.appendChild(btn);
+            });
+            document.body.appendChild(contextMenuEl);
+            const onHide = () => {
+                hideContextMenu();
+                document.removeEventListener('click', onHide);
+                document.removeEventListener('contextmenu', onHide);
+            };
+            document.addEventListener('click', onHide);
+            document.addEventListener('contextmenu', onHide);
+        }
+
+        function hideContextMenu() {
+            if (contextMenuEl) {
+                contextMenuEl.remove();
+                contextMenuEl = null;
+            }
+        }
+
+        function findFolderById(folder, id, parent = null) {
+            if (folder.id === id) return { folder, parent };
+            if (folder.children) {
+                for (const child of folder.children) {
+                    const res = findFolderById(child, id, folder);
+                    if (res) return res;
+                }
+            }
+            return null;
+        }
+
+        function renameFolder(id) {
+            const res = findFolderById(bookmarksTree, id);
+            if (!res) return;
+            const newName = prompt('请输入新的文件夹名称', res.folder.name);
+            if (newName && newName.trim()) {
+                res.folder.name = newName.trim();
+                renderTree();
+                renderContent(currentFolder.id === id ? res.folder : currentFolder);
+            }
+        }
+
+        function deleteFolder(id) {
+            if (id === 'root') return;
+            const res = findFolderById(bookmarksTree, id);
+            if (!res || !res.parent) return;
+            if (confirm('确定要删除该文件夹及其内容吗？')) {
+                res.parent.children = res.parent.children.filter(child => child.id !== id);
+                if (currentFolder.id === id) {
+                    currentFolder = res.parent;
+                }
+                renderTree();
+                renderContent(currentFolder);
+            }
+        }
+
+        function editBookmark(bookmark) {
+            const newTitle = prompt('请输入书签标题', bookmark.title);
+            if (!newTitle) return;
+            const newUrl = prompt('请输入书签链接', bookmark.url);
+            if (!newUrl) return;
+            bookmark.title = newTitle.trim();
+            bookmark.url = newUrl.trim();
+            renderContent(currentFolder);
+        }
+
+        function deleteBookmark(targetBookmark) {
+            function removeFromFolder(folder) {
+                if (folder.bookmarks) {
+                    const before = folder.bookmarks.length;
+                    folder.bookmarks = folder.bookmarks.filter(b => b !== targetBookmark);
+                    if (before !== folder.bookmarks.length) return true;
+                }
+                if (folder.children) {
+                    for (const child of folder.children) {
+                        if (removeFromFolder(child)) return true;
+                    }
+                }
+                return false;
+            }
+            if (confirm('确定要删除该书签吗？')) {
+                removeFromFolder(bookmarksTree);
+                renderContent(currentFolder);
+            }
+        }
+
+        // 右键空白区域（右侧任意非卡片区域）：添加文件夹/书签
+        content.addEventListener('contextmenu', (e) => {
+            // 如果点到文件夹卡片、书签卡片或树节点，忽略
+            if (e.target.closest('.folder-card') || e.target.closest('.bookmark-card') || e.target.closest('.tree-item')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            showContextMenu(e.clientX, e.clientY, [
+                { label: '添加文件夹', action: () => addFolder(currentFolder.id) },
+                { label: '添加书签', action: () => addBookmark(currentFolder.id) }
+            ]);
+        });
+
+        function addFolder(parentId) {
+            const name = prompt('请输入文件夹名称');
+            if (!name || !name.trim()) return;
+            const res = findFolderById(bookmarksTree, parentId);
+            if (!res) return;
+            const newId = parentId + '-' + Math.random().toString(36).slice(2, 8);
+            res.folder.children = res.folder.children || [];
+            res.folder.children.push({
+                id: newId,
+                name: name.trim(),
+                type: 'folder',
+                children: [],
+                bookmarks: []
+            });
+            expandedFolders.add(parentId);
+            renderTree();
+            renderContent(currentFolder);
+        }
+
+        function addBookmark(parentId) {
+            const title = prompt('请输入书签标题');
+            if (!title || !title.trim()) return;
+            const url = prompt('请输入书签链接');
+            if (!url || !url.trim()) return;
+            const res = findFolderById(bookmarksTree, parentId);
+            if (!res) return;
+            res.folder.bookmarks = res.folder.bookmarks || [];
+            res.folder.bookmarks.push({
+                title: title.trim(),
+                url: url.trim(),
+                favicon: '🔗'
+            });
+            renderContent(currentFolder);
         }
 
         // 转义 HTML
