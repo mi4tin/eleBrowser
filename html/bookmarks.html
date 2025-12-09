@@ -348,6 +348,123 @@
         .content::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            width: 400px;
+            max-width: 90vw;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: #333;
+            margin: 0;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #333;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: #4b8bff;
+            box-shadow: 0 0 0 2px rgba(75, 139, 255, 0.1);
+        }
+
+        .form-input:disabled {
+            background: #f5f5f5;
+            color: #999;
+        }
+
+        .modal-footer {
+            padding: 0 24px 24px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #4b8bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3a78e6;
+        }
+
+        .btn-primary:active {
+            background: #2d62d3;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+
+        .btn-secondary:active {
+            background: #dcdcdc;
+        }
     </style>
 </head>
 <body>
@@ -891,13 +1008,38 @@
         }
 
         function editBookmark(bookmark) {
-            const newTitle = prompt('请输入书签标题', bookmark.title);
-            if (!newTitle) return;
-            const newUrl = prompt('请输入书签链接', bookmark.url);
-            if (!newUrl) return;
-            bookmark.title = newTitle.trim();
-            bookmark.url = newUrl.trim();
-            renderContent(currentFolder);
+            const content = `
+                <div class="form-group">
+                    <label class="form-label">名称</label>
+                    <input type="text" class="form-input" id="editBookmarkTitleInput" value="${escapeHtml(bookmark.title)}" autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">网址</label>
+                    <input type="text" class="form-input" id="editBookmarkUrlInput" value="${escapeHtml(bookmark.url)}">
+                </div>
+            `;
+            
+            showModal('修改书签', content, [
+                {
+                    text: '取消',
+                    type: 'secondary',
+                    callback: () => {}
+                },
+                {
+                    text: '保存',
+                    type: 'primary',
+                    callback: () => {
+                        const titleInput = document.getElementById('editBookmarkTitleInput');
+                        const urlInput = document.getElementById('editBookmarkUrlInput');
+                        const newTitle = titleInput ? titleInput.value.trim() : '';
+                        const newUrl = urlInput ? urlInput.value.trim() : '';
+                        if (!newTitle || !newUrl) return;
+                        bookmark.title = newTitle;
+                        bookmark.url = newUrl;
+                        renderContent(currentFolder);
+                    }
+                }
+            ]);
         }
 
         function deleteBookmark(targetBookmark) {
@@ -933,38 +1075,123 @@
         });
 
         function addFolder(parentId) {
-            const name = prompt('请输入文件夹名称');
-            if (!name || !name.trim()) return;
-            const res = findFolderById(bookmarksTree, parentId);
-            if (!res) return;
-            const newId = parentId + '-' + Math.random().toString(36).slice(2, 8);
-            res.folder.children = res.folder.children || [];
-            res.folder.children.push({
-                id: newId,
-                name: name.trim(),
-                type: 'folder',
-                children: [],
-                bookmarks: []
-            });
-            expandedFolders.add(parentId);
-            renderTree();
-            renderContent(currentFolder);
+            const content = `
+                <div class="form-group">
+                    <label class="form-label">名称</label>
+                    <input type="text" class="form-input" id="folderNameInput" placeholder="请输入文件夹名称" autofocus>
+                </div>
+            `;
+            
+            showModal('添加文件夹', content, [
+                {
+                    text: '取消',
+                    type: 'secondary',
+                    callback: () => {}
+                },
+                {
+                    text: '保存',
+                    type: 'primary',
+                    callback: () => {
+                        const input = document.getElementById('folderNameInput');
+                        const name = input ? input.value.trim() : '';
+                        if (!name) return;
+                        const res = findFolderById(bookmarksTree, parentId);
+                        if (!res) return;
+                        const newId = parentId + '-' + Math.random().toString(36).slice(2, 8);
+                        res.folder.children = res.folder.children || [];
+                        res.folder.children.push({
+                            id: newId,
+                            name: name,
+                            type: 'folder',
+                            children: [],
+                            bookmarks: []
+                        });
+                        expandedFolders.add(parentId);
+                        renderTree();
+                        renderContent(currentFolder);
+                    }
+                }
+            ]);
         }
 
         function addBookmark(parentId) {
-            const title = prompt('请输入书签标题');
-            if (!title || !title.trim()) return;
-            const url = prompt('请输入书签链接');
-            if (!url || !url.trim()) return;
-            const res = findFolderById(bookmarksTree, parentId);
+            const content = `
+                <div class="form-group">
+                    <label class="form-label">名称</label>
+                    <input type="text" class="form-input" id="bookmarkTitleInput" placeholder="请输入书签标题" autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">网址</label>
+                    <input type="text" class="form-input" id="bookmarkUrlInput" placeholder="请输入书签链接">
+                </div>
+            `;
+            
+            showModal('添加书签', content, [
+                {
+                    text: '取消',
+                    type: 'secondary',
+                    callback: () => {}
+                },
+                {
+                    text: '保存',
+                    type: 'primary',
+                    callback: () => {
+                        const titleInput = document.getElementById('bookmarkTitleInput');
+                        const urlInput = document.getElementById('bookmarkUrlInput');
+                        const title = titleInput ? titleInput.value.trim() : '';
+                        const url = urlInput ? urlInput.value.trim() : '';
+                        if (!title || !url) return;
+                        const res = findFolderById(bookmarksTree, parentId);
+                        if (!res) return;
+                        res.folder.bookmarks = res.folder.bookmarks || [];
+                        res.folder.bookmarks.push({
+                            title: title,
+                            url: url,
+                            favicon: '🔗'
+                        });
+                        renderContent(currentFolder);
+                    }
+                }
+            ]);
+        }
+
+        // 辅助函数：通过ID查找文件夹
+        function findFolderById(folder, id, parent = null) {
+            if (folder.id === id) return { folder, parent };
+            if (folder.children) {
+                for (const child of folder.children) {
+                    const res = findFolderById(child, id, folder);
+                    if (res) return res;
+                }
+            }
+            return null;
+        }
+
+        // 重命名文件夹
+        function renameFolder(id) {
+            const res = findFolderById(bookmarksTree, id);
             if (!res) return;
-            res.folder.bookmarks = res.folder.bookmarks || [];
-            res.folder.bookmarks.push({
-                title: title.trim(),
-                url: url.trim(),
-                favicon: '🔗'
-            });
-            renderContent(currentFolder);
+            const newName = prompt('请输入新的文件夹名称', res.folder.name);
+            if (newName && newName.trim()) {
+                res.folder.name = newName.trim();
+                renderTree();
+                renderContent(currentFolder.id === id ? res.folder : currentFolder);
+            }
+        }
+
+        // 删除文件夹
+        function deleteFolder(id) {
+            if (id === 'root') return;
+            const res = findFolderById(bookmarksTree, id);
+            if (!res || !res.parent) return;
+            if (confirm('确定要删除该文件夹及其内容吗？')) {
+                res.parent.children = res.parent.children.filter(child => child.id !== id);
+                if (currentFolder.id === id) {
+                    currentFolder = res.parent;
+                }
+                renderTree();
+                renderContent(currentFolder);
+            }
         }
 
         // 转义 HTML
@@ -972,6 +1199,69 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // 弹窗DOM元素
+        let currentModal = null;
+        let currentModalCallback = null;
+
+        // 创建弹窗
+        function createModal(title, content, buttons) {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            
+            // 头部
+            const header = document.createElement('div');
+            header.className = 'modal-header';
+            const h3 = document.createElement('h3');
+            h3.className = 'modal-title';
+            h3.textContent = title;
+            header.appendChild(h3);
+            
+            // 内容
+            const body = document.createElement('div');
+            body.className = 'modal-body';
+            body.innerHTML = content;
+            
+            // 底部按钮
+            const footer = document.createElement('div');
+            footer.className = 'modal-footer';
+            buttons.forEach(btn => {
+                const button = document.createElement('button');
+                button.className = `btn ${btn.type === 'primary' ? 'btn-primary' : 'btn-secondary'}`;
+                button.textContent = btn.text;
+                button.addEventListener('click', () => {
+                    btn.callback && btn.callback();
+                    closeModal();
+                });
+                footer.appendChild(button);
+            });
+            
+            modal.appendChild(header);
+            modal.appendChild(body);
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+            
+            return overlay;
+        }
+
+        // 显示弹窗
+        function showModal(title, content, buttons) {
+            hideContextMenu();
+            closeModal();
+            currentModal = createModal(title, content, buttons);
+            document.body.appendChild(currentModal);
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            if (currentModal) {
+                currentModal.remove();
+                currentModal = null;
+            }
         }
 
         // 初始化
