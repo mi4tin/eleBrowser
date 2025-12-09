@@ -1,4 +1,4 @@
-const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol } = require('electron');
+const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol, ipcMain } = require('electron');
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -135,6 +135,39 @@ app.whenReady().then(() => {
         }
     });
 
+    // 注册自定义协议 dxbrowser://
+    try {
+        protocol.registerStringProtocol('dxbrowser', (request, callback) => {
+            const url = request.url;
+            console.log('dxbrowser protocol:', url);
+            
+            // 处理 dxbrowser://bookmarks/ 请求
+            if (url.includes('bookmarks')) {
+                // 在主窗口的标签页中打开书签管理器
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('open-bookmarks-tab');
+                    if (mainWindow.isMinimized()) {
+                        mainWindow.restore();
+                    }
+                    mainWindow.focus();
+                } else {
+                    newWindow();
+                    mainWindow.webContents.once('did-finish-load', () => {
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('open-bookmarks-tab');
+                        }
+                    });
+                }
+                // 返回一个空白页面
+                callback({ data: '<html><body><script>window.close();</script></body></html>', mimeType: 'text/html' });
+            } else {
+                callback({ data: '' });
+            }
+        });
+    } catch (e) {
+        console.log('dxbrowser protocol handler register failed:', e.message);
+    }
+
     // 全局请求拦截：阻止非 http/https/file 协议，防止系统弹窗
     const filter = { urls: ['*://*/*'] };
     session.defaultSession.webRequest.onBeforeRequest(filter, (details, callback) => {
@@ -149,6 +182,8 @@ app.whenReady().then(() => {
     newWindow();
 });
 
+
+let mainWindow = null;
 
 function newWindow() {
     console.log("icon",__dirname + '/assets/icon.ico')
@@ -165,6 +200,7 @@ function newWindow() {
         }
     });
 
+    mainWindow = myWindow;
 
     console.log("crt")
     
@@ -172,7 +208,59 @@ function newWindow() {
     setupProtocolBlocking(myWindow.webContents);
     
     myWindow.loadFile('html/index.html');
+
+    // 监听窗口关闭
+    myWindow.on('closed', () => {
+        mainWindow = null;
+    });
 }
+
+function openBookmarksWindow() {
+    // 在主窗口的标签页中打开书签管理器
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('open-bookmarks-tab');
+        // 如果主窗口最小化，则恢复并聚焦
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        mainWindow.focus();
+    } else {
+        // 如果主窗口不存在，创建一个新窗口
+        newWindow();
+        // 等待窗口加载完成后再打开书签管理器
+        mainWindow.webContents.once('did-finish-load', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('open-bookmarks-tab');
+            }
+        });
+    }
+}
+
+// IPC 处理器：从书签管理窗口打开书签
+ipcMain.on('open-bookmark', (event, url) => {
+    console.log('收到打开书签请求:', url);
+    // 在主窗口中打开书签
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('发送到主窗口:', url);
+        mainWindow.webContents.send('open-url-in-new-tab', url);
+        // 如果主窗口最小化，则恢复并聚焦
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        mainWindow.focus();
+    } else {
+        console.log('主窗口不存在，创建新窗口');
+        // 如果主窗口不存在，创建一个新窗口
+        newWindow();
+        // 等待窗口加载完成后再发送URL
+        mainWindow.webContents.once('did-finish-load', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                console.log('主窗口加载完成，发送URL:', url);
+                mainWindow.webContents.send('open-url-in-new-tab', url);
+            }
+        });
+    }
+});
 
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
@@ -229,6 +317,18 @@ const template = [
                 browserWindow.reload();
             }
         }
+    },
+    {
+        label: '书签',
+        submenu: [
+            {
+                label: '书签管理',
+                accelerator: isMac ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
+                click: () => {
+                    openBookmarksWindow();
+                }
+            }
+        ]
     }
 ];
 

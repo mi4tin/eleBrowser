@@ -5,3 +5,6 @@ npm start
 
 屏蔽弹出打开应用：
 在customProtocols处增加对应协议就行
+
+
+__dirname=file:///F:/DEV/Code/gitee.com/eleBrowser/html

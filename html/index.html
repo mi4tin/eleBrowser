@@ -186,6 +186,10 @@
     function formatUrl(input) {
         if (!input) return DEFAULT_URL;
         const trimmed = input.trim();
+        // 检查是否是 dxbrowser:// 协议
+        if (trimmed.startsWith('dxbrowser://')) {
+            return trimmed;
+        }
         if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
         return 'https://' + trimmed;
     }
@@ -196,11 +200,94 @@
     }
 
     function loadAddressForCurrentTab() {
+        const inputValue = addressInput.value.trim();
+        
+        // 检查是否是 dxbrowser://bookmarks/ 协议
+        if (inputValue === 'dxbrowser://bookmarks/' || inputValue.startsWith('dxbrowser://bookmarks')) {
+            openBookmarksTab();
+            return;
+        }
+        
         if (currentTabId == null) return;
         const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
         if (!wv) return;
-        const target = formatUrl(addressInput.value);
+        const target = formatUrl(inputValue);
         wv.src = target;
+    }
+    
+    function openBookmarksTab() {
+        // 检查是否已经有书签管理器标签页
+        const existingTab = document.querySelector('.tab[data-bookmarks="true"]');
+        if (existingTab) {
+            const tabId = Number(existingTab.dataset.id);
+            activateTab(tabId);
+            return;
+        }
+        
+        // 创建书签管理器标签页
+        const id = ++tabIdCounter;
+        
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = id;
+        tabEl.dataset.bookmarks = 'true';
+        tabEl.textContent = '书签管理';
+        
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+        
+        tabsContainer.appendChild(tabEl);
+        
+        // 创建对应的 webview
+        const wv = document.createElement('webview');
+        // 使用绝对路径，因为 index.html 和 bookmarks.html 都在 html 目录下
+        const path = require('path');
+        const bookmarksPath = path.join(__dirname,'bookmarks.html');
+        // 确保路径格式正确（Windows 路径需要转换）
+        let filePath = bookmarksPath.replace(/\\/g, '/');
+        if (!filePath.startsWith('/')) {
+            filePath = '/' + filePath;
+        }
+        wv.src = 'file://' + filePath;
+        wv.dataset.id = id;
+        wv.setAttribute('allowpopups', 'false');
+        wv.setAttribute('nodeintegration', 'true');
+        
+        // 设置协议拦截
+        wv.addEventListener('new-window', (e) => {
+            e.preventDefault();
+            if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
+                createTab(e.url, e.url);
+            }
+        });
+        
+        webviewsContainer.appendChild(wv);
+        
+        // 点击切换标签
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+            activateTab(id);
+        });
+        
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(id);
+        });
+        
+        // 激活新建的标签
+        currentTabId = id;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === id);
+        });
+        document.querySelectorAll('webview').forEach(wv => {
+            wv.classList.toggle('active', Number(wv.dataset.id) === id);
+        });
+        
+        updateAddressBar('dxbrowser://bookmarks/');
     }
 
     function updateNavButtons() {
@@ -216,6 +303,12 @@
 
     function createTab(url = DEFAULT_URL, title = '新标签页') {
         const id = ++tabIdCounter;
+        
+        // 检查是否是书签管理器
+        const isBookmarks = url === 'dxbrowser://bookmarks/' || url.includes('bookmarks.html');
+        if (isBookmarks) {
+            return openBookmarksTab();
+        }
 
         // 创建 tab 按钮
         const tabEl = document.createElement('div');
@@ -232,8 +325,23 @@
 
         // 创建对应的 webview
         const wv = document.createElement('webview');
-        wv.src = url;
+        // 处理 dxbrowser://bookmarks/ 协议，转换为本地文件路径
+        let srcUrl = url;
+        if (url === 'dxbrowser://bookmarks/' || url.startsWith('dxbrowser://bookmarks')) {
+            // 使用绝对路径加载本地文件
+            const path = require('path');
+            console.log("path:",path.join(__dirname));
+            const bookmarksPath = path.join(__dirname, 'bookmarks.html');
+            // 确保路径格式正确（Windows 路径需要转换）
+            let filePath = bookmarksPath.replace(/\\/g, '/');
+            if (!filePath.startsWith('/')) {
+                filePath = '/' + filePath;
+            }
+            srcUrl = 'file://' + filePath;
+        }
+        wv.src = srcUrl;
         wv.dataset.id = id;
+        wv.setAttribute('nodeintegration', 'true');
         // 禁用弹出窗口，防止自定义协议链接打开外部应用
         wv.setAttribute('allowpopups', 'false');
         
@@ -477,10 +585,19 @@
 
     // 主进程要求在新标签中打开链接
     ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
-        console.log("open-url-in-new-tab.url:", url);
+        console.log("主窗口收到打开URL请求:", url);
         if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+            console.log("创建新标签页:", url);
             createTab(url, url);
+        } else {
+            console.log("URL格式不正确，已忽略:", url);
         }
+    });
+
+    // 主进程要求打开书签管理器标签页
+    ipcRenderer.on('open-bookmarks-tab', () => {
+        console.log("主窗口收到打开书签管理器请求");
+        openBookmarksTab();
     });
 
     // 启动时自动创建一个标签
