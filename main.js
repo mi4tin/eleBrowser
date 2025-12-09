@@ -107,10 +107,163 @@ function setupProtocolBlocking(contents) {
     });
 }
 
+// 存储 webview 的 webContents 映射
+const webviewContentsMap = new Map();
+
 // 拦截所有 webContents 的自定义协议请求（包括 webview）
 app.on('web-contents-created', (event, contents) => {
     console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL());
     setupProtocolBlocking(contents);
+    
+    // 为所有 webview 添加右键菜单
+    // 检查是否是 webview（通过检查 hostWebContents 是否存在）
+    const isWebview = contents.hostWebContents !== undefined;
+    
+    if (isWebview) {
+        // 存储 webview 的 webContents
+        const url = contents.getURL();
+        if (url) {
+            webviewContentsMap.set(url, contents);
+        }
+        
+        // 添加右键菜单
+        contents.on('context-menu', (event, params) => {
+            const menu = Menu.buildFromTemplate([
+                {
+                    label: '查看网页源码',
+                    click: () => {
+                        // 获取页面源码
+                        contents.executeJavaScript(`
+                            (function() {
+                                try {
+                                    return document.documentElement.outerHTML;
+                                } catch(e) {
+                                    return '<html><body>无法获取源码</body></html>';
+                                }
+                            })()
+                        `).then((html) => {
+                            if (!html) {
+                                html = '<html><body>无法获取源码</body></html>';
+                            }
+                            
+                            // 创建新窗口显示源码
+                            const sourceWindow = new BrowserWindow({
+                                width: 1000,
+                                height: 700,
+                                title: '网页源码 - ' + (contents.getURL() || '未知页面'),
+                                webPreferences: {
+                                    nodeIntegration: false,
+                                    contextIsolation: true
+                                }
+                            });
+                            
+                            // 转义 HTML 以便在文本中显示
+                            const escapedHtml = html
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/'/g, '&#039;');
+                            
+                            // 创建显示源码的 HTML
+                            const sourceHtml = `
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta charset="UTF-8">
+                                    <title>网页源码</title>
+                                    <style>
+                                        * {
+                                            margin: 0;
+                                            padding: 0;
+                                            box-sizing: border-box;
+                                        }
+                                        body {
+                                            padding: 15px;
+                                            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                                            font-size: 13px;
+                                            background: #1e1e1e;
+                                            color: #d4d4d4;
+                                            overflow: auto;
+                                            line-height: 1.5;
+                                        }
+                                        pre {
+                                            margin: 0;
+                                            white-space: pre-wrap;
+                                            word-wrap: break-word;
+                                        }
+                                        .header {
+                                            margin-bottom: 10px;
+                                            padding-bottom: 10px;
+                                            border-bottom: 1px solid #444;
+                                        }
+                                        .url {
+                                            color: #569cd6;
+                                            word-break: break-all;
+                                        }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div class="header">
+                                        <div style="color: #858585; font-size: 11px;">页面URL:</div>
+                                        <div class="url">${contents.getURL() || '未知'}</div>
+                                    </div>
+                                    <pre id="source">${escapedHtml}</pre>
+                                </body>
+                                </html>
+                            `;
+                            
+                            sourceWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(sourceHtml));
+                        }).catch((err) => {
+                            console.error('获取源码失败:', err);
+                            // 显示错误提示
+                            const errorWindow = new BrowserWindow({
+                                width: 400,
+                                height: 200,
+                                title: '错误',
+                                webPreferences: {
+                                    nodeIntegration: false,
+                                    contextIsolation: true
+                                }
+                            });
+                            errorWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+                                <html>
+                                <body style="font-family: Arial; padding: 20px;">
+                                    <h3>无法获取网页源码</h3>
+                                    <p>错误信息: ${err.message || '未知错误'}</p>
+                                </body>
+                                </html>
+                            `));
+                        });
+                    }
+                },
+                {
+                    label: '打开开发者工具',
+                    accelerator: 'F12',
+                    click: () => {
+                        contents.openDevTools();
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: '刷新',
+                    accelerator: 'F5',
+                    click: () => {
+                        contents.reload();
+                    }
+                },
+                {
+                    label: '强制刷新',
+                    accelerator: 'Ctrl+F5',
+                    click: () => {
+                        contents.reloadIgnoringCache();
+                    }
+                }
+            ]);
+            
+            menu.popup();
+        });
+    }
     
     // 特别处理 webview 的 webContents
     contents.on('will-attach-webview', (event, webPreferences, params) => {
@@ -235,6 +388,20 @@ function openBookmarksWindow() {
         });
     }
 }
+
+
+// IPC 处理器：打开指定标签页的开发者工具
+ipcMain.on('open-devtools-for-webview', (event, tabId) => {
+    // 通过 tabId 找到对应的 webview webContents
+    // 由于 webview 的 webContents 在主进程中，我们需要通过其他方式找到它
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach(win => {
+        if (win && !win.isDestroyed()) {
+            // 发送消息到渲染进程，让渲染进程通过 tabId 找到 webview 并打开开发者工具
+            win.webContents.send('open-devtools-for-tab', tabId);
+        }
+    });
+});
 
 // IPC 处理器：从书签管理窗口打开书签
 ipcMain.on('open-bookmark', (event, url) => {

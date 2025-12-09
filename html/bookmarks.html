@@ -330,8 +330,20 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
-        const path = require('path');
+        // 安全地获取 electron API
+        let ipcRenderer;
+        try {
+            const electron = require('electron');
+            ipcRenderer = electron.ipcRenderer;
+        } catch (e) {
+            console.error('无法加载 electron 模块:', e);
+            // 提供一个模拟的 ipcRenderer 以避免错误
+            ipcRenderer = {
+                send: function(channel, data) {
+                    console.log('IPC send (模拟):', channel, data);
+                }
+            };
+        }
 
         // Sample bookmark data
         const bookmarksData = {

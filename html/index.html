@@ -255,6 +255,7 @@
         wv.dataset.id = id;
         wv.setAttribute('allowpopups', 'false');
         wv.setAttribute('nodeintegration', 'true');
+        wv.setAttribute('webpreferences', 'nodeIntegration=yes,contextIsolation=no');
         
         // 设置协议拦截
         wv.addEventListener('new-window', (e) => {
@@ -330,7 +331,7 @@
         if (url === 'dxbrowser://bookmarks/' || url.startsWith('dxbrowser://bookmarks')) {
             // 使用绝对路径加载本地文件
             const path = require('path');
-            console.log("path:",path.join(__dirname));
+            console.log("path11:",__dirname);
             const bookmarksPath = path.join(__dirname, 'bookmarks.html');
             // 确保路径格式正确（Windows 路径需要转换）
             let filePath = bookmarksPath.replace(/\\/g, '/');
@@ -342,6 +343,7 @@
         wv.src = srcUrl;
         wv.dataset.id = id;
         wv.setAttribute('nodeintegration', 'true');
+        wv.setAttribute('webpreferences', 'nodeIntegration=yes,contextIsolation=no');
         // 禁用弹出窗口，防止自定义协议链接打开外部应用
         wv.setAttribute('allowpopups', 'false');
         
@@ -565,6 +567,22 @@
             loadAddressForCurrentTab();
         }
     });
+
+    // 全局快捷键：F12 打开开发者工具
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'F12' || e.keyCode === 123) {
+            e.preventDefault();
+            e.stopPropagation();
+            const wv = currentTabId != null
+                ? document.querySelector('webview[data-id="' + currentTabId + '"]')
+                : null;
+            if (wv) {
+                // 通过 IPC 发送消息到主进程，让主进程打开开发者工具
+                // 主进程会通过 web-contents-created 事件找到对应的 webContents
+                ipcRenderer.send('open-devtools-for-webview', currentTabId);
+            }
+        }
+    });
     goBtn.addEventListener('click', () => {
         loadAddressForCurrentTab();
     });
@@ -599,6 +617,40 @@
         console.log("主窗口收到打开书签管理器请求");
         openBookmarksTab();
     });
+
+    // 主进程要求打开指定标签页的开发者工具
+    ipcRenderer.on('open-devtools-for-tab', (_event, tabId) => {
+        const wv = document.querySelector('webview[data-id="' + tabId + '"]');
+        if (wv) {
+            // 尝试打开开发者工具
+            const tryOpenDevTools = () => {
+                try {
+                    // 方法1: 直接调用 openDevTools（如果可用）
+                    if (typeof wv.openDevTools === 'function') {
+                        wv.openDevTools();
+                        return;
+                    }
+                    // 方法2: 通过 getWebContents
+                    if (wv.getWebContents) {
+                        const webContents = wv.getWebContents();
+                        if (webContents && typeof webContents.openDevTools === 'function') {
+                            webContents.openDevTools();
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.error('打开开发者工具失败:', err);
+                }
+            };
+            
+            // 如果 webview 已附加，直接尝试
+            tryOpenDevTools();
+            
+            // 如果失败，等待 webview 附加
+            wv.addEventListener('did-attach', tryOpenDevTools, { once: true });
+        }
+    });
+
 
     // 启动时自动创建一个标签
     createTab();
