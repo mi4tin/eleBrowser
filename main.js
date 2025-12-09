@@ -429,6 +429,46 @@ ipcMain.on('open-bookmark', (event, url) => {
     }
 });
 
+// 书签数据文件路径
+const path = require('path');
+const fs = require('fs');
+const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
+
+// 确保userData目录存在
+const userDataPath = app.getPath('userData');
+if (!fs.existsSync(userDataPath)) {
+    fs.mkdirSync(userDataPath, { recursive: true });
+}
+
+// IPC 处理器：加载书签数据
+ipcMain.on('load-bookmarks', (event) => {
+    console.log('收到加载书签请求',bookmarksFilePath);
+    try {
+        if (fs.existsSync(bookmarksFilePath)) {
+            const data = fs.readFileSync(bookmarksFilePath, 'utf8');
+            const bookmarks = JSON.parse(data);
+            event.reply('load-bookmarks-reply', bookmarks);
+        } else {
+            event.reply('load-bookmarks-reply', null);
+        }
+    } catch (e) {
+        console.error('加载书签数据失败:', e);
+        event.reply('load-bookmarks-reply', null);
+    }
+});
+
+// IPC 处理器：保存书签数据
+ipcMain.on('save-bookmarks', (event, bookmarks) => {
+    console.log('收到保存书签请求');
+    try {
+        fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
+        event.reply('save-bookmarks-reply', { success: true });
+    } catch (e) {
+        console.error('保存书签数据失败:', e);
+        event.reply('save-bookmarks-reply', { success: false, error: e.message });
+    }
+});
+
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
 

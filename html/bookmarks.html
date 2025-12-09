@@ -611,30 +611,27 @@
             bookmarks: []
         };
 
-        // 从localStorage加载书签数据
+        // 从本地文件加载书签数据
         function loadBookmarks() {
-            try {
-                const savedBookmarks = localStorage.getItem('eleBrowserBookmarks');
-                if (savedBookmarks) {
-                    return JSON.parse(savedBookmarks);
-                }
-            } catch (e) {
-                console.error('加载书签数据失败:', e);
-            }
-            return defaultBookmarksTree;
+            return new Promise((resolve) => {
+                ipcRenderer.send('load-bookmarks');
+                ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+                    if (bookmarks) {
+                        resolve(bookmarks);
+                    } else {
+                        resolve(defaultBookmarksTree);
+                    }
+                });
+            });
         }
 
-        // 保存书签数据到localStorage
+        // 保存书签数据到本地文件
         function saveBookmarks() {
-            try {
-                localStorage.setItem('eleBrowserBookmarks', JSON.stringify(bookmarksTree));
-            } catch (e) {
-                console.error('保存书签数据失败:', e);
-            }
+            ipcRenderer.send('save-bookmarks', bookmarksTree);
         }
 
         // 初始化书签数据
-        let bookmarksTree = loadBookmarks();
+        let bookmarksTree;
 
         const sidebar = document.getElementById('sidebar');
         const content = document.getElementById('content');
@@ -648,7 +645,10 @@
         let expandedFolders = new Set(['root']); // 默认展开根目录
 
         // 初始化
-        function init() {
+        async function init() {
+            // 异步加载书签数据
+            bookmarksTree = await loadBookmarks();
+            currentFolder = bookmarksTree;
             renderTree();
             renderContent(currentFolder);
             setupEventListeners();
