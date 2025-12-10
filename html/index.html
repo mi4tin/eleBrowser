@@ -170,7 +170,7 @@
 <script>
     const { ipcRenderer } = require('electron');
 
-    const DEFAULT_URL = 'https://www.baidu.com';
+    const DEFAULT_URL = 'https://wx.mail.qq.com/';
     const tabsContainer = document.getElementById('tabs');
     const webviewsContainer = document.getElementById('webviews');
     const addTabBtn = document.getElementById('add-tab');
@@ -342,8 +342,8 @@
         }
         wv.src = srcUrl;
         wv.dataset.id = id;
-        wv.setAttribute('nodeintegration', 'true');
-        wv.setAttribute('webpreferences', 'nodeIntegration=yes,contextIsolation=no');
+        wv.setAttribute('nodeintegration', 'false');
+        wv.setAttribute('webpreferences', 'contextIsolation=yes');
         // 禁用弹出窗口，防止自定义协议链接打开外部应用
         wv.setAttribute('allowpopups', 'false');
         
@@ -458,6 +458,17 @@
                         // 某些浏览器可能不允许修改 location
                         console.log('无法拦截 location:', e);
                     }
+                    
+                    // 抑制 xmtls.wasm 加载错误的控制台警告
+                    const originalError = console.error;
+                    console.error = function(...args) {
+                        const msg = args.join(' ');
+                        if (msg.includes('xmtls.wasm') || msg.includes('ERR_FILE_NOT_FOUND')) {
+                            // 忽略 xmtls.wasm 相关错误，QQ邮箱会自动回退到WebSocket
+                            return;
+                        }
+                        originalError.apply(console, args);
+                    };
                 })();
             `).catch(err => console.log('注入脚本失败:', err));
         });

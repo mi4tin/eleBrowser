@@ -58,6 +58,13 @@ if (process.platform === 'win32') {
 function setupProtocolBlocking(contents) {
     console.log('设置协议拦截，webContents ID:', contents.id);
     
+    // 监听控制台消息以调试问题
+    contents.on('console-message', (event, level, message, line, sourceId) => {
+        if (message.includes('xmtls') || message.includes('wasm') || message.includes('QQ')) {
+            console.log(`[WebView Console] ${message}`);
+        }
+    });
+    
     // 拦截导航到自定义协议
     contents.on('will-navigate', (event, navigationUrl) => {
         console.log('will-navigate 事件:', navigationUrl);
@@ -104,6 +111,10 @@ function setupProtocolBlocking(contents) {
         if (isCustomProtocol(validatedURL)) {
             console.log('✓ 阻止加载失败的自定义协议:', validatedURL);
         }
+        // 记录加载失败信息（排除 xmtls.wasm）
+        if (!validatedURL.includes('xmtls.wasm') && errorCode !== 0 && errorCode !== -3) {
+            console.log(`页面加载失败: ${validatedURL}, 错误代码: ${errorCode}, 描述: ${errorDescription}`);
+        }
     });
 }
 
@@ -114,6 +125,43 @@ const webviewContentsMap = new Map();
 app.on('web-contents-created', (event, contents) => {
     console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL());
     setupProtocolBlocking(contents);
+    
+    // 修改 CSP 以允许加载本地 wasm 文件等资源
+    contents.session.webRequest.onHeadersReceived((details, callback) => {
+        const responseHeaders = details.responseHeaders || {};
+        
+        // 如果存在 CSP 头，修改它以允许本地资源
+        if (responseHeaders['content-security-policy']) {
+            responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map(csp => {
+                // 为 connect-src 添加 file: 协议支持
+                if (csp.includes('connect-src')) {
+                    // 如果已有 connect-src，添加 file: 协议
+                    return csp.replace(/connect-src ([^;]+)/g, 'connect-src $1 file:');
+                }
+                return csp;
+            });
+        }
+        
+        callback({ responseHeaders });
+    });
+    
+    // 允许 webview 加载本地资源（Electron 内部资源）
+    contents.session.webRequest.onBeforeRequest({ urls: ['file://*'] }, (details, callback) => {
+        // 对于 xmtls.wasm 文件请求，返回一个空的 wasm 文件而不是取消请求
+        if (details.url.includes('xmtls.wasm')) {
+            console.log('拦截 xmtls.wasm 请求，提供空响应');
+            // 不取消请求，而是让它继续（会失败，但 QQ 邮箱会处理失败情况）
+            callback({});
+            return;
+        }
+        
+        // 允许加载 Electron 内部的其他资源文件
+        if (details.url.includes('electron.asar') || details.url.includes('electron/dist')) {
+            callback({ cancel: false });
+        } else {
+            callback({});
+        }
+    });
     
     // 为所有 webview 添加右键菜单
     // 检查是否是 webview（通过检查 hostWebContents 是否存在）
