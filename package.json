@@ -4,8 +4,13 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64",
-    "build:dir": "electron-builder --win --x64 --dir"
+  "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux",
+    "build": "electron-vite build",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:invox": "npm run build:unpack && build-invox.bat"
   },
   "author": "",
   "license": "ISC",
@@ -15,10 +20,15 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
+    "publish": null,
+    "npmRebuild": false,
+    "electronDownload": {
+      "mirror": "https://registry.npmmirror.com/binary.html?path=electron-builder-binaries/"
+    },
     "appId": "com.elebrowser.app",
     "productName": "eleBrowser",
     "directories": {
-      "output": "dist-new"
+      "output": "dist-invox"
     },
     "files": [
       "main.js",
@@ -38,7 +48,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
