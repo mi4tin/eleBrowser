@@ -489,7 +489,8 @@
 
         // webview 加载完成后尝试更新标题
         wv.addEventListener('page-title-updated', (event) => {
-            tabEl.firstChild.textContent = "新标签页"//event.title || title;//暂时不显示标题
+            var title= event.title || title;
+            tabEl.firstChild.textContent = title.substr(0,4)+'...';//显示标题前4个字符
         });
 
         const syncAddress = (nextUrl) => {
