@@ -483,6 +483,7 @@
                 // 打开链接事件
                 document.querySelectorAll('.open-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
+                        console.log('Opening link...');
                         const item = e.target.closest('.history-item');
                         const id = item.dataset.id;
                         const historyItem = this.historyData.find(h => h.id == id);
@@ -490,9 +491,11 @@
                         if (historyItem) {
                             // 通知父窗口打开链接
                             if (window.require) {
+                                console.log('Opening link...1',historyItem.url);
                                 const { ipcRenderer } = require('electron');
                                 ipcRenderer.send('open-url-in-new-tab', historyItem.url);
                             } else {
+                                console.log('Opening link...3');
                                 // 如果不是Electron环境，直接在当前窗口打开
                                 window.open(historyItem.url, '_blank');
                             }
