@@ -11,3 +11,9 @@ npm run dist:win
 
 
 __dirname=file:///F:/DEV/Code/gitee.com/eleBrowser/html
+
+
+
+常用调用：
+html里通过ipcRenderer.send('open-bookmark', historyItem.url) 调用main.js里的ipcMain.on('open-bookmark', (event, url) => ..的方法
+

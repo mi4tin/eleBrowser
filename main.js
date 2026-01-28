@@ -688,7 +688,7 @@ const template = [
             },
             {
                 label: '浏览历史',
-                accelerator: isMac ? 'Cmd+Shift+H' : 'Ctrl+Shift+H',
+                accelerator: isMac ? 'Cmd+H' : 'Ctrl+H',
                 click: () => {
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.send('open-history-tab');
