@@ -667,15 +667,15 @@ const template = [
                 : { role: 'quit', label: '退出' }
         ]
     },
-    {
-        label: '刷新',
-        accelerator: 'F5',
-        click: (menuItem, browserWindow) => {
-            if (browserWindow) {
-                browserWindow.reload();
-            }
-        }
-    },
+    // {
+    //     label: '刷新',
+    //     accelerator: 'F5',
+    //     click: (menuItem, browserWindow) => {
+    //         if (browserWindow) {
+    //             browserWindow.reload();
+    //         }
+    //     }
+    // },
     {
         label: '书签',
         submenu: [
