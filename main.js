@@ -176,7 +176,19 @@ app.on('web-contents-created', (event, contents) => {
         
         // 添加右键菜单
         contents.on('context-menu', (event, params) => {
+            // 根据选中的文本决定是否启用复制选项
+            const hasSelection = params.selectionText && params.selectionText.trim().length > 0;
+            
             const menu = Menu.buildFromTemplate([
+                {
+                    label: '复制',
+                    enabled: hasSelection,  // 只有当选中了文本时才启用
+                    accelerator: 'Ctrl+C',
+                    click: () => {
+                        // 复制选中的文本到剪贴板
+                        contents.copy();
+                    }
+                },
                 {
                     label: '查看网页源码',
                     click: () => {
