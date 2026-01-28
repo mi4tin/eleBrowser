@@ -170,7 +170,7 @@
 <script>
     const { ipcRenderer } = require('electron');
 
-    const DEFAULT_URL = 'https://wx.mail.qq.com/';
+    const DEFAULT_URL = "https://www.baidu.com"//'https://wx.mail.qq.com/';
     const tabsContainer = document.getElementById('tabs');
     const webviewsContainer = document.getElementById('webviews');
     const addTabBtn = document.getElementById('add-tab');
@@ -489,7 +489,7 @@
 
         // webview 加载完成后尝试更新标题
         wv.addEventListener('page-title-updated', (event) => {
-            tabEl.firstChild.textContent = event.title || title;
+            tabEl.firstChild.textContent = "新标签页"//event.title || title;//暂时不显示标题
         });
 
         const syncAddress = (nextUrl) => {
