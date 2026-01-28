@@ -17,12 +17,16 @@
             overflow: hidden;
         }
     .toolbar {
-        height: 40px;
+        min-height: 40px;
+        height: auto;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         background: #f3f3f3;
         border-bottom: 1px solid #ddd;
         padding: 0 8px;
+    
+        /* 确保标签容器不会无限扩展 */
+        min-width: 0;
     }
     .address-bar {
         display: flex;
@@ -93,9 +97,14 @@
     }
         #tabs {
             display: flex;
-            flex: 1;
-            overflow-x: auto;
+            flex: 1 1 auto;
+            overflow-x: hidden;
             overflow-y: hidden;
+        
+            /* 确保加号按钮在末尾 */
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            align-items: flex-start;
         }
         .tab {
             display: flex;
@@ -107,30 +116,52 @@
             cursor: pointer;
             font-size: 12px;
             user-select: none;
-            white-space: nowrap;
+            white-space: nowrap; /* 保持标签文字不换行 */
+            flex: 1 1 auto; /* 可增长可收缩，基础大小由内容决定 */
+            min-width: 40px; /* 最小宽度，足够显示几个字符 */
+            max-width: 150px; /* 最大宽度 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px; /* 为换行留出空间 */
+            justify-content: space-between; /* 内容两端对齐，使关闭按钮在最右边 */
         }
         .tab.active {
             background: #ffffff;
             border: 1px solid #ddd;
             border-bottom-color: #ffffff;
         }
+        .tab .tab-text {
+            flex: 1 1 auto; /* 文本容器可伸缩 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px; /* 与关闭按钮保持距离 */
+        }
         .tab .close {
-            margin-left: 6px;
             font-size: 11px;
             cursor: pointer;
+            margin-left: auto; /* 推向右侧 */
+            align-self: center; /* 垂直居中 */
+            padding-left: 4px; /* 确保与标签内容有一定距离 */
         }
         #add-tab {
             width: 28px;
             height: 24px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            background-color: #fafafa;
+            border-radius: 4px 4px 0 0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            background-color: #e0e0e0;
             cursor: pointer;
             font-size: 16px;
             line-height: 1;
+            margin-left: 4px;
+            margin-top: auto;
+            order: 100; /* 确保按钮总是在最后 */
+            flex-shrink: 0; /* 防止按钮被压缩 */
+            flex-grow: 0; /* 防止按钮扩展 */
         }
         #add-tab:hover {
-            background-color: #eaeaea;
+            background-color: #d0d0d0;
         }
 #webviews {
     position: absolute;
@@ -153,8 +184,9 @@
 
 <body>
 <div class="toolbar">
-    <div id="tabs"></div>
-    <button id="add-tab">+</button>
+    <div id="tabs">
+        <button id="add-tab">+</button>
+    </div>
 </div>
 <div class="address-bar">
     <div class="nav-group">
@@ -238,14 +270,30 @@
         tabEl.className = 'tab active';
         tabEl.dataset.id = id;
         tabEl.dataset.bookmarks = 'true';
-        tabEl.textContent = '书签管理';
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '书签管理';
+        tabEl.appendChild(textEl);
         
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
         tabEl.appendChild(closeEl);
         
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+        
         tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
         
         // 创建对应的 webview
         const wv = document.createElement('webview');
@@ -314,14 +362,30 @@
         tabEl.className = 'tab active';
         tabEl.dataset.id = id;
         tabEl.dataset.history = 'true';
-        tabEl.textContent = '浏览历史';
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '浏览历史';
+        tabEl.appendChild(textEl);
         
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
         tabEl.appendChild(closeEl);
         
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+        
         tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
         
         // 创建对应的 webview
         const wv = document.createElement('webview');
@@ -454,14 +518,30 @@
         const tabEl = document.createElement('div');
         tabEl.className = 'tab';
         tabEl.dataset.id = id;
-        tabEl.textContent = title;
-
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = title;
+        tabEl.appendChild(textEl);
+        
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
         tabEl.appendChild(closeEl);
 
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            // 临时移除加号按钮
+            addButton.remove();
+        }
+        
         tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
 
         // 创建对应的 webview
         const wv = document.createElement('webview');
@@ -629,7 +709,10 @@
         // webview 加载完成后尝试更新标题
         wv.addEventListener('page-title-updated', (event) => {
             var title= event.title || title;
-            tabEl.firstChild.textContent = title.substr(0,4)+'...';//显示标题前4个字符
+            const textEl = tabEl.querySelector('.tab-text');
+            if (textEl) {
+                textEl.textContent = title.substr(0,4)+'...';//显示标题前4个字符
+            }
         });
 
         const syncAddress = (nextUrl) => {
@@ -680,10 +763,22 @@
     function closeTab(id) {
         const tabEl = document.querySelector('.tab[data-id="' + id + '"]');
         const wv = document.querySelector('webview[data-id="' + id + '"]');
-
+            
+        // 保存加号按钮引用
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            // 临时移除加号按钮
+            addButton.remove();
+        }
+    
         if (tabEl) tabEl.remove();
         if (wv) wv.remove();
-
+    
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            document.getElementById('tabs').appendChild(addButton);
+        }
+            
         // 如果关的是当前标签，自动激活一个相邻的
         if (currentTabId === id) {
             const remainingTabs = document.querySelectorAll('.tab');
