@@ -288,13 +288,7 @@
                 try {
                     // 尝试从主进程加载历史记录
                     if (window.require) {
-                        const { ipcRenderer } = require('electron');
-                        // 从主进程的数据文件加载
-                        const historyPath = require('path').join(require('electron').remote.app.getPath('userData'), 'history.json');
-                        const fs = require('fs');
-                        
                         try {
-                            // 尝试从主进程的文件加载
                             // 使用IPC异步请求获取历史记录数据
                             const { ipcRenderer } = require('electron');
                             const historyData = await ipcRenderer.invoke('get-history');
