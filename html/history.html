@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史记录</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+            margin: 0;
+        }
+        
+        .controls {
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #e9ecef;
+        }
+        
+        .btn-clear {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        
+        .btn-clear:hover {
+            background: #c82333;
+        }
+        
+        .history-list {
+            padding: 20px;
+        }
+        
+        .history-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .item-info {
+            flex: 1;
+        }
+        
+        .item-title {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 600px;
+        }
+        
+        .item-url {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 600px;
+        }
+        
+        .item-time {
+            font-size: 12px;
+            color: #999;
+            min-width: 120px;
+            text-align: right;
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 15px;
+        }
+        
+        .action-btn {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            gap: 8px;
+        }
+        
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .page-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        @media (max-width: 768px) {
+            .history-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .item-time {
+                text-align: left;
+            }
+            
+            .item-actions {
+                align-self: stretch;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>浏览历史</h1>
+        </div>
+        
+        <div class="controls">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索历史记录...">
+            <button class="btn" id="clearHistoryBtn">清空历史</button>
+            <button class="btn" id="refreshBtn">刷新</button>
+        </div>
+        
+        <div class="history-list" id="historyList">
+            <!-- 历史记录项将在这里动态生成 -->
+            <div class="empty-state">
+                <div class="empty-state-icon">⏱️</div>
+                <div>暂无历史记录</div>
+                <div style="margin-top: 8px; font-size: 14px; color: #999;">访问网页后，历史记录将自动保存在这里</div>
+            </div>
+        </div>
+        
+        <div class="pagination" id="pagination">
+            <!-- 分页控件将在这里生成 -->
+        </div>
+    </div>
+
+    <script>
+        // 历史记录管理类
+        class HistoryManager {
+            constructor() {
+                this.historyData = [];
+                this.currentPage = 1;
+                this.itemsPerPage = 20;
+                
+                this.initElements();
+                this.bindEvents();
+                this.loadHistoryAsync(); // 异步加载历史记录
+            }
+            
+            initElements() {
+                this.searchInput = document.getElementById('searchInput');
+                this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
+                this.refreshBtn = document.getElementById('refreshBtn');
+                this.historyList = document.getElementById('historyList');
+                this.pagination = document.getElementById('pagination');
+            }
+            
+            bindEvents() {
+                this.searchInput.addEventListener('input', this.debounce(() => {
+                    this.currentPage = 1;
+                    this.render();
+                }, 300));
+                
+                this.clearHistoryBtn.addEventListener('click', () => {
+                    if (confirm('确定要清空所有历史记录吗？此操作不可撤销。')) {
+                        this.clearHistory();
+                    }
+                });
+                
+                this.refreshBtn.addEventListener('click', () => {
+                    this.loadHistoryAsync();
+                });
+            }
+            
+            // 防抖函数
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+            
+            // 异步加载历史记录（从主进程或本地存储）
+            async loadHistoryAsync() {
+                try {
+                    // 尝试从主进程加载历史记录
+                    if (window.require) {
+                        const { ipcRenderer } = require('electron');
+                        // 从主进程的数据文件加载
+                        const historyPath = require('path').join(require('electron').remote.app.getPath('userData'), 'history.json');
+                        const fs = require('fs');
+                        
+                        try {
+                            // 尝试从主进程的文件加载
+                            // 使用IPC异步请求获取历史记录数据
+                            const { ipcRenderer } = require('electron');
+                            const historyData = await ipcRenderer.invoke('get-history');
+                            if (Array.isArray(historyData)) {
+                                this.historyData = historyData;
+                            } else {
+                                // 如果主进程没有返回有效数据，从localStorage加载
+                                this.historyData = this.loadHistoryFromLocalStorage();
+                            }
+                        } catch (fileErr) {
+                            console.warn('从主进程获取历史记录失败:', fileErr);
+                            // 回退到localStorage
+                            this.historyData = this.loadHistoryFromLocalStorage();
+                        }
+                    } else {
+                        // 非Electron环境，从localStorage加载
+                        this.historyData = this.loadHistoryFromLocalStorage();
+                    }
+                } catch (e) {
+                    console.error('加载历史记录失败:', e);
+                    this.historyData = [];
+                }
+                
+                this.render();
+            }
+            
+            // 从localStorage加载历史记录
+            loadHistoryFromLocalStorage() {
+                try {
+                    const stored = localStorage.getItem('browser_history');
+                    return stored ? JSON.parse(stored) : [];
+                } catch (e) {
+                    console.error('从localStorage加载历史记录失败:', e);
+                    return [];
+                }
+            }
+            
+            // 保存历史记录到localStorage
+            saveHistory() {
+                try {
+                    localStorage.setItem('browser_history', JSON.stringify(this.historyData));
+                } catch (e) {
+                    console.error('保存历史记录失败:', e);
+                }
+            }
+            
+            // 添加历史记录
+            addHistory(title, url) {
+                const now = new Date();
+                const historyItem = {
+                    id: Date.now() + Math.random(), // 生成唯一ID
+                    title: title || url,
+                    url: url,
+                    timestamp: now.getTime(),
+                    date: now.toLocaleDateString(),
+                    time: now.toLocaleTimeString()
+                };
+                
+                // 检查是否已存在相同的URL（避免重复）
+                const existingIndex = this.historyData.findIndex(item => item.url === url);
+                if (existingIndex !== -1) {
+                    // 如果存在，则移除旧记录（将其移到最前面）
+                    this.historyData.splice(existingIndex, 1);
+                }
+                
+                // 将新记录添加到开头
+                this.historyData.unshift(historyItem);
+                
+                // 只保留最近的1000条记录
+                if (this.historyData.length > 1000) {
+                    this.historyData = this.historyData.slice(0, 1000);
+                }
+                
+                this.saveHistory();
+                return historyItem;
+            }
+            
+            // 删除历史记录
+            removeHistory(id) {
+                this.historyData = this.historyData.filter(item => item.id !== id);
+                this.saveHistory();
+                
+                // 如果在Electron环境中，也要通知主进程同步删除
+                if (window.require) {
+                    try {
+                        const { ipcRenderer } = require('electron');
+                        ipcRenderer.invoke('remove-history-item', id);
+                    } catch (e) {
+                        console.error('通知主进程删除历史记录失败:', e);
+                    }
+                }
+            }
+            
+            // 清空历史记录
+            async clearHistory() {
+                this.historyData = [];
+                this.saveHistory();
+                
+                // 如果在Electron环境中，也要清空主进程的记录
+                if (window.require) {
+                    try {
+                        const { ipcRenderer } = require('electron');
+                        await ipcRenderer.invoke('clear-history');
+                    } catch (e) {
+                        console.error('清空主进程历史记录失败:', e);
+                    }
+                }
+                
+                this.render();
+            }
+            
+            // 搜索历史记录
+            searchHistory(keyword) {
+                if (!keyword) return this.historyData;
+                
+                const lowerKeyword = keyword.toLowerCase();
+                return this.historyData.filter(item => 
+                    item.title.toLowerCase().includes(lowerKeyword) || 
+                    item.url.toLowerCase().includes(lowerKeyword)
+                );
+            }
+            
+            // 获取分页数据
+            getPagedHistory(searchResults) {
+                const totalItems = searchResults.length;
+                const totalPages = Math.ceil(totalItems / this.itemsPerPage);
+                
+                // 确保当前页在有效范围内
+                if (this.currentPage > totalPages && totalPages > 0) {
+                    this.currentPage = totalPages;
+                }
+                
+                const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+                const endIndex = startIndex + this.itemsPerPage;
+                const pagedData = searchResults.slice(startIndex, endIndex);
+                
+                return {
+                    items: pagedData,
+                    totalItems: totalItems,
+                    totalPages: totalPages,
+                    currentPage: this.currentPage,
+                    startIndex: startIndex
+                };
+            }
+            
+            // 渲染历史记录列表
+            render() {
+                const keyword = this.searchInput.value.trim();
+                const searchResults = this.searchHistory(keyword);
+                const pagedData = this.getPagedHistory(searchResults);
+                
+                if (pagedData.items.length === 0) {
+                    this.historyList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⏱️</div>
+                            <div>${keyword ? '未找到匹配的历史记录' : '暂无历史记录'}</div>
+                            ${keyword ? `<div style="margin-top: 8px; font-size: 14px; color: #999;">搜索词："${keyword}"</div>` : ''}
+                        </div>
+                    `;
+                    this.pagination.innerHTML = '';
+                    return;
+                }
+                
+                const historyHTML = pagedData.items.map((item, index) => `
+                    <div class="history-item" data-id="${item.id}">
+                        <div class="item-info">
+                            <div class="item-title">${this.escapeHtml(item.title)}</div>
+                            <div class="item-url">${this.escapeHtml(item.url)}</div>
+                        </div>
+                        <div class="item-time">
+                            <div>${item.date}</div>
+                            <div>${item.time}</div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="action-btn open-btn" title="在新标签页打开">打开</button>
+                            <button class="action-btn delete-btn" title="删除记录">删除</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                this.historyList.innerHTML = historyHTML;
+                
+                // 绑定项目事件
+                this.bindItemEvents();
+                
+                // 渲染分页
+                this.renderPagination(pagedData.totalPages, pagedData.currentPage);
+            }
+            
+            // 绑定项目事件
+            bindItemEvents() {
+                // 打开链接事件
+                document.querySelectorAll('.open-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const item = e.target.closest('.history-item');
+                        const id = item.dataset.id;
+                        const historyItem = this.historyData.find(h => h.id == id);
+                        
+                        if (historyItem) {
+                            // 通知父窗口打开链接
+                            if (window.require) {
+                                const { ipcRenderer } = require('electron');
+                                ipcRenderer.send('open-url-in-new-tab', historyItem.url);
+                            } else {
+                                // 如果不是Electron环境，直接在当前窗口打开
+                                window.open(historyItem.url, '_blank');
+                            }
+                        }
+                    });
+                });
+                
+                // 删除记录事件
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const item = e.target.closest('.history-item');
+                        const id = item.dataset.id;
+                        
+                        if (confirm('确定要删除这条历史记录吗？')) {
+                            this.removeHistory(parseFloat(id));
+                            this.render();
+                        }
+                    });
+                });
+            }
+            
+            // 渲染分页控件
+            renderPagination(totalPages, currentPage) {
+                if (totalPages <= 1) {
+                    this.pagination.innerHTML = '';
+                    return;
+                }
+                
+                let paginationHTML = '';
+                
+                // 上一页
+                paginationHTML += `
+                    <button class="page-btn" ${currentPage <= 1 ? 'disabled' : ''} data-page="${currentPage - 1}">
+                        上一页
+                    </button>
+                `;
+                
+                // 页码
+                const startPage = Math.max(1, currentPage - 2);
+                const endPage = Math.min(totalPages, currentPage + 2);
+                
+                if (startPage > 1) {
+                    paginationHTML += `<button class="page-btn" data-page="1">1</button>`;
+                    if (startPage > 2) {
+                        paginationHTML += `<span class="page-ellipsis">...</span>`;
+                    }
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                    paginationHTML += `
+                        <button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">
+                            ${i}
+                        </button>
+                    `;
+                }
+                
+                if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                        paginationHTML += `<span class="page-ellipsis">...</span>`;
+                    }
+                    paginationHTML += `<button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;
+                }
+                
+                // 下一页
+                paginationHTML += `
+                    <button class="page-btn" ${currentPage >= totalPages ? 'disabled' : ''} data-page="${currentPage + 1}">
+                        下一页
+                    </button>
+                `;
+                
+                this.pagination.innerHTML = paginationHTML;
+                
+                // 绑定分页按钮事件
+                document.querySelectorAll('.page-btn:not([disabled])').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const page = parseInt(e.target.dataset.page);
+                        if (page && page !== this.currentPage) {
+                            this.currentPage = page;
+                            this.render();
+                            
+                            // 滚动到顶部
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    });
+                });
+            }
+            
+            // HTML转义
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // 初始化历史记录管理器
+        document.addEventListener('DOMContentLoaded', () => {
+            new HistoryManager();
+        });
+    </script>
+</body>
+</html>

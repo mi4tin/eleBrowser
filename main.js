@@ -482,6 +482,9 @@ const path = require('path');
 const fs = require('fs');
 const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
 
+// 历史记录数据文件路径
+const historyFilePath = path.join(app.getPath('userData'), 'history.json');
+
 // 确保userData目录存在
 const userDataPath = app.getPath('userData');
 if (!fs.existsSync(userDataPath)) {
@@ -514,6 +517,106 @@ ipcMain.on('save-bookmarks', (event, bookmarks) => {
     } catch (e) {
         console.error('保存书签数据失败:', e);
         event.reply('save-bookmarks-reply', { success: false, error: e.message });
+    }
+});
+
+// IPC 处理器：记录浏览历史
+ipcMain.handle('record-history', (event, title, url) => {
+    try {
+        let history = [];
+        
+        // 检查历史记录文件是否存在
+        if (fs.existsSync(historyFilePath)) {
+            const data = fs.readFileSync(historyFilePath, 'utf8');
+            history = JSON.parse(data);
+        }
+        
+        // 检查是否已存在相同的URL（避免重复）
+        const existingIndex = history.findIndex(item => item.url === url);
+        if (existingIndex !== -1) {
+            history.splice(existingIndex, 1);
+        }
+        
+        // 创建新的历史记录项
+        const historyItem = {
+            id: Date.now() + Math.random(),
+            title: title || url,
+            url: url,
+            timestamp: Date.now(),
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString()
+        };
+        
+        // 将新记录添加到开头
+        history.unshift(historyItem);
+        
+        // 只保留最近的1000条记录
+        if (history.length > 1000) {
+            history = history.slice(0, 1000);
+        }
+        
+        // 保存到文件
+        fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), 'utf8');
+        
+        return { success: true };
+    } catch (e) {
+        console.error('保存历史记录失败:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// IPC 处理器：删除单个历史记录项
+ipcMain.handle('remove-history-item', (event, id) => {
+    try {
+        let history = [];
+        
+        // 检查历史记录文件是否存在
+        if (fs.existsSync(historyFilePath)) {
+            const data = fs.readFileSync(historyFilePath, 'utf8');
+            history = JSON.parse(data);
+            
+            // 过滤掉指定ID的记录
+            history = history.filter(item => item.id !== id);
+            
+            // 保存到文件
+            fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), 'utf8');
+        }
+        
+        return { success: true };
+    } catch (e) {
+        console.error('删除历史记录失败:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// IPC 处理器：获取历史记录
+ipcMain.handle('get-history', (event) => {
+    try {
+        let history = [];
+        
+        // 检查历史记录文件是否存在
+        if (fs.existsSync(historyFilePath)) {
+            const data = fs.readFileSync(historyFilePath, 'utf8');
+            history = JSON.parse(data);
+        }
+        
+        return history;
+    } catch (e) {
+        console.error('获取历史记录失败:', e);
+        return [];
+    }
+});
+
+// IPC 处理器：清空所有历史记录
+ipcMain.handle('clear-history', (event) => {
+    try {
+        // 直接创建空数组并保存
+        fs.writeFileSync(historyFilePath, JSON.stringify([], null, 2), 'utf8');
+        
+        return { success: true };
+    } catch (e) {
+        console.error('清空历史记录失败:', e);
+        return { success: false, error: e.message };
     }
 });
 
@@ -581,6 +684,19 @@ const template = [
                 accelerator: isMac ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
                 click: () => {
                     openBookmarksWindow();
+                }
+            },
+            {
+                label: '浏览历史',
+                accelerator: isMac ? 'Cmd+Shift+H' : 'Ctrl+Shift+H',
+                click: () => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('open-history-tab');
+                        if (mainWindow.isMinimized()) {
+                            mainWindow.restore();
+                        }
+                        mainWindow.focus();
+                    }
                 }
             }
         ]
