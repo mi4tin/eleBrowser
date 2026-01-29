@@ -167,6 +167,16 @@ app.on('web-contents-created', (event, contents) => {
     // 检查是否是 webview（通过检查 hostWebContents 是否存在）
     const isWebview = contents.hostWebContents !== undefined;
     
+    // 注册全局事件监听器用于调试
+    const handleSaveUnderlineRequest = (url, underlineInfo) => {
+        console.log('全局监听到划线保存请求:', url, underlineInfo);
+        saveUnderlineDirect(url, underlineInfo);
+    };
+    
+    // 将处理函数绑定到app上
+    app.removeAllListeners('save-underline-request-debug');
+    app.on('save-underline-request-debug', handleSaveUnderlineRequest);
+    
     if (isWebview) {
         // 存储 webview 的 webContents
         const url = contents.getURL();
@@ -193,33 +203,62 @@ app.on('web-contents-created', (event, contents) => {
                     label: '添加下划线',
                     enabled: hasSelection,  // 只有当选中了文本时才启用
                     click: () => {
-                        // 为选中的文本添加黄色下划线
-                        contents.executeJavaScript(
-                            `(function() {
-                                // 获取用户选择的范围
-                                const selectedText = window.getSelection();
-                                if (selectedText.rangeCount > 0) {
-                                    const range = selectedText.getRangeAt(0);
+                        // 先获取选中的文本
+                        contents.executeJavaScript('window.getSelection().toString()')
+                        .then((selectedText) => {
+                            // 为选中的文本添加黄色下划线
+                            contents.executeJavaScript(
+                                `(function() {
+                                    // 获取用户选择的范围
+                                    const selectedTextObj = window.getSelection();
+                                    if (selectedTextObj.rangeCount > 0) {
+                                        const range = selectedTextObj.getRangeAt(0);
+                                        
+                                        // 创建一个span元素用于添加黄色下划线样式
+                                        const span = document.createElement('span');
+                                        span.style.textDecoration = 'underline';
+                                        span.style.textDecorationColor = 'green';
+                                        span.style.textDecorationStyle = 'solid';
+                                        span.style.textDecorationThickness = '2px';
+                                        
+                                        // 将选中的内容包装在span中
+                                        try {
+                                            range.surroundContents(span);
+                                        } catch (e) {
+                                            // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
+                                            const contents = range.extractContents();
+                                            span.appendChild(contents);
+                                            range.insertNode(span);
+                                        }
+                                    }
+                                })()`
+                            ).then(() => {
+                                // 成功添加下划线后，记录划线信息
+                                const url = contents.getURL();
+                                if (url && selectedText && selectedText.trim()) {
+                                    // 构造划线信息对象
+                                    const underlineInfo = {
+                                        text: selectedText,
+                                        timestamp: Date.now(),
+                                        url: url
+                                    };
+
+                                    console.log('保存划线数据1:', url, underlineInfo);
                                     
-                                    // 创建一个span元素用于添加黄色下划线样式
-                                    const span = document.createElement('span');
-                                    span.style.textDecoration = 'underline';
-                                    span.style.textDecorationColor = 'green';
-                                    span.style.textDecorationStyle = 'solid';
-                                    span.style.textDecorationThickness = '2px';
-                                    
-                                    // 将选中的内容包装在span中
+                                    // 只使用最可靠的方式保存划线数据
                                     try {
-                                        range.surroundContents(span);
+                                        saveUnderlineDirect(url, underlineInfo);
+                                        console.log('已保存划线信息:', url, underlineInfo.text);
                                     } catch (e) {
-                                        // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
-                                        const contents = range.extractContents();
-                                        span.appendChild(contents);
-                                        range.insertNode(span);
+                                        console.log('保存划线失败:', e);
                                     }
                                 }
-                            })()`
-                        );
+                            }).catch((err) => {
+                                console.log('添加下划线失败:', err);
+                            });
+                        }).catch((err) => {
+                            console.log('获取选中文本失败:', err);
+                        });
                     }
                 },
                 {
@@ -530,6 +569,9 @@ const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
 // 历史记录数据文件路径
 const historyFilePath = path.join(app.getPath('userData'), 'history.json');
 
+// 划线数据文件路径
+const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
+
 // 确保userData目录存在
 const userDataPath = app.getPath('userData');
 if (!fs.existsSync(userDataPath)) {
@@ -662,6 +704,126 @@ ipcMain.handle('clear-history', (event) => {
     } catch (e) {
         console.error('清空历史记录失败:', e);
         return { success: false, error: e.message };
+    }
+});
+
+// IPC 处理器：加载划线数据
+ipcMain.handle('load-underline-data', async (event, url) => {
+    try {
+        let underlineData = {};
+        
+        if (fs.existsSync(underlineFilePath)) {
+            const data = fs.readFileSync(underlineFilePath, 'utf8');
+            underlineData = JSON.parse(data);
+        }
+        
+        // 返回特定URL的划线数据
+        return underlineData[url] || [];
+    } catch (e) {
+        console.error('加载划线数据失败:', e);
+        return [];
+    }
+});
+
+// IPC 处理器：保存划线数据
+ipcMain.handle('save-underline-data', async (event, url, underlineInfo) => {
+    try {
+        let underlineData = {};
+        console.log("保存划线数据:", url, underlineInfo)
+        
+        // 检查划线数据文件是否存在
+        if (fs.existsSync(underlineFilePath)) {
+            const data = fs.readFileSync(underlineFilePath, 'utf8');
+            underlineData = JSON.parse(data);
+        }
+        
+        // 更新特定URL的划线数据
+        if (!underlineData[url]) {
+            underlineData[url] = [];
+        }
+        
+        // 添加新的划线信息
+        underlineData[url].push(underlineInfo);
+        
+        // 保存到文件
+        fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
+        
+        return { success: true };
+    } catch (e) {
+        console.error('保存划线数据失败:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// IPC 处理器：更新划线数据（替换整个URL的划线数据）
+ipcMain.handle('update-underline-data', async (event, url, underlineArray) => {
+    try {
+        let underlineData = {};
+        
+        // 检查划线数据文件是否存在
+        if (fs.existsSync(underlineFilePath)) {
+            const data = fs.readFileSync(underlineFilePath, 'utf8');
+            underlineData = JSON.parse(data);
+        }
+        
+        // 更新特定URL的划线数据
+        underlineData[url] = underlineArray;
+        
+        // 保存到文件
+        fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
+        
+        return { success: true };
+    } catch (e) {
+        console.error('更新划线数据失败:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// 处理直接保存划线数据的请求
+const saveUnderlineDirect = async (url, underlineInfo) => {
+    try {
+        let underlineData = {};
+        
+        // 检查划线数据文件是否存在
+        if (fs.existsSync(underlineFilePath)) {
+            const data = fs.readFileSync(underlineFilePath, 'utf8');
+            underlineData = JSON.parse(data);
+        }
+        
+        // 更新特定URL的划线数据
+        if (!underlineData[url]) {
+            underlineData[url] = [];
+        }
+        
+        // 添加新的划线信息
+        underlineData[url].push(underlineInfo);
+        
+        // 保存到文件
+        fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
+        
+        console.log('成功保存划线数据:', url, underlineInfo.text);
+    } catch (e) {
+        console.error('保存划线数据失败:', e);
+    }
+};
+
+// 注册IPC处理器供渲染进程调用
+ipcMain.handle('save-underline-sync', async (event, url, underlineInfo) => {
+    await saveUnderlineDirect(url, underlineInfo);
+    return { success: true };
+});
+
+// 调试用：获取所有划线数据
+ipcMain.handle('get-all-underlines', async (event) => {
+    try {
+        if (fs.existsSync(underlineFilePath)) {
+            const data = fs.readFileSync(underlineFilePath, 'utf8');
+            return JSON.parse(data);
+        }
+        return {};
+    } catch (e) {
+        console.error('获取所有划线数据失败:', e);
+        return {};
     }
 });
 
