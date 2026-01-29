@@ -441,6 +441,98 @@
         updateAddressBar('dxbrowser://history/');
     }
     
+    function openUnderlineTab() {
+        // 检查是否已经有划线记录标签页
+        const existingTab = document.querySelector('.tab[data-underline="true"]');
+        if (existingTab) {
+            const tabId = Number(existingTab.dataset.id);
+            activateTab(tabId);
+            return;
+        }
+        
+        // 创建划线记录标签页
+        const id = ++tabIdCounter;
+        
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = id;
+        tabEl.dataset.underline = 'true';
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '划线记录';
+        tabEl.appendChild(textEl);
+        
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+        
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+        
+        tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+        
+        // 创建对应的 webview
+        const wv = document.createElement('webview');
+        // 使用绝对路径，因为 index.html 和 underline.html 都在 html 目录下
+        const path = require('path');
+        const underlinePath = path.join(__dirname, 'underline.html');
+        // 确保路径格式正确（Windows 路径需要转换）
+        let filePath = underlinePath.replace(/\\/g, '/');
+        if (!filePath.startsWith('/')) {
+            filePath = '/' + filePath;
+        }
+        wv.src = 'file://' + filePath;
+        wv.dataset.id = id;
+        wv.setAttribute('allowpopups', 'false');
+        wv.setAttribute('nodeintegration', 'true');
+        wv.setAttribute('webpreferences', 'nodeIntegration=yes,contextIsolation=no');
+        
+        // 设置协议拦截
+        wv.addEventListener('new-window', (e) => {
+            e.preventDefault();
+            if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
+                createTab(e.url, e.url);
+            }
+        });
+        
+        webviewsContainer.appendChild(wv);
+        
+        // 点击切换标签
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+            activateTab(id);
+        });
+        
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(id);
+        });
+        
+        // 激活新建的标签
+        currentTabId = id;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === id);
+        });
+        document.querySelectorAll('webview').forEach(wv => {
+            wv.classList.toggle('active', Number(wv.dataset.id) === id);
+        });
+        
+        updateAddressBar('dxbrowser://underline/');
+    }
+    
     // 记录浏览历史
     function recordHistory(title, url) {
         // 避免记录内部协议页面
@@ -969,6 +1061,12 @@
     ipcRenderer.on('open-history-tab', () => {
         console.log("主窗口收到打开历史记录请求");
         openHistoryTab();
+    });
+    
+    // 主进程要求打开划线记录标签页
+    ipcRenderer.on('open-underline-tab', () => {
+        console.log("主窗口收到打开划线记录请求");
+        openUnderlineTab();
     });
 
     // 主进程要求打开指定标签页的开发者工具

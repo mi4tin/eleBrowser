@@ -905,6 +905,19 @@ const template = [
                         mainWindow.focus();
                     }
                 }
+            },
+            {
+                label: '划线记录',
+                accelerator: isMac ? 'Cmd+U' : 'Ctrl+U',
+                click: () => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('open-underline-tab');
+                        if (mainWindow.isMinimized()) {
+                            mainWindow.restore();
+                        }
+                        mainWindow.focus();
+                    }
+                }
             }
         ]
     }
