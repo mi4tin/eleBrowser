@@ -190,6 +190,39 @@ app.on('web-contents-created', (event, contents) => {
                     }
                 },
                 {
+                    label: '添加下划线',
+                    enabled: hasSelection,  // 只有当选中了文本时才启用
+                    click: () => {
+                        // 为选中的文本添加黄色下划线
+                        contents.executeJavaScript(
+                            `(function() {
+                                // 获取用户选择的范围
+                                const selectedText = window.getSelection();
+                                if (selectedText.rangeCount > 0) {
+                                    const range = selectedText.getRangeAt(0);
+                                    
+                                    // 创建一个span元素用于添加黄色下划线样式
+                                    const span = document.createElement('span');
+                                    span.style.textDecoration = 'underline';
+                                    span.style.textDecorationColor = 'green';
+                                    span.style.textDecorationStyle = 'solid';
+                                    span.style.textDecorationThickness = '2px';
+                                    
+                                    // 将选中的内容包装在span中
+                                    try {
+                                        range.surroundContents(span);
+                                    } catch (e) {
+                                        // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
+                                        const contents = range.extractContents();
+                                        span.appendChild(contents);
+                                        range.insertNode(span);
+                                    }
+                                }
+                            })()`
+                        );
+                    }
+                },
+                {
                     label: '查看网页源码',
                     click: () => {
                         // 获取页面源码
