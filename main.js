@@ -561,6 +561,32 @@ ipcMain.on('open-bookmark', (event, url) => {
     }
 });
 
+// IPC 处理器：从历史记录或其他地方打开URL
+ipcMain.on('open-url-in-new-tab', (event, url) => {
+    console.log('收到打开URL请求:', url);
+    // 在主窗口中打开URL
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('发送到主窗口:', url);
+        mainWindow.webContents.send('open-url-in-new-tab', url);
+        // 如果主窗口最小化，则恢复并聚焦
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        mainWindow.focus();
+    } else {
+        console.log('主窗口不存在，创建新窗口');
+        // 如果主窗口不存在，创建一个新窗口
+        newWindow();
+        // 等待窗口加载完成后再发送URL
+        mainWindow.webContents.once('did-finish-load', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                console.log('主窗口加载完成，发送URL:', url);
+                mainWindow.webContents.send('open-url-in-new-tab', url);
+            }
+        });
+    }
+});
+
 // 书签数据文件路径
 const path = require('path');
 const fs = require('fs');
@@ -709,6 +735,7 @@ ipcMain.handle('clear-history', (event) => {
 
 // IPC 处理器：加载划线数据
 ipcMain.handle('load-underline-data', async (event, url) => {
+    console.log('收到加载划线数据请求1', url);
     try {
         let underlineData = {};
         

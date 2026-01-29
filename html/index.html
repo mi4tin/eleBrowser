@@ -787,25 +787,7 @@
                 })();
             `).catch(err => console.log('注入脚本失败:', err));
             
-            // 页面加载完成后，加载并恢复划线信息
-            wv.addEventListener('dom-ready', () => {
-                setTimeout(() => {
-                    const currentUrl = wv.getURL?.() || wv.src;
-                    if (currentUrl) {
-                        // 通过IPC请求加载该URL的划线数据
-                        ipcRenderer.invoke('load-underline-data', currentUrl)
-                        .then(underlineData => {
-                            if (underlineData && underlineData.length > 0) {
-                                // 应用划线数据到页面
-                                underlineData.forEach(underlineInfo => {
-                                    restoreUnderline(underlineInfo);
-                                });
-                            }
-                        })
-                        .catch(err => console.log('加载划线数据失败:', err));
-                    }
-                }, 500); // 延迟0.5秒执行，确保页面内容已加载
-            });
+
         });
         
         // 定义恢复划线的函数
@@ -918,6 +900,24 @@
                 const pageTitle = wv.getTitle?.() || currentUrl;
                 recordHistory(pageTitle, currentUrl);
             }
+            
+            // 页面加载完成后，加载并恢复划线信息
+            setTimeout(() => {
+                const currentUrl = wv.getURL?.() || wv.src;
+                if (currentUrl) {
+                    // 通过IPC请求加载该URL的划线数据
+                    ipcRenderer.invoke('load-underline-data', currentUrl)
+                    .then(underlineData => {
+                        if (underlineData && underlineData.length > 0) {
+                            // 应用划线数据到页面
+                            underlineData.forEach(underlineInfo => {
+                                restoreUnderline(underlineInfo);
+                            });
+                        }
+                    })
+                    .catch(err => console.log('加载划线数据失败:', err));
+                }
+            }, 500); // 延迟0.5秒执行，确保页面内容已加载
         });
 
         // 激活新建的标签
