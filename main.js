@@ -206,7 +206,7 @@ app.on('web-contents-created', (event, contents) => {
                         // 先获取选中的文本
                         contents.executeJavaScript('window.getSelection().toString()')
                         .then((selectedText) => {
-                            // 为选中的文本添加黄色下划线
+                            // 为选中的文本添加绿色下划线
                             contents.executeJavaScript(
                                 `(function() {
                                     // 获取用户选择的范围
@@ -220,6 +220,7 @@ app.on('web-contents-created', (event, contents) => {
                                         span.style.textDecorationColor = 'green';
                                         span.style.textDecorationStyle = 'solid';
                                         span.style.textDecorationThickness = '2px';
+                                        span.style.textUnderlineOffset = '3px';
                                         
                                         // 将选中的内容包装在span中
                                         try {
