@@ -183,6 +183,60 @@
         webview.active {
             display: inline-flex;
         }
+        
+        /* 搜索面板样式 */
+        .search-panel {
+            position: absolute;
+            top: 82px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .search-container {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            gap: 5px;
+        }
+        
+        #search-input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+            width: 200px;
+        }
+        
+        .search-container button {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            background: #f5f5f5;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .search-container button:hover {
+            background: #e0e0e0;
+        }
+        
+        .search-count {
+            padding: 0 10px;
+            font-size: 14px;
+            color: #666;
+            min-width: 60px;
+        }
+        
+        #search-close {
+            color: #999;
+            font-weight: bold;
+            padding: 5px 8px;
+        }
     </style>
 </head>
 
@@ -202,6 +256,17 @@
     <button id="address-go" class="address-go">前往</button>
 </div>
 <div id="webviews"></div>
+
+<!-- 搜索面板 -->
+<div id="search-panel" class="search-panel">
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="搜索网页内容..." />
+        <button id="search-prev" title="上一个">↑</button>
+        <button id="search-next" title="下一个">↓</button>
+        <span id="search-count" class="search-count"></span>
+        <button id="search-close" title="关闭">×</button>
+    </div>
+</div>
 
 <script>
     const { ipcRenderer } = require('electron');
@@ -1104,6 +1169,235 @@
     });
 
 
+    // 搜索功能相关变量
+    let currentSearchTerm = '';
+    let searchResultsCount = 0;
+    let currentResultIndex = 0;
+    
+    // 获取搜索面板相关元素
+    const searchPanel = document.getElementById('search-panel');
+    const searchInput = document.getElementById('search-input');
+    const searchPrevBtn = document.getElementById('search-prev');
+    const searchNextBtn = document.getElementById('search-next');
+    const searchCount = document.getElementById('search-count');
+    const searchCloseBtn = document.getElementById('search-close');
+    
+    // 搜索面板控制函数
+    function showSearchPanel() {
+        searchPanel.style.display = 'block';
+        searchInput.focus();
+        searchInput.select();
+    }
+    
+    function hideSearchPanel() {
+        searchPanel.style.display = 'none';
+        clearSearchHighlight();
+    }
+    
+    // 清除搜索高亮
+    function clearSearchHighlight() {
+        const wv = getCurrentWebview();
+        if (wv && wv.stopFindInPage) {
+            wv.stopFindInPage('clearSelection');
+        }
+        currentSearchTerm = '';
+        searchResultsCount = 0;
+        currentResultIndex = 0;
+        updateSearchCount();
+    }
+    
+    // 更新搜索计数显示
+    function updateSearchCount() {
+        if (searchResultsCount > 0) {
+            searchCount.textContent = `${currentResultIndex}/${searchResultsCount}`;
+        } else {
+            searchCount.textContent = '';
+        }
+    }
+    
+    // 获取当前活动的webview
+    function getCurrentWebview() {
+        if (currentTabId == null) return null;
+        return document.querySelector('webview[data-id="' + currentTabId + '"]');
+    }
+    
+    // 执行搜索
+    function performSearch(forward = true) {
+        const searchTerm = searchInput.value.trim();
+        const wv = getCurrentWebview();
+        
+        if (!wv || !searchTerm) {
+            if (!searchTerm) {
+                clearSearchHighlight();
+            }
+                return;
+        }
+        
+        // 如果搜索词改变，重新开始搜索
+        if (searchTerm !== currentSearchTerm) {
+            currentSearchTerm = searchTerm;
+            wv.stopFindInPage('clearSelection');
+            
+            // 开始新的搜索
+            wv.findInPage(searchTerm, {
+                findNext: false,
+                forward: true,
+                matchCase: false,
+                wordStart: false,
+                medialCapitalAsWordStart: false
+            });
+        } else {
+            // 继续搜索，根据方向前进或后退
+            wv.findInPage(searchTerm, {
+                findNext: true,
+                forward: forward,
+                matchCase: false,
+                wordStart: false,
+                medialCapitalAsWordStart: false
+            });
+        }
+    }
+    
+    // 搜索事件监听器
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.trim() === '') {
+            clearSearchHighlight();
+        } else {
+            performSearch(true);
+        }
+    });
+    
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performSearch(true);
+        }
+    });
+    
+    searchPrevBtn.addEventListener('click', () => {
+        if (searchInput.value.trim() !== '') {
+            performSearch(false); // 向前搜索
+        }
+    });
+    
+    searchNextBtn.addEventListener('click', () => {
+        if (searchInput.value.trim() !== '') {
+            performSearch(true); // 向后搜索
+        }
+    });
+    
+    searchCloseBtn.addEventListener('click', hideSearchPanel);
+    
+    // 为新创建的webview添加事件监听器
+    function setupWebviewSearchListener(webview) {
+        webview.addEventListener('found-in-page', (event) => {
+            if (event.result) {
+                if (event.result.matches) {
+                    searchResultsCount = event.result.matches;
+                }
+                if (event.result.activeMatchOrdinal) {
+                    currentResultIndex = event.result.activeMatchOrdinal;
+                }
+                updateSearchCount();
+            }
+        });
+        
+        // 当webview导航时清除搜索高亮
+        webview.addEventListener('did-navigate', () => {
+            clearSearchHighlight();
+        });
+    }
+    
+// 修改createTab函数以添加搜索监听器
+(function() {
+    const originalCreateTab = window.createTab || createTab;
+    
+    // 重新定义createTab函数
+    window.createTab = function(url = DEFAULT_URL, title = '新标签页') {
+        // 调用原始函数创建标签页
+        const result = originalCreateTab.apply(this, arguments);
+        
+        // 获取最新创建的webview
+        const wv = document.querySelector('webview[data-id="' + tabIdCounter + '"]');
+        if (wv) {
+            setupWebviewSearchListener(wv);
+        }
+        
+        return result;
+    };
+})();
+    
+    // 键盘快捷键支持
+    document.addEventListener('keydown', (e) => {
+        console.log('Key pressed:', e.key);
+        // Ctrl+F 或 Cmd+F 打开搜索面板
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            showSearchPanel();
+        }
+        
+        // ESC 关闭搜索面板
+        if (e.key === 'Escape') {
+            if (searchPanel.style.display === 'block') {
+                e.preventDefault();
+                hideSearchPanel();
+            }
+        }
+        
+        // F3 或 Shift+F3 在搜索结果间导航
+        if (e.key === 'F3') {
+            e.preventDefault();
+            if (searchPanel.style.display === 'block' && searchInput.value.trim() !== '') {
+                performSearch(!e.shiftKey); // F3向下，Shift+F3向上
+            } else if (searchPanel.style.display !== 'block') {
+                showSearchPanel();
+            }
+        }
+    });
+    
+    // 监听主进程发送的全局快捷键消息
+    ipcRenderer.on('show-search-panel', () => {
+        console.log('收到主进程消息: 打开搜索面板');
+        showSearchPanel();
+    });
+    
+    ipcRenderer.on('new-tab', () => {
+        console.log('收到主进程消息: 新建标签页');
+        createTab();
+    });
+    
+    ipcRenderer.on('refresh-tab', () => {
+        console.log('收到主进程消息: 刷新标签页');
+        if (currentTabId == null) return;
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv) {
+            wv.reload();
+        }
+    });
+    
+    ipcRenderer.on('force-refresh-tab', () => {
+        console.log('收到主进程消息: 强制刷新标签页');
+        if (currentTabId == null) return;
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv) {
+            wv.reloadIgnoringCache();
+        }
+    });
+    
+    ipcRenderer.on('open-bookmarks-tab', () => {
+        console.log('收到主进程消息: 打开书签标签页');
+        openBookmarksTab();
+    });
+    
+    ipcRenderer.on('open-history-tab', () => {
+        console.log('收到主进程消息: 打开历史记录标签页');
+        openHistoryTab();
+    });
+    
+    ipcRenderer.on('open-underline-tab', () => {
+        console.log('收到主进程消息: 打开划线记录标签页');
+        openUnderlineTab();
+    });
+    
     // 启动时自动创建一个标签
     createTab();
 </script>

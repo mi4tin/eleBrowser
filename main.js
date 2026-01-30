@@ -1,4 +1,4 @@
-const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol, ipcMain } = require('electron');
+const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -465,6 +465,9 @@ app.whenReady().then(() => {
         return callback({});
     });
 
+    // 注册全局快捷键
+    registerGlobalShortcuts();
+
     newWindow();
 });
 
@@ -499,6 +502,79 @@ function newWindow() {
     myWindow.on('closed', () => {
         mainWindow = null;
     });
+}
+
+// 注册全局快捷键
+function registerGlobalShortcuts() {
+    // 文本搜索快捷键 (Ctrl+F)
+    const searchShortcut = globalShortcut.register('CommandOrControl+F', () => {
+        console.log('全局快捷键: 打开文本搜索');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            // 向渲染进程发送消息，打开搜索框
+            mainWindow.webContents.send('show-search-panel');
+        }
+    });
+
+    // 新建标签页快捷键 (Ctrl+T)
+    const newTabShortcut = globalShortcut.register('CommandOrControl+T', () => {
+        console.log('全局快捷键: 新建标签页');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('new-tab');
+        }
+    });
+
+    // 刷新页面快捷键 (F5)
+    const refreshShortcut = globalShortcut.register('F5', () => {
+        console.log('全局快捷键: 刷新页面');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('refresh-tab');
+        }
+    });
+
+    // 强制刷新快捷键 (Ctrl+F5)
+    const forceRefreshShortcut = globalShortcut.register('CommandOrControl+F5', () => {
+        console.log('全局快捷键: 强制刷新页面');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('force-refresh-tab');
+        }
+    });
+
+    // 书签管理快捷键 (Ctrl+Shift+B)
+    const bookmarksShortcut = globalShortcut.register('CommandOrControl+Shift+B', () => {
+        console.log('全局快捷键: 打开书签管理');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('open-bookmarks-tab');
+        }
+    });
+
+    // 历史记录快捷键 (Ctrl+H)
+    const historyShortcut = globalShortcut.register('CommandOrControl+H', () => {
+        console.log('全局快捷键: 打开历史记录');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('open-history-tab');
+        }
+    });
+
+    // 划线记录快捷键 (Ctrl+U)
+    const underlineShortcut = globalShortcut.register('CommandOrControl+U', () => {
+        console.log('全局快捷键: 打开划线记录');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('open-underline-tab');
+        }
+    });
+
+    // 开发者工具快捷键 (F12)
+    const devToolsShortcut = globalShortcut.register('F12', () => {
+        console.log('全局快捷键: 打开开发者工具');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.openDevTools();
+        }
+    });
+
+    if (!searchShortcut || !newTabShortcut || !refreshShortcut || !forceRefreshShortcut || 
+        !bookmarksShortcut || !historyShortcut || !underlineShortcut || !devToolsShortcut) {
+        console.log('注册某些快捷键失败');
+    }
 }
 
 function openBookmarksWindow() {
@@ -953,6 +1029,11 @@ const template = [
 
 const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
+
+// 在应用程序退出前注销所有全局快捷键
+app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+});
 
 app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
