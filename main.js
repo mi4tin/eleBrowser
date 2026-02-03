@@ -465,8 +465,7 @@ app.whenReady().then(() => {
         return callback({});
     });
 
-    // 注册全局快捷键
-    registerGlobalShortcuts();
+    // 应用启动时不立即注册快捷键，等待窗口创建后再注册
 
     newWindow();
 });
@@ -498,82 +497,174 @@ function newWindow() {
     
     myWindow.loadFile('html/index.html');
 
+    // 监听窗口焦点变化
+    myWindow.on('focus', () => {
+        console.log('窗口获得焦点，注册快捷键');
+        registerAppShortcuts();
+    });
+    
+    myWindow.on('blur', () => {
+        console.log('窗口失去焦点，注销快捷键');
+        unregisterAppShortcuts();
+    });
+    
     // 监听窗口关闭
     myWindow.on('closed', () => {
         mainWindow = null;
+        // 窗口关闭时注销快捷键
+        unregisterAppShortcuts();
     });
+    
+    // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）
+    registerAppShortcuts();
 }
 
-// 注册全局快捷键
-function registerGlobalShortcuts() {
-    // 文本搜索快捷键 (Ctrl+F)
-    const searchShortcut = globalShortcut.register('CommandOrControl+F', () => {
-        console.log('全局快捷键: 打开文本搜索');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            // 向渲染进程发送消息，打开搜索框
-            mainWindow.webContents.send('show-search-panel');
-        }
-    });
+// 存储已注册的快捷键
+let registeredShortcuts = [];
 
-    // 新建标签页快捷键 (Ctrl+T)
-    const newTabShortcut = globalShortcut.register('CommandOrControl+T', () => {
-        console.log('全局快捷键: 新建标签页');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('new-tab');
-        }
-    });
+// 注册应用内快捷键（仅在应用获得焦点时生效）
+function registerAppShortcuts() {
+    try {
+        // 先注销已存在的快捷键
+        unregisterAppShortcuts();
+        
+        const shortcutsToRegister = [
+            {
+                key: 'CommandOrControl+F',
+                name: '文本搜索',
+                action: () => {
+                    console.log('应用内快捷键: 打开文本搜索');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('show-search-panel');
+                    }
+                }
+            },
+            {
+                key: 'CommandOrControl+T',
+                name: '新建标签页',
+                action: () => {
+                    console.log('应用内快捷键: 新建标签页');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('new-tab');
+                    }
+                }
+            },
+            {
+                key: 'F5',
+                name: '刷新页面',
+                action: () => {
+                    console.log('应用内快捷键: 刷新页面');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('refresh-tab');
+                    }
+                }
+            },
+            {
+                key: 'CommandOrControl+F5',
+                name: '强制刷新页面',
+                action: () => {
+                    console.log('应用内快捷键: 强制刷新页面');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('force-refresh-tab');
+                    }
+                }
+            },
+            {
+                key: 'CommandOrControl+Shift+B',
+                name: '打开书签管理',
+                action: () => {
+                    console.log('应用内快捷键: 打开书签管理');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('open-bookmarks-tab');
+                    }
+                }
+            },
+            {
+                key: 'CommandOrControl+H',
+                name: '打开历史记录',
+                action: () => {
+                    console.log('应用内快捷键: 打开历史记录');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('open-history-tab');
+                    }
+                }
+            },
+            {
+                key: 'CommandOrControl+U',
+                name: '打开划线记录',
+                action: () => {
+                    console.log('应用内快捷键: 打开划线记录');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('open-underline-tab');
+                    }
+                }
+            },
+            {
+                key: 'F12',
+                name: '打开开发者工具',
+                action: () => {
+                    console.log('应用内快捷键: 打开开发者工具');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.openDevTools();
+                    }
+                }
+            }
+        ];
 
-    // 刷新页面快捷键 (F5)
-    const refreshShortcut = globalShortcut.register('F5', () => {
-        console.log('全局快捷键: 刷新页面');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('refresh-tab');
-        }
-    });
+        const successfulShortcuts = [];
+        const failedShortcuts = [];
 
-    // 强制刷新快捷键 (Ctrl+F5)
-    const forceRefreshShortcut = globalShortcut.register('CommandOrControl+F5', () => {
-        console.log('全局快捷键: 强制刷新页面');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('force-refresh-tab');
-        }
-    });
+        shortcutsToRegister.forEach(shortcutConfig => {
+            try {
+                const shortcut = globalShortcut.register(shortcutConfig.key, shortcutConfig.action);
+                if (shortcut) {
+                    successfulShortcuts.push({
+                        key: shortcutConfig.key,
+                        name: shortcutConfig.name,
+                        shortcut: shortcut
+                    });
+                    console.log(`✓ 已注册快捷键: ${shortcutConfig.name} (${shortcutConfig.key})`);
+                } else {
+                    failedShortcuts.push({
+                        key: shortcutConfig.key,
+                        name: shortcutConfig.name
+                    });
+                    console.log(`✗ 快捷键注册失败: ${shortcutConfig.name} (${shortcutConfig.key})`);
+                }
+            } catch (registerError) {
+                failedShortcuts.push({
+                    key: shortcutConfig.key,
+                    name: shortcutConfig.name
+                });
+                console.log(`✗ 快捷键注册异常: ${shortcutConfig.name} (${shortcutConfig.key}) - ${registerError.message}`);
+            }
+        });
 
-    // 书签管理快捷键 (Ctrl+Shift+B)
-    const bookmarksShortcut = globalShortcut.register('CommandOrControl+Shift+B', () => {
-        console.log('全局快捷键: 打开书签管理');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('open-bookmarks-tab');
-        }
-    });
+        // 存储已注册的快捷键
+        registeredShortcuts = successfulShortcuts.map(s => s.shortcut);
 
-    // 历史记录快捷键 (Ctrl+H)
-    const historyShortcut = globalShortcut.register('CommandOrControl+H', () => {
-        console.log('全局快捷键: 打开历史记录');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('open-history-tab');
+        if (failedShortcuts.length > 0) {
+            console.log(`注册失败的快捷键数量: ${failedShortcuts.length}`);
+            console.log('失败的快捷键列表:', failedShortcuts.map(f => `${f.name} (${f.key})`).join(', '));
+        } else {
+            console.log('所有快捷键注册成功');
         }
-    });
+    } catch (error) {
+        console.error('注册快捷键过程中发生严重错误:', error);
+        registeredShortcuts = [];
+    }
+}
 
-    // 划线记录快捷键 (Ctrl+U)
-    const underlineShortcut = globalShortcut.register('CommandOrControl+U', () => {
-        console.log('全局快捷键: 打开划线记录');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('open-underline-tab');
-        }
-    });
-
-    // 开发者工具快捷键 (F12)
-    const devToolsShortcut = globalShortcut.register('F12', () => {
-        console.log('全局快捷键: 打开开发者工具');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.openDevTools();
-        }
-    });
-
-    if (!searchShortcut || !newTabShortcut || !refreshShortcut || !forceRefreshShortcut || 
-        !bookmarksShortcut || !historyShortcut || !underlineShortcut || !devToolsShortcut) {
-        console.log('注册某些快捷键失败');
+// 注销应用内快捷键
+function unregisterAppShortcuts() {
+    try {
+        // 使用 globalShortcut.unregisterAll() 来确保完全清理
+        globalShortcut.unregisterAll();
+        registeredShortcuts = [];
+        console.log('已注销所有应用内快捷键');
+    } catch (error) {
+        console.error('注销快捷键过程中发生错误:', error);
+        registeredShortcuts = []; // 确保数组被清空
     }
 }
 
@@ -1030,11 +1121,14 @@ const template = [
 const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
 
-// 在应用程序退出前注销所有全局快捷键
+// 在应用程序退出前注销所有快捷键
 app.on('will-quit', () => {
+    unregisterAppShortcuts();
+    // 确保完全清理所有快捷键
     globalShortcut.unregisterAll();
 });
 
+// 关闭所有窗口时退出应用
 app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
 })
