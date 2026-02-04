@@ -495,7 +495,7 @@ function newWindow() {
     // 在主窗口的 webContents 上也设置拦截（双重保险）
     setupProtocolBlocking(myWindow.webContents);
     
-    myWindow.loadFile('html/index.html');
+    myWindow.loadFile('html/index/index.html');
 
     // 检查是否需要打开测试页面
     const shouldOpenTestPage = process.argv.includes('--test-search');

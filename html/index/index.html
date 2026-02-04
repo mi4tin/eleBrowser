@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ele Browser</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+<div class="toolbar">
+    <div id="tabs">
+        <button id="add-tab">+</button>
+    </div>
+</div>
+<div class="address-bar">
+    <div class="nav-group">
+        <button id="nav-back" class="nav-btn" title="后退">←</button>
+        <button id="nav-forward" class="nav-btn" title="前进">→</button>
+        <button id="nav-refresh" class="nav-btn" title="刷新">⟳</button>
+    </div>
+    <input id="address-input" class="address-input" type="text" placeholder="输入网址并回车，或点击“前往”" />
+    <button id="address-go" class="address-go">前往</button>
+</div>
+<div id="webviews"></div>
+
+<!-- 搜索面板 -->
+<div id="search-panel" class="search-panel">
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="" />
+        <span id="search-count" class="search-count-display"></span>
+        <div class="search-nav-buttons">
+            <button id="search-prev" class="search-nav-btn" title="上一个">▲</button>
+            <button id="search-next" class="search-nav-btn" title="下一个">▼</button>
+        </div>
+        <button id="search-close" class="search-close-btn" title="关闭">×</button>
+    </div>
+</div>
+
+<script src="index.js"></script>
+</body>
+
+</html>
