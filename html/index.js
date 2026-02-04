@@ -97,7 +97,7 @@ function openBookmarksTab() {
     const wv = document.createElement('webview');
     // 使用绝对路径，因为 index.html 和 bookmarks.html 都在 html 目录下
     const path = require('path');
-    const bookmarksPath = path.join(__dirname,'bookmarks.html');
+    const bookmarksPath = path.join(__dirname,'bookmarks/bookmarks.html');
     // 确保路径格式正确（Windows 路径需要转换）
     let filePath = bookmarksPath.replace(/\\/g, '/');
     if (!filePath.startsWith('/')) {
@@ -207,7 +207,7 @@ function openHistoryTab() {
     const wv = document.createElement('webview');
     // 使用绝对路径，因为 index.html 和 history.html 都在 html 目录下
     const path = require('path');
-    const historyPath = path.join(__dirname, 'history.html');
+    const historyPath = path.join(__dirname, 'history/history.html');
     // 确保路径格式正确（Windows 路径需要转换）
     let filePath = historyPath.replace(/\\/g, '/');
     if (!filePath.startsWith('/')) {
@@ -317,7 +317,7 @@ function openUnderlineTab() {
     const wv = document.createElement('webview');
     // 使用绝对路径，因为 index.html 和 underline.html 都在 html 目录下
     const path = require('path');
-    const underlinePath = path.join(__dirname, 'underline.html');
+    const underlinePath = path.join(__dirname, 'underline/underline.html');
     // 确保路径格式正确（Windows 路径需要转换）
     let filePath = underlinePath.replace(/\\/g, '/');
     if (!filePath.startsWith('/')) {
@@ -495,7 +495,7 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
         // 使用绝对路径加载本地文件
         const path = require('path');
         console.log("path11:",__dirname);
-        const bookmarksPath = path.join(__dirname, 'bookmarks.html');
+        const bookmarksPath = path.join(__dirname, 'bookmarks/bookmarks.html');
         // 确保路径格式正确（Windows 路径需要转换）
         let filePath = bookmarksPath.replace(/\\/g, '/');
         if (!filePath.startsWith('/')) {
