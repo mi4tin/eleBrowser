@@ -645,6 +645,14 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
             wv.executeJavaScript(
                 `(function() {
                     // 遍历所有文本节点，查找匹配的文本
+                    // 检查并注入划线样式
+                    if (!document.getElementById('underline-styles')) {
+                        const style = document.createElement('style');
+                        style.id = 'underline-styles';
+                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                        document.head.appendChild(style);
+                    }
+                    
                     function highlightText(element, searchText) {
                         const walker = document.createTreeWalker(
                             element,
@@ -673,11 +681,7 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
                                 const afterText = text.substring(startIndex + searchText.length);
                                 
                                 const span = document.createElement('span');
-                                span.style.textDecoration = 'underline';
-                                span.style.textDecorationColor = 'green';
-                                span.style.textDecorationStyle = 'solid';
-                                span.style.textDecorationThickness = '2px';
-                                span.style.textUnderlineOffset = '3px';
+                                span.className = 'underline-fb3b780f';
                                 span.textContent = matchedText;
                                 
                                 // 创建新节点

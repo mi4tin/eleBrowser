@@ -209,6 +209,14 @@ app.on('web-contents-created', (event, contents) => {
                             // 为选中的文本添加绿色下划线
                             contents.executeJavaScript(
                                 `(function() {
+                                    // 检查并注入划线样式
+                                    if (!document.getElementById('underline-styles')) {
+                                        const style = document.createElement('style');
+                                        style.id = 'underline-styles';
+                                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                                        document.head.appendChild(style);
+                                    }
+                                    
                                     // 获取用户选择的范围
                                     const selectedTextObj = window.getSelection();
                                     if (selectedTextObj.rangeCount > 0) {
@@ -216,11 +224,7 @@ app.on('web-contents-created', (event, contents) => {
                                         
                                         // 创建一个span元素用于添加黄色下划线样式
                                         const span = document.createElement('span');
-                                        span.style.textDecoration = 'underline';
-                                        span.style.textDecorationColor = 'green';
-                                        span.style.textDecorationStyle = 'solid';
-                                        span.style.textDecorationThickness = '2px';
-                                        span.style.textUnderlineOffset = '3px';
+                                        span.className = 'underline-fb3b780f';
                                         
                                         // 将选中的内容包装在span中
                                         try {
@@ -272,6 +276,14 @@ app.on('web-contents-created', (event, contents) => {
                             // 取消划线
                             contents.executeJavaScript(
                                 `(function() {
+                                    // 检查并注入划线样式（确保样式定义存在，即使在取消划线时）
+                                    if (!document.getElementById('underline-styles')) {
+                                        const style = document.createElement('style');
+                                        style.id = 'underline-styles';
+                                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                                        document.head.appendChild(style);
+                                    }
+                                    
                                     // 获取用户选择的范围
                                     const selectedTextObj = window.getSelection();
                                     if (selectedTextObj.rangeCount > 0) {
@@ -282,8 +294,8 @@ app.on('web-contents-created', (event, contents) => {
                                         
                                         // 向上查找划线元素
                                         while (currentNode && currentNode !== document.body) {
-                                            console.log("检查节点:", currentNode, "样式:", currentNode.style ? currentNode.style.textDecoration : "无");
-                                            if (currentNode.style && currentNode.style.textDecoration && currentNode.style.textDecoration.includes('underline')) {
+                                            console.log("检查节点:", currentNode, "类名:", currentNode.className);
+                                            if (currentNode.classList && currentNode.classList.contains('underline-fb3b780f')) {
                                                 underlineNode = currentNode;
                                                 console.log("找到划线元素:", underlineNode);
                                                 break;
@@ -294,16 +306,9 @@ app.on('web-contents-created', (event, contents) => {
                                         // 如果找到划线元素，移除下划线
                                         if (underlineNode) {
                                             console.log("找到划线");
-                                            // 保存划线元素的内容
-                                            const contents = underlineNode.childNodes;
-                                            const parent = underlineNode.parentNode;
-                                            
-                                            // 替换划线元素为其内容
-                                            while (contents.length > 0) {
-                                                parent.insertBefore(contents[0], underlineNode);
-                                            }
-                                            parent.removeChild(underlineNode);
-                                            console.log("已移除划线元素");
+                                            // 移除划线类名
+                                            underlineNode.classList.remove('underline-fb3b780f');
+                                            console.log("已移除划线类名");
                                         } else {
                                             console.log("未找到划线，尝试查找选中范围内的划线元素");
                                             // 如果没有找到包含下划线的父元素，检查选中范围内的所有元素
@@ -323,24 +328,18 @@ app.on('web-contents-created', (event, contents) => {
                                             const underlineNodes = [];
                                             
                                             while (node = walker.nextNode()) {
-                                                console.log("遍历节点:", node, "样式:", node.style ? node.style.textDecoration : "无");
-                                                if (node.style && node.style.textDecoration && node.style.textDecoration.includes('underline')) {
+                                                console.log("遍历节点:", node, "类名:", node.className);
+                                                if (node.classList && node.classList.contains('underline-fb3b780f')) {
                                                     underlineNodes.push(node);
                                                     console.log("找到带下划线的节点:", node);
                                                 }
                                             }
                                             
-                                            // 移除找到的划线元素
+                                            // 移除找到的划线元素的类名
                                             underlineNodes.forEach(node => {
-                                                console.log("移除划线节点:", node);
-                                                const nodeContents = node.childNodes;
-                                                const nodeParent = node.parentNode;
-                                                
-                                                while (nodeContents.length > 0) {
-                                                    nodeParent.insertBefore(nodeContents[0], node);
-                                                }
-                                                nodeParent.removeChild(node);
-                                                console.log("已移除划线节点");
+                                                console.log("移除划线节点类名:", node);
+                                                node.classList.remove('underline-fb3b780f');
+                                                console.log("已移除划线节点类名");
                                             });
                                         }
                                     }
