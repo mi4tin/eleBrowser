@@ -1302,7 +1302,7 @@
     // 更新搜索计数显示
     function updateSearchCountDisplay() {
         console.log('更新搜索计数显示:', currentResultIndex, '/', searchResultsCount);
-        if (searchResultsCount > 0) {
+        if (searchInput.value.trim()!='') {//searchResultsCount > 0
             searchCountDisplay.textContent = `${currentResultIndex}/${searchResultsCount}`;
             searchCountDisplay.style.opacity = '1';
             // 添加动画效果
@@ -1389,10 +1389,12 @@
         }
     });
     
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            performSearch(true);
-        }
+    searchInput.addEventListener('keyup', (e) => {
+        // if (e.key === 'Enter') {
+        //     performSearch(true);
+        // }
+
+        performSearch(true);
     });
     
     searchPrevBtn.addEventListener('click', () => {
@@ -1416,14 +1418,12 @@
         webview.addEventListener('found-in-page', (event) => {
             console.log('收到搜索结果事件:', event.result);
             if (event.result) {
-                if (event.result.matches) {
-                    searchResultsCount = event.result.matches;
-                    console.log('总匹配数:', searchResultsCount);
-                }
-                if (event.result.activeMatchOrdinal) {
-                    currentResultIndex = event.result.activeMatchOrdinal;
-                    console.log('当前匹配序号:', currentResultIndex);
-                }
+                searchResultsCount = event.result.matches;
+                console.log('总匹配数:', searchResultsCount);
+
+                currentResultIndex = event.result.activeMatchOrdinal;
+                console.log('当前匹配序号:', currentResultIndex);
+                
                 updateSearchCountDisplay();
             }
         });
