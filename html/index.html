@@ -478,9 +478,27 @@
         webviewsContainer.appendChild(wv);
         
         // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return;
-            activateTab(id);
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(id);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(id);
+                clickCount = 0;
+            }
         });
         
         // 关闭标签
@@ -570,9 +588,27 @@
         webviewsContainer.appendChild(wv);
         
         // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return;
-            activateTab(id);
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(id);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(id);
+                clickCount = 0;
+            }
         });
         
         // 关闭标签
@@ -662,9 +698,27 @@
         webviewsContainer.appendChild(wv);
         
         // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return;
-            activateTab(id);
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(id);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(id);
+                clickCount = 0;
+            }
         });
         
         // 关闭标签
@@ -1016,9 +1070,27 @@
         webviewsContainer.appendChild(wv);
 
         // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return; // 关闭按钮单独处理
-            activateTab(id);
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(id);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(id);
+                clickCount = 0;
+            }
         });
 
         // 关闭标签
