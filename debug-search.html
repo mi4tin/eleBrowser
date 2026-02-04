@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索功能调试测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4b8bff;
+            padding-bottom: 10px;
+        }
+        .debug-info {
+            background: #e8f4fd;
+            border: 1px solid #4b8bff;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .highlight {
+            background: yellow;
+            padding: 2px 4px;
+        }
+        .keyword {
+            background: #ffeb3b;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 搜索功能调试测试页面</h1>
+        
+        <div class="debug-info">
+            <h3>调试信息</h3>
+            <p>请按 <span class="keyword">Ctrl+F</span> 打开搜索面板，然后在下方输入框中输入要搜索的关键词。</p>
+            <p>在浏览器开发者工具的控制台中查看调试信息，确认搜索事件是否正常触发。</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>高频词测试</h3>
+            <p>这个词<span class="keyword">搜索</span>在页面中出现了很多次，用来测试搜索功能。</p>
+            <p>我们可以通过<span class="keyword">搜索</span>功能来验证计数是否正确显示。</p>
+            <p>每次提到<span class="keyword">搜索</span>时，都应该能在搜索面板中看到正确的计数。</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>不同词汇测试</h3>
+            <p>这里有一些其他的测试词汇：</p>
+            <ul>
+                <li><span class="keyword">功能</span> - 测试中文词汇搜索</li>
+                <li><span class="keyword">eleBrowser</span> - 测试品牌名称</li>
+                <li><span class="keyword">调试</span> - 验证特殊字符</li>
+                <li><span class="keyword">测试</span> - 常用测试词汇</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h3>长文本测试</h3>
+            <p>这是为了测试搜索功能而准备的长文本内容。在这个段落中，我们会重复使用一些关键词来增加搜索结果的数量。<span class="keyword">搜索</span>功能应该能够准确地找到所有的匹配项，并正确显示当前位置。<span class="keyword">功能</span>测试很重要，因为它可以帮助我们验证<span class="keyword">搜索</span>算法的准确性。通过这种方式，我们可以确保<span class="keyword">eleBrowser</span>的<span class="keyword">搜索</span><span class="keyword">功能</span>达到预期的效果。</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>验证步骤</h3>
+            <ol>
+                <li>按下 <span class="keyword">Ctrl+F</span> 打开搜索面板</li>
+                <li>输入测试关键词（如"搜索"）</li>
+                <li>观察搜索面板右上角是否显示计数（如 1/17）</li>
+                <li>使用导航按钮在结果间移动</li>
+                <li>检查控制台是否有相关调试信息</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h3>预期行为</h3>
+            <ul>
+                <li>搜索面板应该显示现代化的UI设计</li>
+                <li>计数显示应该格式为 "当前序号/总匹配数"</li>
+                <li>导航按钮应该能正确移动到上一个/下一个匹配项</li>
+                <li>ESC键应该能关闭搜索面板</li>
+                <li>控制台应该显示搜索事件的调试信息</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

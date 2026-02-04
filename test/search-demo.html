@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>搜索功能演示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4b8bff;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .highlight-word {
+            background: yellow;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        p {
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 网页内文本搜索功能演示</h1>
+        
+        <div class="section">
+            <h2>功能说明</h2>
+            <p>此页面用于演示和测试网页内文本查找功能。请使用 <span class="highlight-word">Ctrl+F</span> 快捷键打开搜索面板。</p>
+            <p>搜索面板将显示：<span class="highlight-word">当前匹配项/总匹配数</span> 的格式，例如 "1/17"。</p>
+        </div>
+        
+        <div class="section">
+            <h2>测试关键词</h2>
+            <p>以下是建议测试的关键词：</p>
+            <ul>
+                <li><strong>搜索</strong> - 在整个页面中出现多次</li>
+                <li><strong>功能</strong> - 验证中文词语搜索</li>
+                <li><strong>eleBrowser</strong> - 测试品牌名称</li>
+                <li><strong>演示</strong> - 验证特定词汇</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>搜索特性</h2>
+            <p>新版搜索功能具有以下特点：</p>
+            <ol>
+                <li>现代化的UI设计，类似您提供的参考图片</li>
+                <li>清晰的计数显示格式（如 3/25）</li>
+                <li>垂直排列的导航按钮</li>
+                <li>实时更新的搜索结果统计</li>
+                <li>响应式的视觉反馈</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <h2>使用指南</h2>
+            <p>操作步骤：</p>
+            <ol>
+                <li>按下 <span class="highlight-word">Ctrl+F</span> 打开搜索面板</li>
+                <li>在输入框中输入要查找的文本</li>
+                <li>观察右上角显示的匹配计数（如 1/17）</li>
+                <li>使用 ▲ ▼ 按钮在匹配项之间导航</li>
+                <li>按 Esc 键或 × 按钮关闭搜索面板</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <h2>技术实现</h2>
+            <p>搜索功能基于 Electron 的 <span class="highlight-word">findInPage</span> API 实现，支持：</p>
+            <ul>
+                <li>实时文本匹配</li>
+                <li>正向和反向搜索</li>
+                <li>高亮显示匹配项</li>
+                <li>精确的计数统计</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>额外测试内容</h2>
+            <p>为了充分测试搜索功能，这里添加更多包含关键词的内容：</p>
+            <p>搜索功能应该能够在大量文本中快速定位相关内容。无论是搜索、功能还是其他词汇，都应该准确显示匹配位置。</p>
+            <p>eleBrowser 浏览器致力于提供优秀的用户体验，搜索功能是其中重要的一环。</p>
+            <p>通过不断的演示和测试，我们可以验证搜索功能的稳定性和准确性。</p>
+        </div>
+    </div>
+</body>
+</html>

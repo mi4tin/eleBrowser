@@ -497,6 +497,19 @@ function newWindow() {
     
     myWindow.loadFile('html/index.html');
 
+    // 检查是否需要打开测试页面
+    const shouldOpenTestPage = process.argv.includes('--test-search');
+    if (shouldOpenTestPage) {
+        // 延迟一点打开测试页面，确保主页面已加载
+        setTimeout(() => {
+            if (myWindow && !myWindow.isDestroyed()) {
+                const testPagePath = 'file:///' + __dirname.replace(/\\/g, '/') + '/search-demo.html';
+                console.log('打开测试页面:', testPagePath);
+                myWindow.webContents.send('open-url-in-new-tab', testPagePath);
+            }
+        }, 1000);
+    }
+
     // 监听窗口焦点变化
     myWindow.on('focus', () => {
         console.log('窗口获得焦点，注册快捷键');

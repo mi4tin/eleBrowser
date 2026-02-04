@@ -184,58 +184,142 @@
             display: inline-flex;
         }
         
-        /* 搜索面板样式 */
+        /* 搜索面板样式 - 现代化设计 */
         .search-panel {
             position: absolute;
             top: 82px;
             right: 10px;
             z-index: 1000;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: #ffffff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
             display: none;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            animation: slideInRight 0.2s ease-out;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
         
         .search-container {
             display: flex;
             align-items: center;
-            padding: 5px;
-            gap: 5px;
+            gap: 12px;
         }
         
         #search-input {
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
             font-size: 14px;
             width: 200px;
+            outline: none;
+            transition: all 0.2s ease;
+            background: #ffffff;
+            color: #374151;
         }
         
-        .search-container button {
-            padding: 5px 10px;
-            border: 1px solid #ccc;
-            background: #f5f5f5;
-            border-radius: 3px;
+        #search-input::placeholder {
+            color: #9ca3af;
+        }
+        
+        #search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            background: #ffffff;
+        }
+        
+        .search-nav-buttons {
+            display: flex;
+            flex-direction: row;
+            gap: 6px;
+        }
+        
+        .search-nav-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            transition: all 0.2s ease;
+            font-weight: 500;
         }
         
-        .search-container button:hover {
-            background: #e0e0e0;
+        .search-nav-btn:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            color: #374151;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
         
-        .search-count {
-            padding: 0 10px;
+        .search-nav-btn:active {
+            background: #e5e7eb;
+            transform: translateY(0);
+        }
+        
+        .search-nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f9fafb;
+            transform: none;
+        }
+        
+        .search-count-display {
             font-size: 14px;
-            color: #666;
+            color: #6b7280;
             min-width: 60px;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-weight: 500;
+            background: #f3f4f6;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
         }
         
-        #search-close {
-            color: #999;
-            font-weight: bold;
-            padding: 5px 8px;
+        .search-close-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-weight: 400;
+        }
+        
+        .search-close-btn:hover {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #ef4444;
+            transform: scale(1.05);
+        }
+        
+        .search-close-btn:active {
+            background: #fee2e2;
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -261,10 +345,12 @@
 <div id="search-panel" class="search-panel">
     <div class="search-container">
         <input type="text" id="search-input" placeholder="搜索网页内容..." />
-        <button id="search-prev" title="上一个">↑</button>
-        <button id="search-next" title="下一个">↓</button>
-        <span id="search-count" class="search-count"></span>
-        <button id="search-close" title="关闭">×</button>
+        <div class="search-nav-buttons">
+            <button id="search-prev" class="search-nav-btn" title="上一个">▲</button>
+            <button id="search-next" class="search-nav-btn" title="下一个">▼</button>
+        </div>
+        <span id="search-count" class="search-count-display"></span>
+        <button id="search-close" class="search-close-btn" title="关闭">×</button>
     </div>
 </div>
 
@@ -1179,14 +1265,20 @@
     const searchInput = document.getElementById('search-input');
     const searchPrevBtn = document.getElementById('search-prev');
     const searchNextBtn = document.getElementById('search-next');
-    const searchCount = document.getElementById('search-count');
+    const searchCountDisplay = document.getElementById('search-count');
     const searchCloseBtn = document.getElementById('search-close');
     
     // 搜索面板控制函数
     function showSearchPanel() {
+        console.log('显示搜索面板');
         searchPanel.style.display = 'block';
         searchInput.focus();
         searchInput.select();
+        // 重置搜索状态
+        currentSearchTerm = '';
+        searchResultsCount = 0;
+        currentResultIndex = 0;
+        updateSearchCountDisplay();
     }
     
     function hideSearchPanel() {
@@ -1203,15 +1295,44 @@
         currentSearchTerm = '';
         searchResultsCount = 0;
         currentResultIndex = 0;
-        updateSearchCount();
+        updateSearchCountDisplay();
     }
     
     // 更新搜索计数显示
-    function updateSearchCount() {
+    function updateSearchCountDisplay() {
+        console.log('更新搜索计数显示:', currentResultIndex, '/', searchResultsCount);
         if (searchResultsCount > 0) {
-            searchCount.textContent = `${currentResultIndex}/${searchResultsCount}`;
+            searchCountDisplay.textContent = `${currentResultIndex}/${searchResultsCount}`;
+            searchCountDisplay.style.opacity = '1';
+            // 添加动画效果
+            searchCountDisplay.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                searchCountDisplay.style.transform = 'scale(1)';
+            }, 150);
         } else {
-            searchCount.textContent = '';
+            searchCountDisplay.textContent = '';
+            searchCountDisplay.style.opacity = '0.5';
+        }
+        
+        // 更新导航按钮状态
+        const prevBtn = document.getElementById('search-prev');
+        const nextBtn = document.getElementById('search-next');
+        if (prevBtn && nextBtn) {
+            if (searchResultsCount <= 1) {
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                prevBtn.style.cursor = 'not-allowed';
+                nextBtn.style.cursor = 'not-allowed';
+                prevBtn.style.opacity = '0.5';
+                nextBtn.style.opacity = '0.5';
+            } else {
+                prevBtn.disabled = false;
+                nextBtn.disabled = false;
+                prevBtn.style.cursor = 'pointer';
+                nextBtn.style.cursor = 'pointer';
+                prevBtn.style.opacity = '1';
+                nextBtn.style.opacity = '1';
+            }
         }
     }
     
@@ -1230,7 +1351,7 @@
             if (!searchTerm) {
                 clearSearchHighlight();
             }
-                return;
+            return;
         }
         
         // 如果搜索词改变，重新开始搜索
@@ -1289,15 +1410,20 @@
     
     // 为新创建的webview添加事件监听器
     function setupWebviewSearchListener(webview) {
+        console.log('为webview添加搜索监听器:', webview.dataset.id);
+        
         webview.addEventListener('found-in-page', (event) => {
+            console.log('收到搜索结果事件:', event.result);
             if (event.result) {
                 if (event.result.matches) {
                     searchResultsCount = event.result.matches;
+                    console.log('总匹配数:', searchResultsCount);
                 }
                 if (event.result.activeMatchOrdinal) {
                     currentResultIndex = event.result.activeMatchOrdinal;
+                    console.log('当前匹配序号:', currentResultIndex);
                 }
-                updateSearchCount();
+                updateSearchCountDisplay();
             }
         });
         
@@ -1305,8 +1431,21 @@
         webview.addEventListener('did-navigate', () => {
             clearSearchHighlight();
         });
+        
+        // 页面开始加载时也清除搜索高亮
+        webview.addEventListener('did-start-loading', () => {
+            clearSearchHighlight();
+        });
     }
     
+// 为所有现有webview添加搜索监听器
+function initializeSearchListeners() {
+    // 为所有现有的webview添加监听器
+    document.querySelectorAll('webview').forEach(webview => {
+        setupWebviewSearchListener(webview);
+    });
+}
+
 // 修改createTab函数以添加搜索监听器
 (function() {
     const originalCreateTab = window.createTab || createTab;
@@ -1325,6 +1464,12 @@
         return result;
     };
 })();
+
+// 在页面加载完成后初始化搜索监听器
+document.addEventListener('DOMContentLoaded', () => {
+    // 延迟一点执行，确保webview已经创建
+    setTimeout(initializeSearchListeners, 100);
+});
     
     // 键盘快捷键支持
     document.addEventListener('keydown', (e) => {
