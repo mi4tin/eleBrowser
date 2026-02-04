@@ -263,6 +263,129 @@ app.on('web-contents-created', (event, contents) => {
                     }
                 },
                 {
+                    label: '取消划线',
+                    enabled: hasSelection,  // 只有当选中了文本时才启用
+                    click: () => {
+                        // 获取选中的文本
+                        contents.executeJavaScript('window.getSelection().toString()')
+                        .then((selectedText) => {
+                            // 取消划线
+                            contents.executeJavaScript(
+                                `(function() {
+                                    // 获取用户选择的范围
+                                    const selectedTextObj = window.getSelection();
+                                    if (selectedTextObj.rangeCount > 0) {
+                                        console.log("开始取消划线");
+                                        // 检查选中的内容是否在划线元素中
+                                        let currentNode = selectedTextObj.anchorNode;
+                                        let underlineNode = null;
+                                        
+                                        // 向上查找划线元素
+                                        while (currentNode && currentNode !== document.body) {
+                                            console.log("检查节点:", currentNode, "样式:", currentNode.style ? currentNode.style.textDecoration : "无");
+                                            if (currentNode.style && currentNode.style.textDecoration && currentNode.style.textDecoration.includes('underline')) {
+                                                underlineNode = currentNode;
+                                                console.log("找到划线元素:", underlineNode);
+                                                break;
+                                            }
+                                            currentNode = currentNode.parentNode;
+                                        }
+                                        
+                                        // 如果找到划线元素，移除下划线
+                                        if (underlineNode) {
+                                            console.log("找到划线");
+                                            // 保存划线元素的内容
+                                            const contents = underlineNode.childNodes;
+                                            const parent = underlineNode.parentNode;
+                                            
+                                            // 替换划线元素为其内容
+                                            while (contents.length > 0) {
+                                                parent.insertBefore(contents[0], underlineNode);
+                                            }
+                                            parent.removeChild(underlineNode);
+                                            console.log("已移除划线元素");
+                                        } else {
+                                            console.log("未找到划线，尝试查找选中范围内的划线元素");
+                                            // 如果没有找到包含下划线的父元素，检查选中范围内的所有元素
+                                            const range = selectedTextObj.getRangeAt(0);
+                                            const commonAncestor = range.commonAncestorContainer;
+                                            console.log("共同祖先节点:", commonAncestor);
+                                            
+                                            // 查找选中范围内的所有带下划线的元素
+                                            const walker = document.createTreeWalker(
+                                                commonAncestor,
+                                                NodeFilter.SHOW_ELEMENT,
+                                                null,
+                                                false
+                                            );
+                                            
+                                            let node;
+                                            const underlineNodes = [];
+                                            
+                                            while (node = walker.nextNode()) {
+                                                console.log("遍历节点:", node, "样式:", node.style ? node.style.textDecoration : "无");
+                                                if (node.style && node.style.textDecoration && node.style.textDecoration.includes('underline')) {
+                                                    underlineNodes.push(node);
+                                                    console.log("找到带下划线的节点:", node);
+                                                }
+                                            }
+                                            
+                                            // 移除找到的划线元素
+                                            underlineNodes.forEach(node => {
+                                                console.log("移除划线节点:", node);
+                                                const nodeContents = node.childNodes;
+                                                const nodeParent = node.parentNode;
+                                                
+                                                while (nodeContents.length > 0) {
+                                                    nodeParent.insertBefore(nodeContents[0], node);
+                                                }
+                                                nodeParent.removeChild(node);
+                                                console.log("已移除划线节点");
+                                            });
+                                        }
+                                    }
+                                })()`
+                            ).then(() => {
+                                console.log("删除划线")
+                                // 成功取消下划线后，从划线数据中删除对应的记录
+                                const url = contents.getURL();
+                                if (url && selectedText && selectedText.trim()) {
+                                    // 从划线数据中删除
+                                    try {
+                                        let underlineData = {};
+                                        if (fs.existsSync(underlineFilePath)) {
+                                            const data = fs.readFileSync(underlineFilePath, 'utf8');
+                                            underlineData = JSON.parse(data);
+                                        }
+                                        
+                                        if (underlineData[url]) {
+                                            // 查找并删除匹配的划线记录
+                                            underlineData[url] = underlineData[url].filter(item => 
+                                                item.text !== selectedText
+                                            );
+                                            
+                                            // 如果该URL没有划线记录了，删除该URL的条目
+                                            if (underlineData[url].length === 0) {
+                                                delete underlineData[url];
+                                            }
+                                            
+                                            // 保存更新后的数据
+                                            fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
+                                            console.log('已删除划线信息:', url, selectedText);
+                                        }
+                                    } catch (e) {
+                                        console.log('删除划线失败:', e);
+                                    }
+                                }
+                            }).catch((err) => {
+                                console.log('取消下划线失败:', err);
+                            });
+                        }).catch((err) => {
+                            console.log('获取选中文本失败:', err);
+                        });
+                    }
+                },
+                {
                     label: '查看网页源码',
                     click: () => {
                         // 获取页面源码
