@@ -229,6 +229,26 @@ app.on('web-contents-created', (event, contents) => {
                 console.log('元素检查结果:', elementCheckResult);
                 
                 const menu = Menu.buildFromTemplate([
+                    // 在百度中搜索选中文本（仅当有选中文本时启用）
+                    (function() {
+                        const text = params.selectionText ? params.selectionText.trim() : '';
+                        const preview = text && text.length > 30 ? text.slice(0, 30) + '…' : text;
+                        return {
+                            label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
+                            enabled: hasSelection,
+                            click: () => {
+                                try {
+                                    const t = params.selectionText ? params.selectionText.trim() : '';
+                                    if (t && mainWindow && !mainWindow.isDestroyed()) {
+                                        const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
+                                        mainWindow.webContents.send('open-url-in-new-tab', url);
+                                    }
+                                } catch (err) {
+                                    console.error('发送百度搜索消息失败:', err);
+                                }
+                            }
+                        };
+                    })(),
                     {
                         label: '复制',
                         enabled: hasSelection,  // 只有当选中了文本时才启用
@@ -301,6 +321,26 @@ app.on('web-contents-created', (event, contents) => {
                 console.error('执行右键菜单JavaScript时发生错误:', error);
                 // 创建一个简化版的菜单作为后备方案
                 const menu = Menu.buildFromTemplate([
+                    // 在百度中搜索选中文本（后备菜单）
+                    (function() {
+                        const text = params.selectionText ? params.selectionText.trim() : '';
+                        const preview = text && text.length > 30 ? text.slice(0, 30) + '…' : text;
+                        return {
+                            label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
+                            enabled: hasSelection,
+                            click: () => {
+                                try {
+                                    const t = params.selectionText ? params.selectionText.trim() : '';
+                                    if (t && mainWindow && !mainWindow.isDestroyed()) {
+                                        const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
+                                        mainWindow.webContents.send('open-url-in-new-tab', url);
+                                    }
+                                } catch (err) {
+                                    console.error('发送百度搜索消息失败:', err);
+                                }
+                            }
+                        };
+                    })(),
                     {
                         label: '复制',
                         enabled: hasSelection,
