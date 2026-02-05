@@ -58,8 +58,9 @@ if (process.platform === 'win32') {
 function setupProtocolBlocking(contents) {
     console.log('设置协议拦截，webContents ID:', contents.id);
     
-    // 监听控制台消息以调试问题
-    contents.on('console-message', (event, level, message, line, sourceId) => {
+    // 监听控制台消息以调试问题（使用新的 Event 对象格式）
+    contents.on('console-message', (event) => {
+        const { level, message, line, sourceId } = event;
         if (message.includes('xmtls') || message.includes('wasm') || message.includes('QQ')) {
             console.log(`[WebView Console] ${message}`);
         }
