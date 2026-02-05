@@ -13,6 +13,82 @@ const refreshBtn = document.getElementById('nav-refresh');
 let tabIdCounter = 0;
 let currentTabId = null;
 
+// Safe helpers for calling webview methods that require the webview
+// to be attached and dom-ready. These wrappers avoid throwing
+// when the underlying method is not available yet.
+function safeGetURL(wv) {
+    if (!wv) return '';
+    try {
+        if (typeof wv.getURL === 'function') return wv.getURL();
+    } catch (e) {
+        // ignore
+    }
+    return wv.src || '';
+}
+
+function safeGetTitle(wv) {
+    if (!wv) return '';
+    try {
+        if (typeof wv.getTitle === 'function') return wv.getTitle();
+    } catch (e) {
+        // ignore
+    }
+    return '';
+}
+
+function safeCanGoBack(wv) {
+    if (!wv) return false;
+    try {
+        return typeof wv.canGoBack === 'function' && wv.canGoBack();
+    } catch (e) {
+        return false;
+    }
+}
+
+function safeCanGoForward(wv) {
+    if (!wv) return false;
+    try {
+        return typeof wv.canGoForward === 'function' && wv.canGoForward();
+    } catch (e) {
+        return false;
+    }
+}
+
+// Safe wrappers for executeJavaScript / findInPage / stopFindInPage
+function safeExecuteJS(wv, code) {
+    if (!wv) return Promise.resolve();
+    try {
+        if (typeof wv.executeJavaScript === 'function') {
+            return wv.executeJavaScript(code).catch(() => {});
+        }
+    } catch (e) {
+        // ignore
+    }
+    return Promise.resolve();
+}
+
+function safeStopFind(wv, action) {
+    if (!wv) return;
+    try {
+        if (typeof wv.stopFindInPage === 'function') {
+            wv.stopFindInPage(action);
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
+function safeFindInPage(wv, text, options) {
+    if (!wv) return;
+    try {
+        if (typeof wv.findInPage === 'function') {
+            wv.findInPage(text, options);
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 function formatUrl(input) {
     if (!input) return DEFAULT_URL;
     const trimmed = input.trim();
@@ -436,8 +512,8 @@ function updateNavButtons() {
     const wv = currentTabId != null
         ? document.querySelector('webview[data-id="' + currentTabId + '"]')
         : null;
-    const canGoBack = wv && typeof wv.canGoBack === 'function' && wv.canGoBack();
-    const canGoForward = wv && typeof wv.canGoForward === 'function' && wv.canGoForward();
+    const canGoBack = safeCanGoBack(wv);
+    const canGoForward = safeCanGoForward(wv);
     backBtn.disabled = !canGoBack;
     forwardBtn.disabled = !canGoForward;
     refreshBtn.disabled = !wv;
@@ -553,25 +629,25 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
     // 在页面加载前注入 JavaScript 来拦截所有协议链接
     wv.addEventListener('did-start-loading', () => {
         // 在页面开始加载时就注入拦截代码
-        wv.executeJavaScript(`
-            (function() {
-                // 立即拦截所有可能的协议调用方式
-                if (window.location && window.location.href) {
-                    const currentHref = window.location.href;
-                    if (currentHref && !currentHref.startsWith('http://') && !currentHref.startsWith('https://') && !currentHref.startsWith('file://') && currentHref.includes('://')) {
-                        console.log('阻止初始加载的自定义协议:', currentHref);
-                        window.stop();
-                        return;
+            safeExecuteJS(wv, `
+                (function() {
+                    // 立即拦截所有可能的协议调用方式
+                    if (window.location && window.location.href) {
+                        const currentHref = window.location.href;
+                        if (currentHref && !currentHref.startsWith('http://') && !currentHref.startsWith('https://') && !currentHref.startsWith('file://') && currentHref.includes('://')) {
+                            console.log('阻止初始加载的自定义协议:', currentHref);
+                            window.stop();
+                            return;
+                        }
                     }
-                }
-            })();
-        `).catch(() => {});
+                })();
+            `);
     });
     
     // 在页面加载时注入 JavaScript 来拦截所有协议链接
     wv.addEventListener('dom-ready', () => {
         // 注入代码拦截所有链接点击和协议调用
-        wv.executeJavaScript(`
+        safeExecuteJS(wv, `
             (function() {
                 // 拦截所有链接点击
                 document.addEventListener('click', function(e) {
@@ -633,7 +709,7 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
                     originalError.apply(console, args);
                 };
             })();
-        `).catch(err => console.log('注入脚本失败:', err));
+        `);
         
 
     });
@@ -756,25 +832,25 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
 
     const syncAddress = (nextUrl) => {
         if (currentTabId === id) {
-            updateAddressBar(nextUrl || wv.getURL?.() || wv.src);
+            updateAddressBar(nextUrl || safeGetURL(wv));
         }
     };
     wv.addEventListener('did-navigate', (event) => syncAddress(event.url));
     wv.addEventListener('did-navigate-in-page', (event) => syncAddress(event.url));
     wv.addEventListener('did-stop-loading', () => {
-        syncAddress(wv.getURL?.() || wv.src);
+        syncAddress(safeGetURL(wv));
         updateNavButtons();
         
         // 记录历史（仅记录正常网站页面）
-        const currentUrl = wv.getURL?.() || wv.src;
+        const currentUrl = safeGetURL(wv);
         if (currentUrl && !currentUrl.includes('bookmarks.html') && !currentUrl.includes('history.html') && !currentUrl.startsWith('dxbrowser://')) {
-            const pageTitle = wv.getTitle?.() || currentUrl;
+            const pageTitle = safeGetTitle(wv) || currentUrl;
             recordHistory(pageTitle, currentUrl);
         }
         
         // 页面加载完成后，加载并恢复划线信息
         setTimeout(() => {
-            const currentUrl = wv.getURL?.() || wv.src;
+            const currentUrl = safeGetURL(wv);
             if (currentUrl) {
                 // 通过IPC请求加载该URL的划线数据
                 ipcRenderer.invoke('load-underline-data', currentUrl)
@@ -812,7 +888,13 @@ function activateTab(id) {
 
     const activeWv = document.querySelector('webview[data-id="' + id + '"]');
     if (activeWv) {
-        updateAddressBar(activeWv.getURL?.() || activeWv.src);
+        let url;
+        try {
+            url = typeof activeWv.getURL === 'function' ? activeWv.getURL() : activeWv.src;
+        } catch (e) {
+            url = activeWv.src;
+        }
+        updateAddressBar(url);
     }
     updateNavButtons();
 }
@@ -855,14 +937,14 @@ addTabBtn.addEventListener('click', () => {
 
 backBtn.addEventListener('click', () => {
     const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (wv && typeof wv.canGoBack === 'function' && wv.canGoBack()) {
-        wv.goBack();
+    if (safeCanGoBack(wv)) {
+        try { wv.goBack(); } catch (e) { /* ignore */ }
     }
 });
 forwardBtn.addEventListener('click', () => {
     const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (wv && typeof wv.canGoForward === 'function' && wv.canGoForward()) {
-        wv.goForward();
+    if (safeCanGoForward(wv)) {
+        try { wv.goForward(); } catch (e) { /* ignore */ }
     }
 });
 refreshBtn.addEventListener('click', () => {
@@ -1008,9 +1090,7 @@ function hideSearchPanel() {
 // 清除搜索高亮
 function clearSearchHighlight() {
     const wv = getCurrentWebview();
-    if (wv && wv.stopFindInPage) {
-        wv.stopFindInPage('clearSelection');
-    }
+    safeStopFind(wv, 'clearSelection');
     currentSearchTerm = '';
     searchResultsCount = 0;
     currentResultIndex = 0;
@@ -1076,10 +1156,10 @@ function performSearch(forward = true) {
     // 如果搜索词改变，重新开始搜索
     if (searchTerm !== currentSearchTerm) {
         currentSearchTerm = searchTerm;
-        wv.stopFindInPage('clearSelection');
+        safeStopFind(wv, 'clearSelection');
         
         // 开始新的搜索
-        wv.findInPage(searchTerm, {
+        safeFindInPage(wv, searchTerm, {
             findNext: false,
             forward: true,
             matchCase: false,
@@ -1088,13 +1168,14 @@ function performSearch(forward = true) {
         });
     } else {
         // 继续搜索，根据方向前进或后退
-        wv.findInPage(searchTerm, {
+        safeFindInPage(wv, searchTerm, {
             findNext: true,
             forward: forward,
             matchCase: false,
             wordStart: false,
             medialCapitalAsWordStart: false
         });
+        console.log('继续搜索:', searchTerm, '方向:', forward ? '下一个' : '上一个');
     }
 }
 
