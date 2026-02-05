@@ -1224,6 +1224,22 @@ ipcRenderer.on('show-search-panel', () => {
     showSearchPanel();
 });
 
+ipcRenderer.on('show-search-panel-with-text', (event, text) => {
+    try {
+        console.log('收到主进程消息: 打开搜索面板并填充文本', text);
+        if (typeof text === 'string') {
+            searchInput.value = text;
+        } else {
+            searchInput.value = '';
+        }
+        showSearchPanel();
+        // 立即触发一次搜索
+        performSearch(true);
+    } catch (err) {
+        console.error('处理 show-search-panel-with-text 失败:', err);
+    }
+});
+
 ipcRenderer.on('new-tab', () => {
     console.log('收到主进程消息: 新建标签页');
     createTab();

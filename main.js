@@ -239,6 +239,20 @@ app.on('web-contents-created', (event, contents) => {
                         }
                     },
                     {
+                        label: '在页面中搜索选中文本',
+                        enabled: hasSelection,
+                        click: () => {
+                            try {
+                                const text = params.selectionText ? params.selectionText.trim() : '';
+                                if (mainWindow && !mainWindow.isDestroyed()) {
+                                    mainWindow.webContents.send('show-search-panel-with-text', text);
+                                }
+                            } catch (err) {
+                                console.error('发送搜索选中文本消息失败:', err);
+                            }
+                        }
+                    },
+                    {
                         label: elementCheckResult.hasUnderline ? '取消划线' : '添加下划线',
                         enabled: elementCheckResult.hasUnderline || hasSelection,
                         click: () => {
@@ -293,6 +307,20 @@ app.on('web-contents-created', (event, contents) => {
                         accelerator: 'Ctrl+C',
                         click: () => {
                             contents.copy();
+                        }
+                    },
+                    {
+                        label: '在页面中搜索选中文本',
+                        enabled: hasSelection,
+                        click: () => {
+                            try {
+                                const text = params.selectionText ? params.selectionText.trim() : '';
+                                if (mainWindow && !mainWindow.isDestroyed()) {
+                                    mainWindow.webContents.send('show-search-panel-with-text', text);
+                                }
+                            } catch (err) {
+                                console.error('发送搜索选中文本消息失败:', err);
+                            }
                         }
                     },
                     {
