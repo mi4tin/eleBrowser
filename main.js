@@ -189,337 +189,153 @@ app.on('web-contents-created', (event, contents) => {
             // 根据选中的文本决定是否启用复制选项
             const hasSelection = params.selectionText && params.selectionText.trim().length > 0;
             
-            const menu = Menu.buildFromTemplate([
-                {
-                    label: '复制',
-                    enabled: hasSelection,  // 只有当选中了文本时才启用
-                    accelerator: 'Ctrl+C',
-                    click: () => {
-                        // 复制选中的文本到剪贴板
-                        contents.copy();
-                    }
-                },
-                {
-                    label: '添加下划线',
-                    enabled: hasSelection,  // 只有当选中了文本时才启用
-                    click: () => {
-                        // 先获取选中的文本
-                        contents.executeJavaScript('window.getSelection().toString()')
-                        .then((selectedText) => {
-                            // 为选中的文本添加绿色下划线
-                            contents.executeJavaScript(
-                                `(function() {
-                                    // 检查并注入划线样式
-                                    if (!document.getElementById('underline-styles')) {
-                                        const style = document.createElement('style');
-                                        style.id = 'underline-styles';
-                                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
-                                        document.head.appendChild(style);
-                                    }
-                                    
-                                    // 获取用户选择的范围
-                                    const selectedTextObj = window.getSelection();
-                                    if (selectedTextObj.rangeCount > 0) {
-                                        const range = selectedTextObj.getRangeAt(0);
-                                        
-                                        // 创建一个span元素用于添加黄色下划线样式
-                                        const span = document.createElement('span');
-                                        span.className = 'underline-fb3b780f';
-                                        
-                                        // 将选中的内容包装在span中
-                                        try {
-                                            range.surroundContents(span);
-                                        } catch (e) {
-                                            // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
-                                            const contents = range.extractContents();
-                                            span.appendChild(contents);
-                                            range.insertNode(span);
-                                        }
-                                    }
-                                })()`
-                            ).then(() => {
-                                // 成功添加下划线后，记录划线信息
-                                const url = contents.getURL();
-                                if (url && selectedText && selectedText.trim()) {
-                                    // 构造划线信息对象
-                                    const underlineInfo = {
-                                        text: selectedText,
-                                        timestamp: Date.now(),
-                                        url: url
-                                    };
+            // 检查右键点击位置是否有划线元素
+            contents.executeJavaScript(
+                `(function() {
+                    // 获取鼠标位置的元素
+                    const element = document.elementFromPoint(${params.x}, ${params.y});
+                    if (!element) return { hasUnderline: false };
 
-                                    console.log('保存划线数据1:', url, underlineInfo);
-                                    
-                                    // 只使用最可靠的方式保存划线数据
-                                    try {
-                                        saveUnderlineDirect(url, underlineInfo);
-                                        console.log('已保存划线信息:', url, underlineInfo.text);
-                                    } catch (e) {
-                                        console.log('保存划线失败:', e);
-                                    }
-                                }
-                            }).catch((err) => {
-                                console.log('添加下划线失败:', err);
-                            });
-                        }).catch((err) => {
-                            console.log('获取选中文本失败:', err);
-                        });
+                    console.log('右键点击元素:', element.tagName, element.className, element,element.classList);
+                    
+                    // 检查元素本身是否是划线元素
+                    if (element.classList && element.classList.contains('underline-fb3b780f')||
+                    element.querySelector('.underline-fb3b780f') !== null) {
+                        console.log('直接点击了划线元素');
+                        return { hasUnderline: true };
                     }
-                },
-                {
-                    label: '取消划线',
-                    enabled: hasSelection,  // 只有当选中了文本时才启用
-                    click: () => {
-                        // 获取选中的文本
-                        contents.executeJavaScript('window.getSelection().toString()')
-                        .then((selectedText) => {
-                            // 取消划线
-                            contents.executeJavaScript(
-                                `(function() {
-                                    // 检查并注入划线样式（确保样式定义存在，即使在取消划线时）
-                                    if (!document.getElementById('underline-styles')) {
-                                        const style = document.createElement('style');
-                                        style.id = 'underline-styles';
-                                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
-                                        document.head.appendChild(style);
-                                    }
-                                    
-                                    // 获取用户选择的范围
-                                    const selectedTextObj = window.getSelection();
-                                    if (selectedTextObj.rangeCount > 0) {
-                                        console.log("开始取消划线");
-                                        // 检查选中的内容是否在划线元素中
-                                        let currentNode = selectedTextObj.anchorNode;
-                                        let underlineNode = null;
-                                        
-                                        // 向上查找划线元素
-                                        while (currentNode && currentNode !== document.body) {
-                                            console.log("检查节点:", currentNode, "类名:", currentNode.className);
-                                            if (currentNode.classList && currentNode.classList.contains('underline-fb3b780f')) {
-                                                underlineNode = currentNode;
-                                                console.log("找到划线元素:", underlineNode);
-                                                break;
-                                            }
-                                            currentNode = currentNode.parentNode;
-                                        }
-                                        
-                                        // 如果找到划线元素，移除下划线
-                                        if (underlineNode) {
-                                            console.log("找到划线");
-                                            // 移除划线类名
-                                            underlineNode.classList.remove('underline-fb3b780f');
-                                            console.log("已移除划线类名");
-                                        } else {
-                                            console.log("未找到划线，尝试查找选中范围内的划线元素");
-                                            // 如果没有找到包含下划线的父元素，检查选中范围内的所有元素
-                                            const range = selectedTextObj.getRangeAt(0);
-                                            const commonAncestor = range.commonAncestorContainer;
-                                            console.log("共同祖先节点:", commonAncestor);
-                                            
-                                            // 查找选中范围内的所有带下划线的元素
-                                            const walker = document.createTreeWalker(
-                                                commonAncestor,
-                                                NodeFilter.SHOW_ELEMENT,
-                                                null,
-                                                false
-                                            );
-                                            
-                                            let node;
-                                            const underlineNodes = [];
-                                            
-                                            while (node = walker.nextNode()) {
-                                                console.log("遍历节点:", node, "类名:", node.className);
-                                                if (node.classList && node.classList.contains('underline-fb3b780f')) {
-                                                    underlineNodes.push(node);
-                                                    console.log("找到带下划线的节点:", node);
-                                                }
-                                            }
-                                            
-                                            // 移除找到的划线元素的类名
-                                            underlineNodes.forEach(node => {
-                                                console.log("移除划线节点类名:", node);
-                                                node.classList.remove('underline-fb3b780f');
-                                                console.log("已移除划线节点类名");
-                                            });
-                                        }
-                                    }
-                                })()`
-                            ).then(() => {
-                                console.log("删除划线")
-                                // 成功取消下划线后，从划线数据中删除对应的记录
-                                const url = contents.getURL();
-                                if (url && selectedText && selectedText.trim()) {
-                                    // 从划线数据中删除
-                                    try {
-                                        let underlineData = {};
-                                        if (fs.existsSync(underlineFilePath)) {
-                                            const data = fs.readFileSync(underlineFilePath, 'utf8');
-                                            underlineData = JSON.parse(data);
-                                        }
-                                        
-                                        if (underlineData[url]) {
-                                            // 查找并删除匹配的划线记录
-                                            underlineData[url] = underlineData[url].filter(item => 
-                                                item.text !== selectedText
-                                            );
-                                            
-                                            // 如果该URL没有划线记录了，删除该URL的条目
-                                            if (underlineData[url].length === 0) {
-                                                delete underlineData[url];
-                                            }
-                                            
-                                            // 保存更新后的数据
-                                            fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
-                                            console.log('已删除划线信息:', url, selectedText);
-                                        }
-                                    } catch (e) {
-                                        console.log('删除划线失败:', e);
-                                    }
-                                }
-                            }).catch((err) => {
-                                console.log('取消下划线失败:', err);
-                            });
-                        }).catch((err) => {
-                            console.log('获取选中文本失败:', err);
-                        });
+                    
+                    // 检查元素或其祖先是否有下划线类
+                    let current = element.parentElement; // 从父元素开始检查
+                    let foundUnderlineElement = null;
+                    while (current && current !== document.body) {
+                        if (current.classList && current.classList.contains('underline-fb3b780f')) {
+                            foundUnderlineElement = current;
+                            console.log('在祖先元素中找到划线元素:', current.tagName, current.className);
+                            break;
+                        }
+                        current = current.parentElement;
                     }
-                },
-                {
-                    label: '查看网页源码',
-                    click: () => {
-                        // 获取页面源码
-                        contents.executeJavaScript(`
-                            (function() {
-                                try {
-                                    return document.documentElement.outerHTML;
-                                } catch(e) {
-                                    return '<html><body>无法获取源码</body></html>';
-                                }
-                            })()
-                        `).then((html) => {
-                            if (!html) {
-                                html = '<html><body>无法获取源码</body></html>';
+                    
+                    if (foundUnderlineElement) {
+                        return { hasUnderline: true };
+                    }
+                    
+                    // 如果没有找到划线元素，但有选中文本，则可以添加下划线
+                    return { hasUnderline: false };
+                })()`
+            ).then(elementCheckResult => {
+                console.log('元素检查结果:', elementCheckResult);
+                
+                const menu = Menu.buildFromTemplate([
+                    {
+                        label: '复制',
+                        enabled: hasSelection,  // 只有当选中了文本时才启用
+                        accelerator: 'Ctrl+C',
+                        click: () => {
+                            // 复制选中的文本到剪贴板
+                            contents.copy();
+                        }
+                    },
+                    {
+                        label: elementCheckResult.hasUnderline ? '取消划线' : '添加下划线',
+                        enabled: elementCheckResult.hasUnderline || hasSelection,
+                        click: () => {
+                            if (elementCheckResult.hasUnderline) {
+                                // 取消划线逻辑
+                                handleRemoveUnderline(contents);
+                            } else {
+                                // 添加下划线逻辑
+                                handleAddUnderline(contents);
                             }
-                            
-                            // 创建新窗口显示源码
-                            const sourceWindow = new BrowserWindow({
-                                width: 1000,
-                                height: 700,
-                                title: '网页源码 - ' + (contents.getURL() || '未知页面'),
-                                webPreferences: {
-                                    nodeIntegration: false,
-                                    contextIsolation: true
-                                }
-                            });
-                            
-                            // 转义 HTML 以便在文本中显示
-                            const escapedHtml = html
-                                .replace(/&/g, '&amp;')
-                                .replace(/</g, '&lt;')
-                                .replace(/>/g, '&gt;')
-                                .replace(/"/g, '&quot;')
-                                .replace(/'/g, '&#039;');
-                            
-                            // 创建显示源码的 HTML
-                            const sourceHtml = `
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                    <meta charset="UTF-8">
-                                    <title>网页源码</title>
-                                    <style>
-                                        * {
-                                            margin: 0;
-                                            padding: 0;
-                                            box-sizing: border-box;
-                                        }
-                                        body {
-                                            padding: 15px;
-                                            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-                                            font-size: 13px;
-                                            background: #1e1e1e;
-                                            color: #d4d4d4;
-                                            overflow: auto;
-                                            line-height: 1.5;
-                                        }
-                                        pre {
-                                            margin: 0;
-                                            white-space: pre-wrap;
-                                            word-wrap: break-word;
-                                        }
-                                        .header {
-                                            margin-bottom: 10px;
-                                            padding-bottom: 10px;
-                                            border-bottom: 1px solid #444;
-                                        }
-                                        .url {
-                                            color: #569cd6;
-                                            word-break: break-all;
-                                        }
-                                    </style>
-                                </head>
-                                <body>
-                                    <div class="header">
-                                        <div style="color: #858585; font-size: 11px;">页面URL:</div>
-                                        <div class="url">${contents.getURL() || '未知'}</div>
-                                    </div>
-                                    <pre id="source">${escapedHtml}</pre>
-                                </body>
-                                </html>
-                            `;
-                            
-                            sourceWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(sourceHtml));
-                        }).catch((err) => {
-                            console.error('获取源码失败:', err);
-                            // 显示错误提示
-                            const errorWindow = new BrowserWindow({
-                                width: 400,
-                                height: 200,
-                                title: '错误',
-                                webPreferences: {
-                                    nodeIntegration: false,
-                                    contextIsolation: true
-                                }
-                            });
-                            errorWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
-                                <html>
-                                <body style="font-family: Arial; padding: 20px;">
-                                    <h3>无法获取网页源码</h3>
-                                    <p>错误信息: ${err.message || '未知错误'}</p>
-                                </body>
-                                </html>
-                            `));
-                        });
+                        }
+                    },
+                    {
+                        label: '查看网页源码',
+                        click: () => {
+                            // 查看源码逻辑
+                            handleViewSource(contents);
+                        }
+                    },
+                    {
+                        label: '打开开发者工具',
+                        accelerator: 'F12',
+                        click: () => {
+                            contents.openDevTools();
+                        }
+                    },
+                    { type: 'separator' },
+                    {
+                        label: '刷新',
+                        accelerator: 'F5',
+                        click: () => {
+                            contents.reload();
+                        }
+                    },
+                    {
+                        label: '强制刷新',
+                        accelerator: 'Ctrl+F5',
+                        click: () => {
+                            contents.reloadIgnoringCache();
+                        }
                     }
-                },
-                {
-                    label: '打开开发者工具',
-                    accelerator: 'F12',
-                    click: () => {
-                        contents.openDevTools();
+                ]);
+                
+                menu.popup();
+            }).catch(error => {
+                console.error('执行右键菜单JavaScript时发生错误:', error);
+                // 创建一个简化版的菜单作为后备方案
+                const menu = Menu.buildFromTemplate([
+                    {
+                        label: '复制',
+                        enabled: hasSelection,
+                        accelerator: 'Ctrl+C',
+                        click: () => {
+                            contents.copy();
+                        }
+                    },
+                    {
+                        label: '添加下划线',
+                        enabled: hasSelection,
+                        click: () => {
+                            handleAddUnderline(contents);
+                        }
+                    },
+                    {
+                        label: '查看网页源码',
+                        click: () => {
+                            handleViewSource(contents);
+                        }
+                    },
+                    {
+                        label: '打开开发者工具',
+                        accelerator: 'F12',
+                        click: () => {
+                            contents.openDevTools();
+                        }
+                    },
+                    { type: 'separator' },
+                    {
+                        label: '刷新',
+                        accelerator: 'F5',
+                        click: () => {
+                            contents.reload();
+                        }
+                    },
+                    {
+                        label: '强制刷新',
+                        accelerator: 'Ctrl+F5',
+                        click: () => {
+                            contents.reloadIgnoringCache();
+                        }
                     }
-                },
-                { type: 'separator' },
-                {
-                    label: '刷新',
-                    accelerator: 'F5',
-                    click: () => {
-                        contents.reload();
-                    }
-                },
-                {
-                    label: '强制刷新',
-                    accelerator: 'Ctrl+F5',
-                    click: () => {
-                        contents.reloadIgnoringCache();
-                    }
-                }
-            ]);
-            
-            menu.popup();
+                ]);
+                
+                menu.popup();
+            });
         });
     }
-    
+        
     // 特别处理 webview 的 webContents
     contents.on('will-attach-webview', (event, webPreferences, params) => {
         console.log('will-attach-webview, src:', params.src);
@@ -1112,12 +928,27 @@ ipcMain.handle('update-underline-data', async (event, url, underlineArray) => {
 // 处理直接保存划线数据的请求
 const saveUnderlineDirect = async (url, underlineInfo) => {
     try {
+        console.log('开始保存划线数据:', url, underlineInfo);
+        
+        // 确保 userData 目录存在
+        const userDataPath = app.getPath('userData');
+        if (!fs.existsSync(userDataPath)) {
+            fs.mkdirSync(userDataPath, { recursive: true });
+            console.log('创建 userData 目录:', userDataPath);
+        }
+        
         let underlineData = {};
         
         // 检查划线数据文件是否存在
         if (fs.existsSync(underlineFilePath)) {
-            const data = fs.readFileSync(underlineFilePath, 'utf8');
-            underlineData = JSON.parse(data);
+            try {
+                const data = fs.readFileSync(underlineFilePath, 'utf8');
+                underlineData = JSON.parse(data);
+                console.log('读取现有划线数据成功');
+            } catch (readError) {
+                console.error('读取划线数据文件失败:', readError);
+                underlineData = {};
+            }
         }
         
         // 更新特定URL的划线数据
@@ -1134,6 +965,7 @@ const saveUnderlineDirect = async (url, underlineInfo) => {
         console.log('成功保存划线数据:', url, underlineInfo.text);
     } catch (e) {
         console.error('保存划线数据失败:', e);
+        console.error('错误详情:', e.stack);
     }
 };
 
@@ -1267,3 +1099,288 @@ app.on('will-quit', () => {
 app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
 })
+
+// 处理添加下划线的函数
+function handleAddUnderline(contents) {
+    contents.executeJavaScript('window.getSelection().toString()')
+    .then((selectedText) => {
+        // 为选中的文本添加绿色下划线
+        contents.executeJavaScript(
+            `(function() {
+                // 检查并注入划线样式
+                if (!document.getElementById('underline-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'underline-styles';
+                    style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                    document.head.appendChild(style);
+                }
+                
+                // 获取用户选择的范围
+                const selectedTextObj = window.getSelection();
+                if (selectedTextObj.rangeCount > 0) {
+                    const range = selectedTextObj.getRangeAt(0);
+                    
+                    // 创建一个span元素用于添加下划线样式
+                    const span = document.createElement('span');
+                    span.className = 'underline-fb3b780f';
+                    
+                    // 将选中的内容包装在span中
+                    try {
+                        range.surroundContents(span);
+                    } catch (e) {
+                        // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
+                        const contents = range.extractContents();
+                        span.appendChild(contents);
+                        range.insertNode(span);
+                    }
+                }
+            })()`
+        ).then(() => {
+            // 成功添加下划线后，记录划线信息
+            const url = contents.getURL();
+            if (url && selectedText && selectedText.trim()) {
+                // 构造划线信息对象
+                const underlineInfo = {
+                    text: selectedText,
+                    timestamp: Date.now(),
+                    url: url
+                };
+
+                console.log('保存划线数据1:', url, underlineInfo);
+                
+                // 只使用最可靠的方式保存划线数据
+                try {
+                    saveUnderlineDirect(url, underlineInfo);
+                    console.log('已保存划线信息:', url, underlineInfo.text);
+                } catch (e) {
+                    console.log('保存划线失败:', e);
+                }
+            }
+        }).catch((err) => {
+            console.log('添加下划线失败:', err);
+        });
+    }).catch((err) => {
+        console.log('获取选中文本失败:', err);
+    });
+}
+
+// 处理取消下划线的函数
+function handleRemoveUnderline(contents) {
+    contents.executeJavaScript('window.getSelection().toString()')
+    .then((selectedText) => {
+        // 取消划线
+        contents.executeJavaScript(
+            `(function() {
+                // 检查并注入划线样式（确保样式定义存在）
+                if (!document.getElementById('underline-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'underline-styles';
+                    style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                    document.head.appendChild(style);
+                }
+                
+                // 获取用户选择的范围
+                const selectedTextObj = window.getSelection();
+                if (selectedTextObj.rangeCount > 0) {
+                    console.log("开始取消划线");
+                    // 检查选中的内容是否在划线元素中
+                    let currentNode = selectedTextObj.anchorNode;
+                    let underlineNode = null;
+                    
+                    // 向上查找划线元素
+                    while (currentNode && currentNode !== document.body) {
+                        console.log("检查节点:", currentNode, "类名:", currentNode.className);
+                        if (currentNode.classList && currentNode.classList.contains('underline-fb3b780f')) {
+                            underlineNode = currentNode;
+                            console.log("找到划线元素:", underlineNode);
+                            break;
+                        }
+                        currentNode = currentNode.parentNode;
+                    }
+                    
+                    // 如果找到划线元素，移除下划线
+                    if (underlineNode) {
+                        console.log("找到划线");
+                        // 移除划线类名
+                        underlineNode.classList.remove('underline-fb3b780f');
+                        console.log("已移除划线类名");
+                    } else {
+                        console.log("未找到划线，尝试查找选中范围内的划线元素");
+                        // 如果没有找到包含下划线的父元素，检查选中范围内的所有元素
+                        const range = selectedTextObj.getRangeAt(0);
+                        const commonAncestor = range.commonAncestorContainer;
+                        console.log("共同祖先节点:", commonAncestor);
+                        
+                        // 查找选中范围内的所有带下划线的元素
+                        const walker = document.createTreeWalker(
+                            commonAncestor,
+                            NodeFilter.SHOW_ELEMENT,
+                            null,
+                            false
+                        );
+                        
+                        let node;
+                        const underlineNodes = [];
+                        
+                        while (node = walker.nextNode()) {
+                            console.log("遍历节点:", node, "类名:", node.className);
+                            if (node.classList && node.classList.contains('underline-fb3b780f')) {
+                                underlineNodes.push(node);
+                                console.log("找到带下划线的节点:", node);
+                            }
+                        }
+                        
+                        // 移除找到的划线元素的类名
+                        underlineNodes.forEach(node => {
+                            console.log("移除划线节点类名:", node);
+                            node.classList.remove('underline-fb3b780f');
+                            console.log("已移除划线节点类名");
+                        });
+                    }
+                }
+            })()`
+        ).then(() => {
+            console.log("删除划线")
+            // 成功取消下划线后，从划线数据中删除对应的记录
+            const url = contents.getURL();
+            if (url && selectedText && selectedText.trim()) {
+                // 从划线数据中删除
+                try {
+                    let underlineData = {};
+                    if (fs.existsSync(underlineFilePath)) {
+                        const data = fs.readFileSync(underlineFilePath, 'utf8');
+                        underlineData = JSON.parse(data);
+                    }
+                    
+                    if (underlineData[url]) {
+                        // 查找并删除匹配的划线记录
+                        underlineData[url] = underlineData[url].filter(item => 
+                            item.text !== selectedText
+                        );
+                        
+                        // 如果该URL没有划线记录了，删除该URL的条目
+                        if (underlineData[url].length === 0) {
+                            delete underlineData[url];
+                        }
+                        
+                        // 保存更新后的数据
+                        fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
+                        console.log('已删除划线信息:', url, selectedText);
+                    }
+                } catch (e) {
+                    console.log('删除划线失败:', e);
+                }
+            }
+        }).catch((err) => {
+            console.log('取消下划线失败:', err);
+        });
+    }).catch((err) => {
+        console.log('获取选中文本失败:', err);
+    });
+}
+
+// 处理查看网页源码的函数
+function handleViewSource(contents) {
+    contents.executeJavaScript(`
+        (function() {
+            try {
+                return document.documentElement.outerHTML;
+            } catch(e) {
+                return '<html><body>无法获取源码</body></html>';
+            }
+        })()`
+    ).then((html) => {
+        if (!html) {
+            html = '<html><body>无法获取源码</body></html>';
+        }
+        
+        // 创建新窗口显示源码
+        const sourceWindow = new BrowserWindow({
+            width: 1000,
+            height: 700,
+            title: '网页源码 - ' + (contents.getURL() || '未知页面'),
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+        
+        // 转义 HTML 以便在文本中显示
+        const escapedHtml = html
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        
+        // 创建显示源码的 HTML
+        const sourceHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>网页源码</title>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+                    body {
+                        padding: 15px;
+                        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                        font-size: 13px;
+                        background: #1e1e1e;
+                        color: #d4d4d4;
+                        overflow: auto;
+                        line-height: 1.5;
+                    }
+                    pre {
+                        margin: 0;
+                        white-space: pre-wrap;
+                        word-wrap: break-word;
+                    }
+                    .header {
+                        margin-bottom: 10px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #444;
+                    }
+                    .url {
+                        color: #569cd6;
+                        word-break: break-all;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div style="color: #858585; font-size: 11px;">页面URL:</div>
+                    <div class="url">${contents.getURL() || '未知'}</div>
+                </div>
+                <pre id="source">${escapedHtml}</pre>
+            </body>
+            </html>
+        `;
+        
+        sourceWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(sourceHtml));
+    }).catch((err) => {
+        console.error('获取源码失败:', err);
+        // 显示错误提示
+        const errorWindow = new BrowserWindow({
+            width: 400,
+            height: 200,
+            title: '错误',
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+        errorWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+            <html>
+            <body style="font-family: Arial; padding: 20px;">
+                <h3>无法获取网页源码</h3>
+                <p>错误信息: ${err.message || '未知错误'}</p>
+            </body>
+            </html>
+        `));
+    });
+}
