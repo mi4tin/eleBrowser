@@ -212,13 +212,11 @@ class UnderlineManager {
             
             return `
                 <div class="underline-item" data-url="${encodeURIComponent(item.url)}" data-timestamp="${item.timestamp}">
-                    <div class="item-content">
+                    <div class="item-info view-btn">
                         <div class="item-text">${this.escapeHtml(item.text)}</div>
-                        <div class="item-info">
-                            <div class="item-url">${this.escapeHtml(item.url)}</div>
-                            <div class="item-time">${new Date(item.timestamp).toLocaleString()}</div>
-                        </div>
+                        <div class="item-url">${this.escapeHtml(item.url)}</div>
                     </div>
+                    <div class="item-time">${new Date(item.timestamp).toLocaleString()}</div>
                     <div class="item-actions">
                         <button class="action-btn view-btn" title="在原网页查看">查看</button>
                         <button class="action-btn delete-btn" title="删除记录">删除</button>
