@@ -188,7 +188,94 @@ app.on('web-contents-created', (event, contents) => {
         // 添加右键菜单
         contents.on('context-menu', (event, params) => {
             // 根据选中的文本决定是否启用复制选项
-            const hasSelection = params.selectionText && params.selectionText.trim().length > 0;
+            const text = params.selectionText ? params.selectionText.trim() : '';
+            const hasSelection = text.length > 0;
+
+            var selectedMenu=[]//选中文本的菜单项
+            var underlineMenu=[];//划线相关菜单项
+            
+            //基础菜单项
+            var baseMenu=[ {
+                        label: '查看网页源码',
+                        click: () => {
+                            // 查看源码逻辑
+                            handleViewSource(contents);
+                        }
+                    },
+                    {
+                        label: '打开开发者工具',
+                        accelerator: 'F12',
+                        click: () => {
+                            contents.openDevTools();
+                        }
+                    },
+                    { type: 'separator' },
+                    {
+                        label: '刷新',
+                        accelerator: 'F5',
+                        click: () => {
+                            contents.reload();
+                        }
+                    },
+                    {
+                        label: '强制刷新',
+                        accelerator: 'Ctrl+F5',
+                        click: () => {
+                            contents.reloadIgnoringCache();
+                        }
+                    }];
+
+            var preview='';
+            if(hasSelection){
+                underlineMenu=[{
+                        label: '添加下划线',
+                        enabled: hasSelection,
+                        click: () => {
+                            handleAddUnderline(contents);
+                        }
+                    }]
+
+                preview = text && text.length > 30 ? text.slice(0, 30) + '…' : text;
+                selectedMenu=[ {
+                            label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
+                            enabled: hasSelection,
+                            click: () => {
+                                try {
+                                    const t = params.selectionText ? params.selectionText.trim() : '';
+                                    if (t && mainWindow && !mainWindow.isDestroyed()) {
+                                        const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
+                                        mainWindow.webContents.send('open-url-in-new-tab', url);
+                                    }
+                                } catch (err) {
+                                    console.error('发送百度搜索消息失败:', err);
+                                }
+                            }
+                    },
+                    
+                    {
+                        label: '复制',
+                        enabled: hasSelection,  // 只有当选中了文本时才启用
+                        accelerator: 'Ctrl+C',
+                        click: () => {
+                            // 复制选中的文本到剪贴板
+                            contents.copy();
+                        }
+                    },
+                    {
+                        label: '在页面中搜索选中文本',
+                        enabled: hasSelection,
+                        click: () => {
+                            try {
+                                const text = params.selectionText ? params.selectionText.trim() : '';
+                                if (mainWindow && !mainWindow.isDestroyed()) {
+                                    mainWindow.webContents.send('show-search-panel-with-text', text);
+                                }
+                            } catch (err) {
+                                console.error('发送搜索选中文本消息失败:', err);
+                            }
+                        }
+                    }]
+            }
             
             // 检查右键点击位置是否有划线元素
             contents.executeJavaScript(
@@ -227,54 +314,11 @@ app.on('web-contents-created', (event, contents) => {
                 })()`
             ).then(elementCheckResult => {
                 console.log('元素检查结果:', elementCheckResult);
-                
-                const menu = Menu.buildFromTemplate([
-                    // 在百度中搜索选中文本（仅当有选中文本时启用）
-                    (function() {
-                        const text = params.selectionText ? params.selectionText.trim() : '';
-                        const preview = text && text.length > 30 ? text.slice(0, 30) + '…' : text;
-                        return {
-                            label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
-                            enabled: hasSelection,
-                            click: () => {
-                                try {
-                                    const t = params.selectionText ? params.selectionText.trim() : '';
-                                    if (t && mainWindow && !mainWindow.isDestroyed()) {
-                                        const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
-                                        mainWindow.webContents.send('open-url-in-new-tab', url);
-                                    }
-                                } catch (err) {
-                                    console.error('发送百度搜索消息失败:', err);
-                                }
-                            }
-                        };
-                    })(),
-                    {
-                        label: '复制',
-                        enabled: hasSelection,  // 只有当选中了文本时才启用
-                        accelerator: 'Ctrl+C',
-                        click: () => {
-                            // 复制选中的文本到剪贴板
-                            contents.copy();
-                        }
-                    },
-                    {
-                        label: '在页面中搜索选中文本',
-                        enabled: hasSelection,
-                        click: () => {
-                            try {
-                                const text = params.selectionText ? params.selectionText.trim() : '';
-                                if (mainWindow && !mainWindow.isDestroyed()) {
-                                    mainWindow.webContents.send('show-search-panel-with-text', text);
-                                }
-                            } catch (err) {
-                                console.error('发送搜索选中文本消息失败:', err);
-                            }
-                        }
-                    },
-                    {
+
+                if(elementCheckResult.hasUnderline|| hasSelection){
+                    underlineMenu=[ {
                         label: elementCheckResult.hasUnderline ? '取消划线' : '添加下划线',
-                        enabled: elementCheckResult.hasUnderline || hasSelection,
+                        enabled: true,
                         click: () => {
                             if (elementCheckResult.hasUnderline) {
                                 // 取消划线逻辑
@@ -284,36 +328,14 @@ app.on('web-contents-created', (event, contents) => {
                                 handleAddUnderline(contents);
                             }
                         }
-                    },
-                    {
-                        label: '查看网页源码',
-                        click: () => {
-                            // 查看源码逻辑
-                            handleViewSource(contents);
-                        }
-                    },
-                    {
-                        label: '打开开发者工具',
-                        accelerator: 'F12',
-                        click: () => {
-                            contents.openDevTools();
-                        }
-                    },
-                    { type: 'separator' },
-                    {
-                        label: '刷新',
-                        accelerator: 'F5',
-                        click: () => {
-                            contents.reload();
-                        }
-                    },
-                    {
-                        label: '强制刷新',
-                        accelerator: 'Ctrl+F5',
-                        click: () => {
-                            contents.reloadIgnoringCache();
-                        }
-                    }
+                    }]
+                }
+
+                
+                const menu = Menu.buildFromTemplate([
+                   ...selectedMenu,
+                   ...underlineMenu,
+                   ...baseMenu,
                 ]);
                 
                 menu.popup();
@@ -322,82 +344,9 @@ app.on('web-contents-created', (event, contents) => {
                 // 创建一个简化版的菜单作为后备方案
                 const menu = Menu.buildFromTemplate([
                     // 在百度中搜索选中文本（后备菜单）
-                    (function() {
-                        const text = params.selectionText ? params.selectionText.trim() : '';
-                        const preview = text && text.length > 30 ? text.slice(0, 30) + '…' : text;
-                        return {
-                            label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
-                            enabled: hasSelection,
-                            click: () => {
-                                try {
-                                    const t = params.selectionText ? params.selectionText.trim() : '';
-                                    if (t && mainWindow && !mainWindow.isDestroyed()) {
-                                        const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
-                                        mainWindow.webContents.send('open-url-in-new-tab', url);
-                                    }
-                                } catch (err) {
-                                    console.error('发送百度搜索消息失败:', err);
-                                }
-                            }
-                        };
-                    })(),
-                    {
-                        label: '复制',
-                        enabled: hasSelection,
-                        accelerator: 'Ctrl+C',
-                        click: () => {
-                            contents.copy();
-                        }
-                    },
-                    {
-                        label: '在页面中搜索选中文本',
-                        enabled: hasSelection,
-                        click: () => {
-                            try {
-                                const text = params.selectionText ? params.selectionText.trim() : '';
-                                if (mainWindow && !mainWindow.isDestroyed()) {
-                                    mainWindow.webContents.send('show-search-panel-with-text', text);
-                                }
-                            } catch (err) {
-                                console.error('发送搜索选中文本消息失败:', err);
-                            }
-                        }
-                    },
-                    {
-                        label: '添加下划线',
-                        enabled: hasSelection,
-                        click: () => {
-                            handleAddUnderline(contents);
-                        }
-                    },
-                    {
-                        label: '查看网页源码',
-                        click: () => {
-                            handleViewSource(contents);
-                        }
-                    },
-                    {
-                        label: '打开开发者工具',
-                        accelerator: 'F12',
-                        click: () => {
-                            contents.openDevTools();
-                        }
-                    },
-                    { type: 'separator' },
-                    {
-                        label: '刷新',
-                        accelerator: 'F5',
-                        click: () => {
-                            contents.reload();
-                        }
-                    },
-                    {
-                        label: '强制刷新',
-                        accelerator: 'Ctrl+F5',
-                        click: () => {
-                            contents.reloadIgnoringCache();
-                        }
-                    }
+                    ...selectedMenu,
+                    ...underlineMenu,
+                   ...baseMenu
                 ]);
                 
                 menu.popup();
