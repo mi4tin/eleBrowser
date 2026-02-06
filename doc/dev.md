@@ -1,4 +1,6 @@
 ==待实现==
++将webview换成browserview，以解决webview开发者工具不能停靠的问题（搜索使用browserview已证可行见elebrowser2）
+
 +每个标签网站的搜索是独立的
 +文件下载
 +http、socket5代理
