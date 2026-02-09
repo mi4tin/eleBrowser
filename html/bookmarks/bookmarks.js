@@ -543,8 +543,10 @@ function renameFolder(id) {
 function deleteFolder(id) {
     if (id === 'root') return;
     const res = findFolderById(bookmarksTree, id);
+     console.log('删除文件夹11:', res);
     if (!res || !res.parent) return;
     if (confirm('确定要删除该文件夹及其内容吗？')) {
+        console.log('删除文件夹:', res.folder);
         res.parent.children = res.parent.children.filter(child => child.id !== id);
         if (currentFolder.id === id) {
             currentFolder = res.parent;
@@ -728,21 +730,6 @@ function renameFolder(id) {
         res.folder.name = newName.trim();
         renderTree();
         renderContent(currentFolder.id === id ? res.folder : currentFolder);
-    }
-}
-
-// 删除文件夹
-function deleteFolder(id) {
-    if (id === 'root') return;
-    const res = findFolderById(bookmarksTree, id);
-    if (!res || !res.parent) return;
-    if (confirm('确定要删除该文件夹及其内容吗？')) {
-        res.parent.children = res.parent.children.filter(child => child.id !== id);
-        if (currentFolder.id === id) {
-            currentFolder = res.parent;
-        }
-        renderTree();
-        renderContent(currentFolder);
     }
 }
 
