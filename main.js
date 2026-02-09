@@ -275,11 +275,14 @@ app.on('web-contents-created', (event, contents) => {
         }
     });
     
-    // 为所有 网页 添加右键菜单
-    // 检查是否是 网页
+    // 为所有 网页/窗口/BrowserView 添加右键菜单
+    // 检查类型，区分 webview / window / browserView 等
+    const type = (typeof contents.getType === 'function') ? contents.getType() : 'unknown';
     const isWeb = contents.hostWebContents !== undefined;
+    // 对于 webview、浏览器窗口（window）和 BrowserView，都要绑定右键菜单
+    const shouldAttachContextMenu = isWeb || type === 'window' || type === 'browserView';
 
-    console.log('web-contents-created, 是否是 网页:', isWeb)
+    console.log('web-contents-created, 是否是 网页:', isWeb, '类型:', type, '绑定右键菜单:', shouldAttachContextMenu)
     
     // 注册全局事件监听器用于调试
     const handleSaveUnderlineRequest = (url, underlineInfo) => {
@@ -291,7 +294,7 @@ app.on('web-contents-created', (event, contents) => {
     app.removeAllListeners('save-underline-request-debug');
     app.on('save-underline-request-debug', handleSaveUnderlineRequest);
     
-    if (isWeb) {
+    if (shouldAttachContextMenu) {
         // 存储 webview 的 webContents
         const url = contents.getURL();
         if (url) {
@@ -319,8 +322,43 @@ app.on('web-contents-created', (event, contents) => {
                         label: '打开开发者工具',
                         accelerator: 'F12',
                         click: () => {
-                            console.log('打开开发者工具12');
-                            contents.openDevTools();
+                            try {
+                                console.log('打开开发者工具12, webContents id:', contents.id);
+                                // 记录当前 DevTools 状态
+                                const isOpened = typeof contents.isDevToolsOpened === 'function' ? contents.isDevToolsOpened() : false;
+                                console.log('DevTools 已打开:', isOpened);
+
+                                // 尝试聚焦并显示所属窗口（如果存在）
+                                try {
+                                    const win = BrowserWindow.fromWebContents(contents);
+                                    if (win && !win.isDestroyed()) {
+                                        win.show();
+                                        win.focus();
+                                    }
+                                } catch (err) {
+                                    console.log('无法从 webContents 获取窗口或聚焦窗口:', err && err.message);
+                                }
+                                
+                                if (type === 'browserView') {
+                                    contents.openDevTools();
+                                }else{
+                                    contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
+                                }
+                                
+                                console.log('已调用 openDevTools，检查是否成功打开');
+
+                                // 若若干毫秒后仍未打开，记录并再次尝试（用于排查隐藏/被覆盖问题）
+                                setTimeout(() => {
+                                    const openedAfter = typeof contents.isDevToolsOpened === 'function' ? contents.isDevToolsOpened() : false;
+                                    console.log('延迟检查 DevTools 已打开:', openedAfter);
+                                    if (!openedAfter) {
+                                        console.log('DevTools 未显示，尝试再次打开（detach）');
+                                        try { contents.openDevTools({ mode: 'detach' }); } catch (e) { console.error('再次打开 DevTools 失败:', e && e.message); }
+                                    }
+                                }, 300);
+                            } catch (e) {
+                                console.error('打开开发者工具出错:', e && e.message);
+                            }
                         }
                     },
                     { type: 'separator' },
