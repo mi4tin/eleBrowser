@@ -233,7 +233,7 @@ function setupProtocolBlocking(contents) {
 // 存储 webview 的 webContents 映射
 const webviewContentsMap = new Map();
 
-// 拦截所有 webContents 的自定义协议请求（包括 webview）
+// 拦截所有 webContents 的自定义协议请求（包括 WebView、BrowserView、BrowserWindow)
 app.on('web-contents-created', (event, contents) => {
     console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL());
     setupProtocolBlocking(contents);
@@ -275,9 +275,11 @@ app.on('web-contents-created', (event, contents) => {
         }
     });
     
-    // 为所有 webview 添加右键菜单
-    // 检查是否是 webview（通过检查 hostWebContents 是否存在）
-    const isWebview = contents.hostWebContents !== undefined;
+    // 为所有 网页 添加右键菜单
+    // 检查是否是 网页
+    const isWeb = contents.hostWebContents !== undefined;
+
+    console.log('web-contents-created, 是否是 webview:', isWeb)
     
     // 注册全局事件监听器用于调试
     const handleSaveUnderlineRequest = (url, underlineInfo) => {
@@ -289,7 +291,7 @@ app.on('web-contents-created', (event, contents) => {
     app.removeAllListeners('save-underline-request-debug');
     app.on('save-underline-request-debug', handleSaveUnderlineRequest);
     
-    if (isWebview) {
+    if (isWeb) {
         // 存储 webview 的 webContents
         const url = contents.getURL();
         if (url) {
