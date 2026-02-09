@@ -1173,7 +1173,7 @@ ipcMain.on('search-panel-find', (event, payload) => {
         const options = { forward: !!forward, findNext: !!findNext, matchCase: !!matchCase };
 
         const foundListener = (e, result) => {
-            console.log('found-in-page 事件:', result);
+            console.log('found-in-page 事件:', result);//todo:这里没回调
             // 规范化并只发送必要字段，避免在渲染端处理 undefined
             const payload = {
                 matches: (result && typeof result.matches === 'number') ? result.matches : 0,
