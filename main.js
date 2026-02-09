@@ -57,6 +57,49 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     
     // 加载URL
     view.webContents.loadURL(url);
+    // 设置协议拦截和其他安全处理
+    try {
+        setupProtocolBlocking(view.webContents);
+    } catch (e) {
+        console.error('设置 BrowserView 协议拦截失败:', e);
+    }
+
+    // 转发 BrowserView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
+    try {
+        const sendUpdate = (data) => {
+            try {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('browser-view-updated', Object.assign({ tabId }, data));
+                }
+            } catch (err) {
+                console.error('发送 browser-view-updated 失败:', err);
+            }
+        };
+
+        view.webContents.on('did-navigate', (_event, navigationUrl) => {
+            sendUpdate({ url: navigationUrl });
+        });
+
+        view.webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
+            sendUpdate({ url: navigationUrl });
+        });
+
+        view.webContents.on('page-title-updated', (_event, title) => {
+            sendUpdate({ title });
+        });
+
+        view.webContents.on('did-finish-load', () => {
+            try {
+                const curUrl = view.webContents.getURL();
+                const curTitle = view.webContents.getTitle();
+                sendUpdate({ url: curUrl, title: curTitle });
+            } catch (e) {
+                // ignore
+            }
+        });
+    } catch (e) {
+        console.error('注册 BrowserView 事件监听失败:', e);
+    }
     
     console.log(`创建BrowserView，tabId: ${tabId}, URL: ${url}`);
     

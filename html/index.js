@@ -1294,6 +1294,34 @@ ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
     }
 });
 
+// 主进程通知 BrowserView 状态更新（URL / 标题）
+ipcRenderer.on('browser-view-updated', (_event, data) => {
+    try {
+        const tabId = Number(data.tabId);
+        const url = data.url;
+        const title = data.title;
+
+        const tabEl = document.querySelector('.tab[data-id="' + tabId + '"]');
+        if (tabEl && title) {
+            const textEl = tabEl.querySelector('.tab-text');
+            if (textEl) {
+                // 保持与 webview 相同的展示策略（前4个字符 + ...）
+                textEl.textContent = title.length > 4 ? title.substr(0, 4) + '...' : title;
+            }
+        }
+
+        // 如果是当前活动标签，更新地址栏
+        if (currentTabId === tabId && url) {
+            updateAddressBar(url);
+        }
+
+        // 更新导航按钮状态（如果是当前标签）
+        if (currentTabId === tabId) updateNavButtons();
+    } catch (e) {
+        console.error('处理 browser-view-updated 失败:', e);
+    }
+});
+
 // 主进程要求打开书签管理器标签页
 ipcRenderer.on('open-bookmarks-tab', () => {
     console.log("主窗口收到打开书签管理器请求");
