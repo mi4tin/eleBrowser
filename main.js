@@ -317,6 +317,7 @@ app.on('web-contents-created', (event, contents) => {
                         label: '打开开发者工具',
                         accelerator: 'F12',
                         click: () => {
+                            console.log('打开开发者工具12');
                             contents.openDevTools();
                         }
                     },
@@ -691,7 +692,7 @@ function registerAppShortcuts() {
                 key: 'F12',
                 name: '打开开发者工具',
                 action: () => {
-                    console.log('应用内快捷键: 打开开发者工具');
+                    console.log('应用内快捷键: 打开开发者工具11');
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.openDevTools();
                     }
