@@ -1,4 +1,8 @@
-const { app , BrowserWindow, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
+const { app , BrowserWindow, BrowserView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
+
+// BrowserView管理器 - 存储所有BrowserView实例
+const browserViews = new Map(); // Map<tabId, BrowserView>
+let tabIdCounter = 0; // 标签页ID计数器
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -10,6 +14,113 @@ function isCustomProtocol(url) {
         // 如果 URL 解析失败，检查是否以常见协议开头
         return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://');
     }
+}
+
+// BrowserView管理函数
+
+/**
+ * 创建新的BrowserView
+ * @param {BrowserWindow} window - 父窗口
+ * @param {string} url - 要加载的URL
+ * @returns {number} tabId - 新创建的标签页ID
+ */
+function createBrowserView(window, url = 'https://www.baidu.com') {
+    const tabId = ++tabIdCounter;
+    
+    // 创建BrowserView实例
+    const view = new BrowserView({
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            // 禁用外部协议处理，防止系统弹窗
+            disableDialogs: false
+        }
+    });
+    
+    // 存储BrowserView实例
+    browserViews.set(tabId, view);
+    
+    // 设置BrowserView到窗口
+    window.addBrowserView(view);
+    
+    // 设置BrowserView的尺寸和位置
+    const contentBounds = window.getContentBounds();
+    view.setBounds({
+        x: 0,
+        y: 82, // toolbar高度
+        width: contentBounds.width,
+        height: contentBounds.height - 82
+    });
+    
+    // 加载URL
+    view.webContents.loadURL(url);
+    
+    console.log(`创建BrowserView，tabId: ${tabId}, URL: ${url}`);
+    
+    return tabId;
+}
+
+/**
+ * 激活指定的BrowserView
+ * @param {BrowserWindow} window - 父窗口
+ * @param {number} tabId - 要激活的标签页ID
+ */
+function activateBrowserView(window, tabId) {
+    const view = browserViews.get(tabId);
+    if (!view) {
+        console.error(`未找到tabId为${tabId}的BrowserView`);
+        return;
+    }
+    
+    // 隐藏所有BrowserView
+    browserViews.forEach(v => {
+        window.removeBrowserView(v);
+    });
+    
+    // 显示指定的BrowserView
+    window.addBrowserView(view);
+    
+    console.log(`激活BrowserView，tabId: ${tabId}`);
+}
+
+/**
+ * 关闭指定的BrowserView
+ * @param {BrowserWindow} window - 父窗口
+ * @param {number} tabId - 要关闭的标签页ID
+ */
+function closeBrowserView(window, tabId) {
+    const view = browserViews.get(tabId);
+    if (!view) {
+        console.error(`未找到tabId为${tabId}的BrowserView`);
+        return;
+    }
+    
+    // 从窗口移除BrowserView
+    window.removeBrowserView(view);
+    
+    // 销毁BrowserView
+    view.webContents.destroy();
+    
+    // 从存储中删除
+    browserViews.delete(tabId);
+    
+    console.log(`关闭BrowserView，tabId: ${tabId}`);
+}
+
+/**
+ * 调整所有BrowserView的尺寸（当窗口大小改变时调用）
+ * @param {BrowserWindow} window - 父窗口
+ */
+function resizeBrowserViews(window) {
+    const contentBounds = window.getContentBounds();
+    browserViews.forEach(view => {
+        view.setBounds({
+            x: 0,
+            y: 82,
+            width: contentBounds.width,
+            height: contentBounds.height - 82
+        });
+    });
 }
 
 // 处理协议请求，阻止系统弹窗（macOS 和 Windows）
@@ -453,6 +564,11 @@ function newWindow() {
     
     myWindow.loadFile('html/index.html');
 
+    // 监听窗口大小改变，调整BrowserView尺寸
+    myWindow.on('resize', () => {
+        resizeBrowserViews(myWindow);
+    });
+
     // 检查是否需要打开测试页面
     const shouldOpenTestPage = process.argv.includes('--test-search');
     if (shouldOpenTestPage) {
@@ -482,6 +598,9 @@ function newWindow() {
         mainWindow = null;
         // 窗口关闭时注销快捷键
         unregisterAppShortcuts();
+        // 清理所有BrowserView
+        browserViews.clear();
+        tabIdCounter = 0;
     });
     
     // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）
@@ -659,17 +778,121 @@ function openBookmarksWindow() {
 }
 
 
-// IPC 处理器：打开指定标签页的开发者工具
-ipcMain.on('open-devtools-for-webview', (event, tabId) => {
-    // 通过 tabId 找到对应的 webview webContents
-    // 由于 webview 的 webContents 在主进程中，我们需要通过其他方式找到它
-    const allWindows = BrowserWindow.getAllWindows();
-    allWindows.forEach(win => {
-        if (win && !win.isDestroyed()) {
-            // 发送消息到渲染进程，让渲染进程通过 tabId 找到 webview 并打开开发者工具
-            win.webContents.send('open-devtools-for-tab', tabId);
-        }
-    });
+// IPC 处理器：处理BrowserView相关操作
+
+/**
+ * 创建新的BrowserView标签页
+ */
+ipcMain.handle('create-browser-view', (event, url) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new Error('无法获取窗口实例');
+    }
+    return createBrowserView(window, url);
+});
+
+/**
+ * 激活指定的BrowserView标签页
+ */
+ipcMain.handle('activate-browser-view', (event, tabId) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new Error('无法获取窗口实例');
+    }
+    activateBrowserView(window, tabId);
+});
+
+/**
+ * 关闭指定的BrowserView标签页
+ */
+ipcMain.handle('close-browser-view', (event, tabId) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new Error('无法获取窗口实例');
+    }
+    closeBrowserView(window, tabId);
+});
+
+/**
+ * 导航操作：后退
+ */
+ipcMain.handle('browser-view-go-back', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view && view.webContents.canGoBack()) {
+        view.webContents.goBack();
+        return true;
+    }
+    return false;
+});
+
+/**
+ * 导航操作：前进
+ */
+ipcMain.handle('browser-view-go-forward', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view && view.webContents.canGoForward()) {
+        view.webContents.goForward();
+        return true;
+    }
+    return false;
+});
+
+/**
+ * 导航操作：刷新
+ */
+ipcMain.handle('browser-view-reload', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        view.webContents.reload();
+        return true;
+    }
+    return false;
+});
+
+/**
+ * 导航操作：强制刷新
+ */
+ipcMain.handle('browser-view-reload-ignoring-cache', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        view.webContents.reloadIgnoringCache();
+        return true;
+    }
+    return false;
+});
+
+/**
+ * 加载指定URL
+ */
+ipcMain.handle('browser-view-load-url', (event, tabId, url) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        view.webContents.loadURL(url);
+        return true;
+    }
+    return false;
+});
+
+/**
+ * 获取当前URL
+ */
+ipcMain.handle('browser-view-get-url', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        return view.webContents.getURL();
+    }
+    return '';
+});
+
+/**
+ * 获取页面标题
+ */
+ipcMain.handle('browser-view-get-title', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        return view.webContents.getTitle();
+    }
+    return '';
 });
 
 // IPC 处理器：从书签管理窗口打开书签
