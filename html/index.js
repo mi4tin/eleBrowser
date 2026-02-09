@@ -105,29 +105,46 @@ function updateAddressBar(url) {
     addressInput.value = url || '';
 }
 
-function loadAddressForCurrentTab() {
+async function loadAddressForCurrentTab() {
     const inputValue = addressInput.value.trim();
     
     // 检查是否是 dxbrowser://bookmarks/ 协议
     if (inputValue === 'dxbrowser://bookmarks/' || inputValue.startsWith('dxbrowser://bookmarks')) {
-        openBookmarksTab();
+        await openBookmarksTab();
         return;
     }
     
     // 检查是否是 dxbrowser://history/ 协议
     if (inputValue === 'dxbrowser://history/' || inputValue.startsWith('dxbrowser://history')) {
-        openHistoryTab();
+        await openHistoryTab();
         return;
     }
     
     if (currentTabId == null) return;
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (!wv) return;
+    
     const target = formatUrl(inputValue);
-    wv.src = target;
+    
+    try {
+        // 尝试使用 BrowserView 方式加载URL
+        const success = await ipcRenderer.invoke('browser-view-load-url', currentTabId, target);
+        if (!success) {
+            // 如果 BrowserView 方式失败，回退到 webview 方式
+            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+            if (wv) {
+                wv.src = target;
+            }
+        }
+    } catch (error) {
+        console.error('加载URL失败:', error);
+        // 回退到 webview 方式
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv) {
+            wv.src = target;
+        }
+    }
 }
 
-function openBookmarksTab() {
+async function openBookmarksTab() {
     // 检查是否已经有书签管理器标签页
     const existingTab = document.querySelector('.tab[data-bookmarks="true"]');
     if (existingTab) {
@@ -136,6 +153,89 @@ function openBookmarksTab() {
         return;
     }
     
+    try {
+        // 使用主进程的 createBrowserView 创建书签管理器
+        const bookmarksUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html';
+        const tabId = await ipcRenderer.invoke('create-browser-view', bookmarksUrl);
+        console.log('创建书签管理器标签页成功，tabId:', tabId);
+        
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = tabId;
+        tabEl.dataset.bookmarks = 'true';
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '书签管理';
+        tabEl.appendChild(textEl);
+        
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+        
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+        
+        tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+        
+        // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(tabId);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(tabId);
+                clickCount = 0;
+            }
+        });
+        
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tabId);
+        });
+        
+        // 激活新建的标签
+        currentTabId = tabId;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
+        });
+        // 注意：这里不再需要切换webview的active状态，因为使用BrowserView
+        
+        updateAddressBar('dxbrowser://bookmarks/');
+    } catch (error) {
+        console.error('创建书签管理器标签页失败:', error);
+        // 如果IPC调用失败，回退到原来的webview方式
+        openBookmarksTabFallback();
+    }
+}
+
+// 回退到原来的webview创建方式
+function openBookmarksTabFallback() {
     // 创建书签管理器标签页
     const id = ++tabIdCounter;
     
@@ -237,7 +337,7 @@ function openBookmarksTab() {
     updateAddressBar('dxbrowser://bookmarks/');
 }
 
-function openHistoryTab() {
+async function openHistoryTab() {
     // 检查是否已经有历史记录标签页
     const existingTab = document.querySelector('.tab[data-history="true"]');
     if (existingTab) {
@@ -246,6 +346,89 @@ function openHistoryTab() {
         return;
     }
     
+    try {
+        // 使用主进程的 createBrowserView 创建历史记录管理器
+        const historyUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/history/history.html';
+        const tabId = await ipcRenderer.invoke('create-browser-view', historyUrl);
+        console.log('创建历史记录标签页成功，tabId:', tabId);
+        
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = tabId;
+        tabEl.dataset.history = 'true';
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '浏览历史';
+        tabEl.appendChild(textEl);
+        
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+        
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+        
+        tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+        
+        // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(tabId);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(tabId);
+                clickCount = 0;
+            }
+        });
+        
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tabId);
+        });
+        
+        // 激活新建的标签
+        currentTabId = tabId;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
+        });
+        // 注意：这里不再需要切换webview的active状态，因为使用BrowserView
+        
+        updateAddressBar('dxbrowser://history/');
+    } catch (error) {
+        console.error('创建历史记录标签页失败:', error);
+        // 如果IPC调用失败，回退到原来的webview方式
+        openHistoryTabFallback();
+    }
+}
+
+// 回退到原来的webview创建方式
+function openHistoryTabFallback() {
     // 创建历史记录标签页
     const id = ++tabIdCounter;
     
@@ -347,7 +530,7 @@ function openHistoryTab() {
     updateAddressBar('dxbrowser://history/');
 }
 
-function openUnderlineTab() {
+async function openUnderlineTab() {
     // 检查是否已经有划线记录标签页
     const existingTab = document.querySelector('.tab[data-underline="true"]');
     if (existingTab) {
@@ -356,6 +539,89 @@ function openUnderlineTab() {
         return;
     }
     
+    try {
+        // 使用主进程的 createBrowserView 创建划线记录管理器
+        const underlineUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/underline/underline.html';
+        const tabId = await ipcRenderer.invoke('create-browser-view', underlineUrl);
+        console.log('创建划线记录标签页成功，tabId:', tabId);
+        
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = tabId;
+        tabEl.dataset.underline = 'true';
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '划线记录';
+        tabEl.appendChild(textEl);
+        
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+        
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+        
+        tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+        
+        // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(tabId);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(tabId);
+                clickCount = 0;
+            }
+        });
+        
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tabId);
+        });
+        
+        // 激活新建的标签
+        currentTabId = tabId;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
+        });
+        // 注意：这里不再需要切换webview的active状态，因为使用BrowserView
+        
+        updateAddressBar('dxbrowser://underline/');
+    } catch (error) {
+        console.error('创建划线记录标签页失败:', error);
+        // 如果IPC调用失败，回退到原来的webview方式
+        openUnderlineTabFallback();
+    }
+}
+
+// 回退到原来的webview创建方式
+function openUnderlineTabFallback() {
     // 创建划线记录标签页
     const id = ++tabIdCounter;
     
@@ -519,7 +785,86 @@ function updateNavButtons() {
     refreshBtn.disabled = !wv;
 }
 
-function createTab(url = DEFAULT_URL, title = '新标签页') {
+async function createTab(url = DEFAULT_URL, title = '新标签页') {
+    try {
+        // 调用主进程的 createBrowserView 方法
+        const tabId = await ipcRenderer.invoke('create-browser-view', url);
+        console.log('创建BrowserView标签页成功，tabId:', tabId);
+        
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab';
+        tabEl.dataset.id = tabId;
+        
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = title;
+        tabEl.appendChild(textEl);
+        
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            // 临时移除加号按钮
+            addButton.remove();
+        }
+        
+        tabsContainer.appendChild(tabEl);
+        
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+
+        // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+        
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return; // 关闭按钮单独处理
+            
+            clickCount++;
+            
+            if (clickCount === 1) {
+                // 第一次点击，启动计时器
+                clickTimer = setTimeout(() => {
+                    // 单击：激活标签
+                    activateTab(tabId);
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则认为是单击
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(tabId);
+                clickCount = 0;
+            }
+        });
+
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tabId);
+        });
+
+        // 激活新建的标签
+        activateTab(tabId);
+        updateAddressBar(url);
+        updateNavButtons();
+        
+        return tabId;
+    } catch (error) {
+        console.error('创建标签页失败:', error);
+        // 如果IPC调用失败，回退到原来的webview方式
+        return createTabFallback(url, title);
+    }
+}
+
+// 回退到原来的webview创建方式
+function createTabFallback(url = DEFAULT_URL, title = '新标签页') {
     const id = ++tabIdCounter;
     
     // 检查是否是书签管理器
@@ -714,112 +1059,7 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
 
     });
     
-    // 定义恢复划线的函数
-    function restoreUnderline(underlineInfo) {
-        try {
-            // 执行JavaScript来恢复划线
-            wv.executeJavaScript(
-                `(function() {
-                    // 遍历所有文本节点，查找匹配的文本
-                    // 检查并注入划线样式
-                    if (!document.getElementById('underline-styles')) {
-                        const style = document.createElement('style');
-                        style.id = 'underline-styles';
-                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
-                        document.head.appendChild(style);
-                    }
-                    
-                    function highlightText(element, searchText) {
-                        const walker = document.createTreeWalker(
-                            element,
-                            NodeFilter.SHOW_TEXT,
-                            null,
-                            false
-                        );
-                        
-                        const textNodes = [];
-                        let node;
-                        while (node = walker.nextNode()) {
-                            if (node.nodeValue && node.nodeValue.includes(searchText)) {
-                                textNodes.push(node);
-                            }
-                        }
-                        
-                        // 从后往前处理，避免DOM更改影响后续节点位置
-                        for (let i = textNodes.length - 1; i >= 0; i--) {
-                            const textNode = textNodes[i];
-                            const text = textNode.nodeValue;
-                            const startIndex = text.indexOf(searchText);
-                            
-                            if (startIndex !== -1) {
-                                const beforeText = text.substring(0, startIndex);
-                                const matchedText = text.substring(startIndex, startIndex + searchText.length);
-                                const afterText = text.substring(startIndex + searchText.length);
-                                
-                                const span = document.createElement('span');
-                                span.className = 'underline-fb3b780f';
-                                span.textContent = matchedText;
-                                
-                                // 创建新节点
-                                if (beforeText) {
-                                    textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
-                                }
-                                textNode.parentNode.insertBefore(span, textNode);
-                                if (afterText) {
-                                    textNode.nodeValue = afterText;
-                                } else {
-                                    textNode.parentNode.removeChild(textNode);
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 确保DOM完全加载后再应用划线
-                    if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', function() {
-                            highlightText(document.body, "${underlineInfo.text}");
-                        });
-                    } else {
-                        highlightText(document.body, "${underlineInfo.text}");
-                    }
-                })()`
-            ).catch(err => console.log('恢复划线失败:', err));
-        } catch (e) {
-            console.log('恢复划线异常:', e);
-        }
-    }
-    
     webviewsContainer.appendChild(wv);
-
-    // 点击切换标签
-    let clickCount = 0;
-    let clickTimer = null;
-    
-    tabEl.addEventListener('click', (e) => {
-        if (e.target === closeEl) return; // 关闭按钮单独处理
-        
-        clickCount++;
-        
-        if (clickCount === 1) {
-            // 第一次点击，启动计时器
-            clickTimer = setTimeout(() => {
-                // 单击：激活标签
-                activateTab(id);
-                clickCount = 0;
-            }, 300); // 300ms 内没有第二次点击则认为是单击
-        } else if (clickCount === 2) {
-            // 双击：关闭标签
-            clearTimeout(clickTimer);
-            closeTab(id);
-            clickCount = 0;
-        }
-    });
-
-    // 关闭标签
-    closeEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeTab(id);
-    });
 
     // webview 加载完成后尝试更新标题
     wv.addEventListener('page-title-updated', (event) => {
@@ -867,13 +1107,10 @@ function createTab(url = DEFAULT_URL, title = '新标签页') {
         }, 500); // 延迟0.5秒执行，确保页面内容已加载
     });
 
-    // 激活新建的标签
-    activateTab(id);
-    syncAddress(url);
-    updateNavButtons();
+    return id;
 }
 
-function activateTab(id) {
+async function activateTab(id) {
     currentTabId = id;
 
     // 切换 tab 样式
@@ -881,25 +1118,32 @@ function activateTab(id) {
         tab.classList.toggle('active', Number(tab.dataset.id) === id);
     });
 
-    // 切换 webview 显示
-    document.querySelectorAll('webview').forEach(wv => {
-        wv.classList.toggle('active', Number(wv.dataset.id) === id);
-    });
-
-    const activeWv = document.querySelector('webview[data-id="' + id + '"]');
-    if (activeWv) {
-        let url;
-        try {
-            url = typeof activeWv.getURL === 'function' ? activeWv.getURL() : activeWv.src;
-        } catch (e) {
-            url = activeWv.src;
-        }
+    // 通知主进程激活对应的 BrowserView
+    try {
+        await ipcRenderer.invoke('activate-browser-view', id);
+        
+        // 获取当前标签页的URL并更新地址栏
+        const url = await ipcRenderer.invoke('browser-view-get-url', id);
         updateAddressBar(url);
+    } catch (error) {
+        console.error('激活标签页失败:', error);
+        // 如果IPC调用失败，尝试使用webview方式
+        const activeWv = document.querySelector('webview[data-id="' + id + '"]');
+        if (activeWv) {
+            let url;
+            try {
+                url = typeof activeWv.getURL === 'function' ? activeWv.getURL() : activeWv.src;
+            } catch (e) {
+                url = activeWv.src;
+            }
+            updateAddressBar(url);
+        }
     }
+    
     updateNavButtons();
 }
 
-function closeTab(id) {
+async function closeTab(id) {
     const tabEl = document.querySelector('.tab[data-id="' + id + '"]');
     const wv = document.querySelector('webview[data-id="' + id + '"]');
         
@@ -908,6 +1152,15 @@ function closeTab(id) {
     if (addButton) {
         // 临时移除加号按钮
         addButton.remove();
+    }
+
+    // 通知主进程关闭对应的 BrowserView
+    try {
+        await ipcRenderer.invoke('close-browser-view', id);
+        console.log('成功关闭BrowserView标签页:', id);
+    } catch (error) {
+        console.error('关闭BrowserView标签页失败:', error);
+        // 如果IPC调用失败，仍然移除DOM元素
     }
 
     if (tabEl) tabEl.remove();
@@ -923,7 +1176,7 @@ function closeTab(id) {
         const remainingTabs = document.querySelectorAll('.tab');
         if (remainingTabs.length > 0) {
             const lastTab = remainingTabs[remainingTabs.length - 1];
-            activateTab(Number(lastTab.dataset.id));
+            await activateTab(Number(lastTab.dataset.id));
         } else {
             currentTabId = null;
         }
@@ -935,22 +1188,72 @@ addTabBtn.addEventListener('click', () => {
     createTab();
 });
 
-backBtn.addEventListener('click', () => {
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (safeCanGoBack(wv)) {
-        try { wv.goBack(); } catch (e) { /* ignore */ }
+backBtn.addEventListener('click', async () => {
+    if (currentTabId == null) return;
+    
+    try {
+        // 尝试使用 BrowserView 方式
+        const success = await ipcRenderer.invoke('browser-view-go-back', currentTabId);
+        if (!success) {
+            // 如果 BrowserView 方式失败，回退到 webview 方式
+            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+            if (safeCanGoBack(wv)) {
+                try { wv.goBack(); } catch (e) { /* ignore */ }
+            }
+        }
+    } catch (error) {
+        console.error('后退操作失败:', error);
+        // 回退到 webview 方式
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (safeCanGoBack(wv)) {
+            try { wv.goBack(); } catch (e) { /* ignore */ }
+        }
     }
 });
-forwardBtn.addEventListener('click', () => {
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (safeCanGoForward(wv)) {
-        try { wv.goForward(); } catch (e) { /* ignore */ }
+
+forwardBtn.addEventListener('click', async () => {
+    if (currentTabId == null) return;
+    
+    try {
+        // 尝试使用 BrowserView 方式
+        const success = await ipcRenderer.invoke('browser-view-go-forward', currentTabId);
+        if (!success) {
+            // 如果 BrowserView 方式失败，回退到 webview 方式
+            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+            if (safeCanGoForward(wv)) {
+                try { wv.goForward(); } catch (e) { /* ignore */ }
+            }
+        }
+    } catch (error) {
+        console.error('前进操作失败:', error);
+        // 回退到 webview 方式
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (safeCanGoForward(wv)) {
+            try { wv.goForward(); } catch (e) { /* ignore */ }
+        }
     }
 });
-refreshBtn.addEventListener('click', () => {
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (wv && typeof wv.reload === 'function') {
-        wv.reload();
+
+refreshBtn.addEventListener('click', async () => {
+    if (currentTabId == null) return;
+    
+    try {
+        // 尝试使用 BrowserView 方式
+        const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
+        if (!success) {
+            // 如果 BrowserView 方式失败，回退到 webview 方式
+            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+            if (wv && typeof wv.reload === 'function') {
+                wv.reload();
+            }
+        }
+    } catch (error) {
+        console.error('刷新操作失败:', error);
+        // 回退到 webview 方式
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv && typeof wv.reload === 'function') {
+            wv.reload();
+        }
     }
 });
 
