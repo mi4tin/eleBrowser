@@ -1,4 +1,5 @@
 const { app , BrowserWindow, BrowserView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
+const path = require('path');
 
 // BrowserView管理器 - 存储所有BrowserView实例
 const browserViews = new Map(); // Map<tabId, BrowserView>
@@ -32,6 +33,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            // 指定 preload 脚本以暴露受限的 ipc API
+            preload: path.join(__dirname, 'preload-browserview.js'),
             // 禁用外部协议处理，防止系统弹窗
             disableDialogs: false
         }
@@ -991,7 +994,6 @@ ipcMain.on('open-url-in-new-tab', (event, url) => {
 });
 
 // 书签数据文件路径
-const path = require('path');
 const fs = require('fs');
 const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
 

@@ -1,24 +1,34 @@
-// 安全地获取 electron API
+// 安全地获取 electron API（优先使用 preload 暴露的 window.electronAPI）
 let ipcRenderer;
-try {
-    const electron = require('electron');
-    ipcRenderer = electron.ipcRenderer;
-} catch (e) {
-    console.error('无法加载 electron 模块:', e);
-    ipcRenderer = {
-        send: function(channel, data) {
-            console.log('IPC send (模拟):', channel, data);
-        },
-        once: function(channel, listener) {
-            // 在非 Electron 环境下，模拟一次性回复：
-            // 当加载书签时返回 null（将使用默认书签数据）
-            if (channel === 'load-bookmarks-reply') {
-                setTimeout(() => listener(null, null), 0);
-            } else {
-                setTimeout(() => listener(null), 0);
+if (typeof window !== 'undefined' && window.electronAPI) {
+    ipcRenderer = window.electronAPI;
+} else {
+    try {
+        const electron = require('electron');
+        ipcRenderer = electron.ipcRenderer;
+    } catch (e) {
+        console.error('无法加载 electron 模块或未提供 preload:', e);
+        ipcRenderer = {
+            send: function(channel, data) {
+                console.log('IPC send (模拟):', channel, data);
+            },
+            once: function(channel, listener) {
+                if (channel === 'load-bookmarks-reply') {
+                    setTimeout(() => listener(null, null), 0);
+                } else {
+                    setTimeout(() => listener(null), 0);
+                }
+            },
+            invoke: function(channel, ...args) {
+                console.log('IPC invoke (模拟):', channel, args);
+                return Promise.resolve(null);
+            },
+            on: function(channel, listener) {
+                console.log('IPC on (模拟):', channel);
+                return () => {};
             }
-        }
-    };
+        };
+    }
 }
 
 // 书签数据结构 - 支持嵌套文件夹
@@ -136,6 +146,7 @@ function loadBookmarks() {
 
 // 保存书签数据到本地文件
 function saveBookmarks() {
+    console.log('保存书签数据:', bookmarksTree);
     ipcRenderer.send('save-bookmarks', bookmarksTree);
 }
 
