@@ -157,7 +157,8 @@ async function openBookmarksTab() {
         // 使用主进程的 createBrowserView 创建书签管理器
         const bookmarksUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', bookmarksUrl);
-        console.log('创建书签管理器标签页成功，tabId:', tabId);
+        // console.log('创建书签管理器标签页成功，tabId:', tabId);
+        console.trace('创建书签管理器标签页成功，tabId:', tabId);
         
         // 创建 tab 按钮
         const tabEl = document.createElement('div');
@@ -1282,20 +1283,6 @@ goBtn.addEventListener('click', () => {
     loadAddressForCurrentTab();
 });
 
-// 监听主进程菜单：新建标签
-ipcRenderer.on('new-tab', () => {
-    createTab();
-});
-
-// 监听主进程菜单：刷新当前标签
-ipcRenderer.on('refresh-tab', () => {
-    if (currentTabId == null) return;
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (wv) {
-        wv.reload();
-    }
-});
-
 // 主进程要求在新标签中打开链接
 ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
     console.log("主窗口收到打开URL请求:", url);
@@ -1311,18 +1298,6 @@ ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
 ipcRenderer.on('open-bookmarks-tab', () => {
     console.log("主窗口收到打开书签管理器请求");
     openBookmarksTab();
-});
-
-// 主进程要求打开历史记录标签页
-ipcRenderer.on('open-history-tab', () => {
-    console.log("主窗口收到打开历史记录请求");
-    openHistoryTab();
-});
-
-// 主进程要求打开划线记录标签页
-ipcRenderer.on('open-underline-tab', () => {
-    console.log("主窗口收到打开划线记录请求");
-    openUnderlineTab();
 });
 
 // 主进程要求打开指定标签页的开发者工具
@@ -1646,11 +1621,6 @@ ipcRenderer.on('force-refresh-tab', () => {
     if (wv) {
         wv.reloadIgnoringCache();
     }
-});
-
-ipcRenderer.on('open-bookmarks-tab', () => {
-    console.log('收到主进程消息: 打开书签标签页');
-    openBookmarksTab();
 });
 
 ipcRenderer.on('open-history-tab', () => {

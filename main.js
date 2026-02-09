@@ -800,6 +800,7 @@ function unregisterAppShortcuts() {
 function openBookmarksWindow() {
     // 在主窗口的标签页中打开书签管理器
     if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('openBookmarksWindow发送打开书签管理器消息到主窗口');
         mainWindow.webContents.send('open-bookmarks-tab');
         // 如果主窗口最小化，则恢复并聚焦
         if (mainWindow.isMinimized()) {
@@ -807,6 +808,7 @@ function openBookmarksWindow() {
         }
         mainWindow.focus();
     } else {
+        console.log('openBookmarksWindow主窗口不存在，创建新窗口');
         // 如果主窗口不存在，创建一个新窗口
         newWindow();
         // 等待窗口加载完成后再打开书签管理器

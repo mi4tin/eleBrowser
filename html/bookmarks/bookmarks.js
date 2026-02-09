@@ -8,6 +8,15 @@ try {
     ipcRenderer = {
         send: function(channel, data) {
             console.log('IPC send (模拟):', channel, data);
+        },
+        once: function(channel, listener) {
+            // 在非 Electron 环境下，模拟一次性回复：
+            // 当加载书签时返回 null（将使用默认书签数据）
+            if (channel === 'load-bookmarks-reply') {
+                setTimeout(() => listener(null, null), 0);
+            } else {
+                setTimeout(() => listener(null), 0);
+            }
         }
     };
 }
