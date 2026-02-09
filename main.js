@@ -197,6 +197,7 @@ function setupProtocolBlocking(contents) {
                 console.log('✓ 阻止打开自定义协议窗口:', url);
                 return { action: 'deny' };
             }
+            console.log('新窗口 URL:', url);
             // 对于普通 http/https 链接，阻止新窗口并让渲染进程新建标签
             if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
                 try {
