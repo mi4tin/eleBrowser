@@ -1252,6 +1252,7 @@ function initializeSearchListeners() {
     
     // 重新定义createTab函数
     window.createTab = function(url = DEFAULT_URL, title = '新标签页') {
+        console.log('创建标签页:', url, title);
         // 调用原始函数创建标签页
         const result = originalCreateTab.apply(this, arguments);
         

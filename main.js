@@ -1625,21 +1625,3 @@ function handleViewSource(contents) {
         `));
     });
 }
-
-
-// 应用准备就绪后创建窗口
-app.whenReady().then(() => {
-  newWindow();
-  
-  // 创建第一个标签页
-  createBrowserView('https://www.baidu.com');
-  
-  // 设置窗口大小监听器
-  setupWindowResizeListener();
-
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      newWindow();
-    }
-  });
-});
