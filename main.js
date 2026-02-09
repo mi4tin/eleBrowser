@@ -235,7 +235,7 @@ const webviewContentsMap = new Map();
 
 // 拦截所有 webContents 的自定义协议请求（包括 WebView、BrowserView、BrowserWindow)
 app.on('web-contents-created', (event, contents) => {
-    console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL());
+    console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL(),"Type:", contents.getType());
     setupProtocolBlocking(contents);
     
     // 修改 CSP 以允许加载本地 wasm 文件等资源
@@ -279,7 +279,7 @@ app.on('web-contents-created', (event, contents) => {
     // 检查是否是 网页
     const isWeb = contents.hostWebContents !== undefined;
 
-    console.log('web-contents-created, 是否是 webview:', isWeb)
+    console.log('web-contents-created, 是否是 网页:', isWeb)
     
     // 注册全局事件监听器用于调试
     const handleSaveUnderlineRequest = (url, underlineInfo) => {
