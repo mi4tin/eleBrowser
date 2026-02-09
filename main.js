@@ -236,7 +236,7 @@ function createSearchPanel(window) {
 
     // 初始位置与尺寸
     const contentBounds = window.getContentBounds();
-    const panelWidth = 360;
+    const panelWidth = 488;
     const panelHeight = 44;
     const padding = 12;
     panel.setBounds({
@@ -250,6 +250,15 @@ function createSearchPanel(window) {
     // 加载本地搜索面板页面
     const panelUrl = 'file://' + path.join(__dirname, 'html', 'search-panel.html').replace(/\\/g, '/');
     panel.webContents.loadURL(panelUrl).catch(err => console.error('加载搜索面板失败:', err));
+
+    // 确保面板缩放为 1，避免系统 DPI / 缩放引起的样式错乱
+    panel.webContents.on('did-finish-load', () => {
+        try {
+            panel.webContents.setZoomFactor(1);
+        } catch (e) {
+            console.error('设置搜索面板缩放失败:', e);
+        }
+    });
 
     // 当搜索面板关闭/销毁时清理引用
     panel.webContents.on('destroyed', () => {
