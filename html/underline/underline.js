@@ -53,16 +53,20 @@ class UnderlineManager {
     // 异步加载划线记录（从主进程）
     async loadUnderlinesAsync() {
         try {
-            // 尝试从主进程加载划线记录
-            if (window.require) {
+            // 尝试从主进程加载划线记录，优先使用 preload 暴露的 window.electronAPI
+            let ipcRenderer;
+            if (typeof window !== 'undefined' && window.electronAPI) {
+                ipcRenderer = window.electronAPI;
+            } else {
+                try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+            }
+
+            if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
                 try {
-                    // 使用IPC异步请求获取所有划线数据
-                    const { ipcRenderer } = require('electron');
                     const underlineData = await ipcRenderer.invoke('get-all-underlines');
-                    
                     if (typeof underlineData === 'object' && underlineData !== null) {
                         this.underlineData = underlineData;
-                        
+
                         // 将嵌套结构扁平化为数组
                         this.allUnderlines = [];
                         for (const [url, records] of Object.entries(underlineData)) {
@@ -75,7 +79,7 @@ class UnderlineManager {
                                 });
                             }
                         }
-                        
+
                         // 按时间戳倒序排列（最新的在前）
                         this.allUnderlines.sort((a, b) => b.timestamp - a.timestamp);
                     } else {
@@ -100,12 +104,15 @@ class UnderlineManager {
     // 清空所有划线记录
     async clearAllUnderlines() {
         try {
-            if (window.require) {
-                const { ipcRenderer } = require('electron');
+            let ipcRenderer;
+            if (typeof window !== 'undefined' && window.electronAPI) {
+                ipcRenderer = window.electronAPI;
+            } else {
+                try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+            }
+            if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
                 // 清空主进程中的划线数据
                 await ipcRenderer.invoke('update-underline-data', '', []);
-                
-                // 重新加载数据
                 this.underlineData = {};
                 this.allUnderlines = [];
             } else {
@@ -121,25 +128,29 @@ class UnderlineManager {
     // 删除单个划线记录
     async deleteUnderline(url, timestamp) {
         try {
-            if (window.require) {
-                const { ipcRenderer } = require('electron');
-                
+            let ipcRenderer;
+            if (typeof window !== 'undefined' && window.electronAPI) {
+                ipcRenderer = window.electronAPI;
+            } else {
+                try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+            }
+            if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
                 // 获取当前URL的所有划线记录
                 let urlRecords = this.underlineData[url] || [];
-                
+
                 // 根据时间戳移除指定的记录
                 urlRecords = urlRecords.filter(record => record.timestamp !== timestamp);
-                
+
                 // 更新主进程中的数据
                 await ipcRenderer.invoke('update-underline-data', url, urlRecords);
-                
+
                 // 更新本地数据
                 if (urlRecords.length === 0) {
                     delete this.underlineData[url];
                 } else {
                     this.underlineData[url] = urlRecords;
                 }
-                
+
                 // 重新加载数据
                 this.loadUnderlinesAsync();
             }
@@ -245,11 +256,15 @@ class UnderlineManager {
                 
                 if (url) {
                     // 通知父窗口打开链接
-                    if (window.require) {
-                        const { ipcRenderer } = require('electron');
+                    let ipcRenderer;
+                    if (typeof window !== 'undefined' && window.electronAPI) {
+                        ipcRenderer = window.electronAPI;
+                    } else {
+                        try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+                    }
+                    if (ipcRenderer && typeof ipcRenderer.send === 'function') {
                         ipcRenderer.send('open-bookmark', url);
                     } else {
-                        // 如果不是Electron环境，直接在当前窗口打开
                         window.open(url, '_blank');
                     }
                 }

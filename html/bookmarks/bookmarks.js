@@ -517,17 +517,6 @@ function hideContextMenu() {
     }
 }
 
-function findFolderById(folder, id, parent = null) {
-    if (folder.id === id) return { folder, parent };
-    if (folder.children) {
-        for (const child of folder.children) {
-            const res = findFolderById(child, id, folder);
-            if (res) return res;
-        }
-    }
-    return null;
-}
-
 function renameFolder(id) {
     const res = findFolderById(bookmarksTree, id);
     if (!res) return;
@@ -719,18 +708,6 @@ function findFolderById(folder, id, parent = null) {
         }
     }
     return null;
-}
-
-// 重命名文件夹
-function renameFolder(id) {
-    const res = findFolderById(bookmarksTree, id);
-    if (!res) return;
-    const newName = prompt('请输入新的文件夹名称', res.folder.name);
-    if (newName && newName.trim()) {
-        res.folder.name = newName.trim();
-        renderTree();
-        renderContent(currentFolder.id === id ? res.folder : currentFolder);
-    }
 }
 
 // 转义 HTML

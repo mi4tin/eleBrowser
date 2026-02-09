@@ -51,25 +51,28 @@ class HistoryManager {
     // 异步加载历史记录（从主进程或本地存储）
     async loadHistoryAsync() {
         try {
-            // 尝试从主进程加载历史记录
-            if (window.require) {
+            // 尝试从主进程加载历史记录，优先使用 preload 暴露的 window.electronAPI
+            let ipcRenderer;
+            if (typeof window !== 'undefined' && window.electronAPI) {
+                ipcRenderer = window.electronAPI;
+            } else {
+                try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+            }
+
+            if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
                 try {
-                    // 使用IPC异步请求获取历史记录数据
-                    const { ipcRenderer } = require('electron');
                     const historyData = await ipcRenderer.invoke('get-history');
                     if (Array.isArray(historyData)) {
                         this.historyData = historyData;
                     } else {
-                        // 如果主进程没有返回有效数据，从localStorage加载
                         this.historyData = this.loadHistoryFromLocalStorage();
                     }
                 } catch (fileErr) {
                     console.warn('从主进程获取历史记录失败:', fileErr);
-                    // 回退到localStorage
                     this.historyData = this.loadHistoryFromLocalStorage();
                 }
             } else {
-                // 非Electron环境，从localStorage加载
+                // 回退到localStorage
                 this.historyData = this.loadHistoryFromLocalStorage();
             }
         } catch (e) {
@@ -137,13 +140,14 @@ class HistoryManager {
         this.saveHistory();
         
         // 如果在Electron环境中，也要通知主进程同步删除
-        if (window.require) {
-            try {
-                const { ipcRenderer } = require('electron');
-                ipcRenderer.invoke('remove-history-item', id);
-            } catch (e) {
-                console.error('通知主进程删除历史记录失败:', e);
-            }
+        let ipcRenderer;
+        if (typeof window !== 'undefined' && window.electronAPI) {
+            ipcRenderer = window.electronAPI;
+        } else {
+            try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+        }
+        if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
+            ipcRenderer.invoke('remove-history-item', id).catch(err => console.error('通知主进程删除历史记录失败:', err));
         }
     }
     
@@ -153,9 +157,14 @@ class HistoryManager {
         this.saveHistory();
         
         // 如果在Electron环境中，也要清空主进程的记录
-        if (window.require) {
+        let ipcRenderer;
+        if (typeof window !== 'undefined' && window.electronAPI) {
+            ipcRenderer = window.electronAPI;
+        } else {
+            try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+        }
+        if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
             try {
-                const { ipcRenderer } = require('electron');
                 await ipcRenderer.invoke('clear-history');
             } catch (e) {
                 console.error('清空主进程历史记录失败:', e);
@@ -255,13 +264,16 @@ class HistoryManager {
                 
                 if (historyItem) {
                     // 通知父窗口打开链接
-                    if (window.require) {
-                        console.log('Opening link...1',historyItem.url);
-                        const { ipcRenderer } = require('electron');
+                    // 优先使用 preload 暴露的 API
+                    let ipcRenderer;
+                    if (typeof window !== 'undefined' && window.electronAPI) {
+                        ipcRenderer = window.electronAPI;
+                    } else {
+                        try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = null; }
+                    }
+                    if (ipcRenderer && typeof ipcRenderer.send === 'function') {
                         ipcRenderer.send('open-url-in-new-tab', historyItem.url);
                     } else {
-                        console.log('Opening link...3');
-                        // 如果不是Electron环境，直接在当前窗口打开
                         window.open(historyItem.url, '_blank');
                     }
                 }
