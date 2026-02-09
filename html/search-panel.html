@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+<style>
+  body { margin:0; font-family: Arial, Helvetica, sans-serif; }
+  .panel { display:flex; align-items:center; gap:6px; padding:6px; background:rgba(255,255,255,0.95); border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+  input { flex:1; height:28px; padding:4px 8px; font-size:13px; border:1px solid #ccc; border-radius:4px; }
+  button { height:28px; padding:0 10px; font-size:13px; border-radius:4px; border:1px solid #bbb; background:#f5f5f5; cursor:pointer; }
+  .count { font-size:12px; color:#333; margin-left:6px; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <input id="q" placeholder="搜索... (Enter 搜索, Esc 关闭)" />
+    <button id="prev">上一个</button>
+    <button id="next">下一个</button>
+    <button id="close">关闭</button>
+    <div class="count" id="count"></div>
+  </div>
+
+<script>
+(function(){
+  const q = document.getElementById('q');
+  const prev = document.getElementById('prev');
+  const next = document.getElementById('next');
+  const closeBtn = document.getElementById('close');
+  const countEl = document.getElementById('count');
+
+  function sendFind(findNext, forward) {
+    window.electronSearch.send('search-panel-find', {
+      text: q.value || '',
+      forward: !!forward,
+      findNext: !!findNext,
+      matchCase: false
+    });
+  }
+
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      sendFind(false, true);
+    } else if (e.key === 'Escape') {
+      window.electronSearch.send('search-panel-close');
+    }
+  });
+
+  prev.addEventListener('click', () => sendFind(true, false));
+  next.addEventListener('click', () => sendFind(true, true));
+  closeBtn.addEventListener('click', () => window.electronSearch.send('search-panel-close'));
+
+  window.electronSearch.on('set-search-text', (text) => {
+    q.value = text || '';
+  });
+
+  window.electronSearch.on('focus-input', () => {
+    q.focus();
+    q.select();
+  });
+
+  window.electronSearch.on('found-in-page', (result) => {
+    if (!result) return;
+    const { activeMatchOrdinal, matches, final } = result;
+    if (final) {
+      countEl.textContent = matches > 0 ? `${activeMatchOrdinal}/${matches}` : '0/0';
+    } else {
+      // intermediate events can be ignored
+    }
+  });
+
+  // 初次聚焦
+  setTimeout(() => { q.focus(); }, 300);
+})();
+</script>
+</body>
+</html>

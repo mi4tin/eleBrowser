@@ -4,6 +4,10 @@ const path = require('path');
 // BrowserView管理器 - 存储所有BrowserView实例
 const browserViews = new Map(); // Map<tabId, BrowserView>
 let tabIdCounter = 0; // 标签页ID计数器
+// 当前激活的 tabId
+let lastActiveTabId = null;
+// 搜索面板 BrowserView
+let searchPanelView = null;
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -93,6 +97,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 const curUrl = view.webContents.getURL();
                 const curTitle = view.webContents.getTitle();
                 sendUpdate({ url: curUrl, title: curTitle });
+                // 记录最近激活的 tabId
+                lastActiveTabId = tabId;
             } catch (e) {
                 // ignore
             }
@@ -125,8 +131,30 @@ function activateBrowserView(window, tabId) {
     
     // 显示指定的BrowserView
     window.addBrowserView(view);
+    lastActiveTabId = tabId;
     
     console.log(`激活BrowserView，tabId: ${tabId}`);
+
+    // 如果存在搜索面板，将其重新添加以保证在最上层并重新定位
+    if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
+        try {
+            try { window.removeBrowserView(searchPanelView); } catch (e) {}
+            window.addBrowserView(searchPanelView);
+            // 重新定位
+            const contentBounds = window.getContentBounds();
+            const panelWidth = 360;
+            const panelHeight = 44;
+            const padding = 12;
+            searchPanelView.setBounds({
+                x: Math.max(0, contentBounds.width - panelWidth - padding),
+                y: 82 + padding,
+                width: panelWidth,
+                height: panelHeight
+            });
+        } catch (e) {
+            console.error('激活时重新添加搜索面板失败:', e);
+        }
+    }
 }
 
 /**
@@ -167,6 +195,85 @@ function resizeBrowserViews(window) {
             height: contentBounds.height - 82
         });
     });
+    // 如果搜索面板存在，则重新定位它
+    if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
+        try {
+            const panelWidth = 360;
+            const panelHeight = 44;
+            const padding = 12;
+            searchPanelView.setBounds({
+                x: Math.max(0, contentBounds.width - panelWidth - padding),
+                y: 82 + padding,
+                width: panelWidth,
+                height: panelHeight
+            });
+        } catch (e) {
+            console.error('重新定位搜索面板失败:', e);
+        }
+    }
+}
+
+// 创建并显示搜索面板（BrowserView）
+function createSearchPanel(window) {
+    if (!window) return null;
+    if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
+        // 已存在，直接返回
+        return searchPanelView;
+    }
+
+    const panel = new BrowserView({
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload-search-panel.js')
+        }
+    });
+
+    console.log('创建搜索面板 BrowserView');
+
+    searchPanelView = panel;
+    window.addBrowserView(panel);
+
+    // 初始位置与尺寸
+    const contentBounds = window.getContentBounds();
+    const panelWidth = 360;
+    const panelHeight = 44;
+    const padding = 12;
+    panel.setBounds({
+        x: Math.max(0, contentBounds.width - panelWidth - padding),
+        y: 82 + padding,
+        width: panelWidth,
+        height: panelHeight
+    });
+    panel.setAutoResize({ width: false, height: false });
+
+    // 加载本地搜索面板页面
+    const panelUrl = 'file://' + path.join(__dirname, 'html', 'search-panel.html').replace(/\\/g, '/');
+    panel.webContents.loadURL(panelUrl).catch(err => console.error('加载搜索面板失败:', err));
+
+    // 当搜索面板关闭/销毁时清理引用
+    panel.webContents.on('destroyed', () => {
+        searchPanelView = null;
+    });
+
+    return panel;
+}
+
+// 隐藏并销毁搜索面板
+function destroySearchPanel(window) {
+    if (!searchPanelView) return;
+    try {
+        // 停止在页面中的查找
+        const targetView = browserViews.get(lastActiveTabId) || Array.from(browserViews.values())[0];
+        if (targetView && targetView.webContents && !targetView.webContents.isDestroyed()) {
+            try { targetView.webContents.stopFindInPage('clearSelection'); } catch (e) {}
+        }
+        if (window && !window.isDestroyed()) window.removeBrowserView(searchPanelView);
+    } catch (e) {
+        console.error('销毁搜索面板失败:', e);
+    }
+    try { searchPanelView.webContents.destroy(); } catch (e) {}
+    searchPanelView = null;
 }
 
 // 处理协议请求，阻止系统弹窗（macOS 和 Windows）
@@ -712,7 +819,9 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 打开文本搜索');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('show-search-panel');
+                        console.log('发送 show-search-panel 消息到主窗口');
+                        // mainWindow.webContents.send('show-search-panel');
+                        showSearchPanel();
                     }
                 }
             },
@@ -984,6 +1093,89 @@ ipcMain.handle('browser-view-get-title', (event, tabId) => {
         return view.webContents.getTitle();
     }
     return '';
+});
+
+// 显示搜索面板（快捷键触发）
+ipcMain.on('show-search-panel', (event) => {
+    console.log('收到显示搜索面板请求');
+    const window = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (!window) return;
+    try {
+        createSearchPanel(window);
+        // 聚焦到搜索面板的输入框
+        setTimeout(() => {
+            if (searchPanelView && searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
+                searchPanelView.webContents.focus();
+                searchPanelView.webContents.send('focus-input');
+            }
+        }, 200);
+    } catch (e) {
+        console.error('显示搜索面板失败:', e);
+    }
+});
+
+function showSearchPanel(text) {
+    try {
+        createSearchPanel(mainWindow);
+        // 聚焦到搜索面板的输入框
+        setTimeout(() => {
+            if (searchPanelView && searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
+                searchPanelView.webContents.focus();
+                searchPanelView.webContents.send('focus-input');
+            }
+        }, 200);
+    } catch (e) {
+        console.error('显示搜索面板失败:', e);
+    }
+}
+
+// 显示搜索面板并填充初始文本（右键菜单触发）
+ipcMain.on('show-search-panel-with-text', (event, text) => {
+    const window = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (!window) return;
+    try {
+        createSearchPanel(window);
+        setTimeout(() => {
+            if (searchPanelView && searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
+                searchPanelView.webContents.send('set-search-text', text || '');
+                searchPanelView.webContents.send('focus-input');
+            }
+        }, 300);
+    } catch (e) {
+        console.error('显示搜索面板并设置文本失败:', e);
+    }
+});
+
+// 搜索面板发起查找请求
+ipcMain.on('search-panel-find', (event, payload) => {
+    try {
+        const { text, forward, findNext, matchCase } = payload || {};
+        const targetView = browserViews.get(lastActiveTabId) || Array.from(browserViews.values())[0];
+        if (!targetView || !targetView.webContents) return;
+
+        const wc = targetView.webContents;
+        const options = { forward: !!forward, findNext: !!findNext, matchCase: !!matchCase };
+
+        const foundListener = (e, result) => {
+            if (searchPanelView && searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
+                searchPanelView.webContents.send('found-in-page', result);
+            }
+            if (result && result.final) {
+                try { wc.removeListener('found-in-page', foundListener); } catch (e) {}
+            }
+        };
+
+        wc.on('found-in-page', foundListener);
+        wc.findInPage(text || '', options);
+    } catch (e) {
+        console.error('处理搜索请求失败:', e);
+    }
+});
+
+// 关闭搜索面板
+ipcMain.on('search-panel-close', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    destroySearchPanel(window);
 });
 
 // IPC 处理器：从书签管理窗口打开书签
