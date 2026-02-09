@@ -202,8 +202,9 @@ function setupProtocolBlocking(contents) {
             if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
                 try {
                     // 将消息发给宿主（包含标签 UI 的页面）
-                    const hostContents = contents.hostWebContents || contents;
-                    hostContents.send('open-url-in-new-tab', url);
+                    // const hostContents = contents.hostWebContents || contents;
+                    console.log('发送 open-url-in-new-tab 消息到宿主，URL:', url);
+                    mainWindow.webContents.send('open-url-in-new-tab', url);
                 } catch (err) {
                     console.log('转发 open-url-in-new-tab 失败:', err.message);
                 }
