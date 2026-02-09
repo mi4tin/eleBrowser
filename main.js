@@ -502,11 +502,15 @@ app.on('web-contents-created', (event, contents) => {
                                 } catch (err) {
                                     console.log('无法从 webContents 获取窗口或聚焦窗口:', err && err.message);
                                 }
+
+                                const url = contents.getURL();
+                                console.log('调用 openDevTools，URL:', url,url.endsWith('search-panel.html'));
                                 
-                                if (type === 'browserView') {
-                                    contents.openDevTools();
-                                }else{
+                                if (type !== 'browserView'||url.endsWith('search-panel.html')) {
                                     contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
+                                }else{
+                                    contents.openDevTools();
+                                    // contents.openDevTools({ mode: 'detach' });
                                 }
                                 
                                 console.log('已调用 openDevTools，检查是否成功打开');
@@ -1158,18 +1162,27 @@ ipcMain.on('show-search-panel-with-text', (event, text) => {
 // 搜索面板发起查找请求
 ipcMain.on('search-panel-find', (event, payload) => {
     try {
+        console.log('收到搜索面板查找请求:', payload, '最后活跃标签ID:', lastActiveTabId);
         const { text, forward, findNext, matchCase } = payload || {};
         const targetView = browserViews.get(lastActiveTabId) || Array.from(browserViews.values())[0];
         if (!targetView || !targetView.webContents) return;
+
+        console.log('执行 findInPage，文本:', text, '选项:', { forward, findNext, matchCase });
 
         const wc = targetView.webContents;
         const options = { forward: !!forward, findNext: !!findNext, matchCase: !!matchCase };
 
         const foundListener = (e, result) => {
+            // 规范化并只发送必要字段，避免在渲染端处理 undefined
+            const payload = {
+                matches: (result && typeof result.matches === 'number') ? result.matches : 0,
+                activeMatchOrdinal: (result && typeof result.activeMatchOrdinal === 'number') ? result.activeMatchOrdinal : 0,
+                final: !!(result && result.final)
+            };
             if (searchPanelView && searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
-                searchPanelView.webContents.send('found-in-page', result);
+                searchPanelView.webContents.send('found-in-page', payload);
             }
-            if (result && result.final) {
+            if (payload.final) {
                 try { wc.removeListener('found-in-page', foundListener); } catch (e) {}
             }
         };
