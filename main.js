@@ -210,7 +210,7 @@ function resizeBrowserViews(window) {
 }
 
 const panelWidth = 488;
-const panelHeight = 56;
+const panelHeight = 58;
 const panelY = 0 ;
 const panelPadding = 53;
 // 创建并显示搜索面板（BrowserView）
