@@ -1123,6 +1123,28 @@ ipcMain.handle('browser-view-get-title', (event, tabId) => {
     return '';
 });
 
+/**
+ * 获取是否可以后退
+ */
+ipcMain.handle('browser-view-can-go-back', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        return view.webContents.canGoBack();
+    }
+    return false;
+});
+
+/**
+ * 获取是否可以前进
+ */
+ipcMain.handle('browser-view-can-go-forward', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        return view.webContents.canGoForward();
+    }
+    return false;
+});
+
 // 显示搜索面板（快捷键触发）
 ipcMain.on('show-search-panel', (event) => {
     console.log('收到显示搜索面板请求');

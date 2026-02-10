@@ -461,15 +461,31 @@ function recordHistory(title, url) {
     }
 }
 
-function updateNavButtons() {
+async function updateNavButtons() {
     const wv = currentTabId != null
         ? document.querySelector('webview[data-id="' + currentTabId + '"]')
         : null;
-    const canGoBack = safeCanGoBack(wv);
-    const canGoForward = safeCanGoForward(wv);
+    
+    let canGoBack = false;
+    let canGoForward = false;
+    
+    if (wv) {
+        // 使用webview的导航状态
+        canGoBack = safeCanGoBack(wv);
+        canGoForward = safeCanGoForward(wv);
+    } else if (currentTabId != null) {
+        // 使用BrowserView的导航状态
+        try {
+            canGoBack = await ipcRenderer.invoke('browser-view-can-go-back', currentTabId);
+            canGoForward = await ipcRenderer.invoke('browser-view-can-go-forward', currentTabId);
+        } catch (error) {
+            console.error('获取BrowserView导航状态失败:', error);
+        }
+    }
+    
     backBtn.disabled = !canGoBack;
     forwardBtn.disabled = !canGoForward;
-    refreshBtn.disabled = !wv;
+    refreshBtn.disabled = !wv && currentTabId == null;
 }
 
 async function createTab(url = DEFAULT_URL, title = '新标签页') {
@@ -540,7 +556,7 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         // 激活新建的标签
         activateTab(tabId);
         updateAddressBar(url);
-        updateNavButtons();
+        await updateNavButtons();
         
         return tabId;
     } catch (error) {
@@ -764,9 +780,9 @@ function createTabFallback(url = DEFAULT_URL, title = '新标签页') {
     };
     wv.addEventListener('did-navigate', (event) => syncAddress(event.url));
     wv.addEventListener('did-navigate-in-page', (event) => syncAddress(event.url));
-    wv.addEventListener('did-stop-loading', () => {
+    wv.addEventListener('did-stop-loading', async () => {
         syncAddress(safeGetURL(wv));
-        updateNavButtons();
+        await updateNavButtons();
         
         // 记录历史（仅记录正常网站页面）
         const currentUrl = safeGetURL(wv);
@@ -827,7 +843,7 @@ async function activateTab(id) {
         }
     }
     
-    updateNavButtons();
+    await updateNavButtons();
 }
 
 async function closeTab(id) {
@@ -981,7 +997,7 @@ ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
 });
 
 // 主进程通知 BrowserView 状态更新（URL / 标题）
-ipcRenderer.on('browser-view-updated', (_event, data) => {
+ipcRenderer.on('browser-view-updated', async (_event, data) => {
     try {
         const tabId = Number(data.tabId);
         const url = data.url;
@@ -1008,7 +1024,7 @@ ipcRenderer.on('browser-view-updated', (_event, data) => {
         }
 
         // 更新导航按钮状态（如果是当前标签）
-        if (currentTabId === tabId) updateNavButtons();
+        if (currentTabId === tabId) await updateNavButtons();
     } catch (e) {
         console.error('处理 browser-view-updated 失败:', e);
     }
