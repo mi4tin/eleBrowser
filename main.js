@@ -23,6 +23,8 @@ function isCustomProtocol(url) {
 
 // BrowserView管理函数
 
+const viewY = 82;
+
 /**
  * 创建新的BrowserView
  * @param {BrowserWindow} window - 父窗口
@@ -54,9 +56,9 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     const contentBounds = window.getContentBounds();
     view.setBounds({
         x: 0,
-        y: 82, // toolbar高度
+        y: viewY, // toolbar高度
         width: contentBounds.width,
-        height: contentBounds.height - 82
+        height: contentBounds.height - viewY
     });
     
     // 加载URL
@@ -187,9 +189,9 @@ function resizeBrowserViews(window) {
     browserViews.forEach(view => {
         view.setBounds({
             x: 0,
-            y: panelY,
+            y: viewY,
             width: contentBounds.width,
-            height: contentBounds.height - panelY
+            height: contentBounds.height - viewY
         });
     });
     // 如果搜索面板存在，则重新定位它
@@ -759,6 +761,9 @@ function newWindow() {
             disableDialogs: false
         }
     });
+
+    // 默认最大化窗口
+    // myWindow.maximize();
 
     mainWindow = myWindow;
 
