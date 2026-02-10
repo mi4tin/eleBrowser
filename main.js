@@ -1170,7 +1170,7 @@ ipcMain.on('search-panel-find', (event, payload) => {
         console.log('执行 findInPage，文本:', text, '选项:', { forward, findNext, matchCase });
 
         const wc = targetView.webContents;
-        const options = { forward: !!forward, findNext: !!findNext, matchCase: !!matchCase };
+        const options = { forward: !!forward, findNext: true, matchCase: !!matchCase };
 
         const foundListener = (e, result) => {
             console.log('found-in-page 事件:', result);//todo:这里没回调
