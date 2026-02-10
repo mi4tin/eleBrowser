@@ -142,10 +142,9 @@ function activateBrowserView(window, tabId) {
             window.addBrowserView(searchPanelView);
             // 重新定位
             const contentBounds = window.getContentBounds();
-            const padding = 12;
             searchPanelView.setBounds({
-                x: Math.max(0, contentBounds.width - panelWidth - padding),
-                y: 82 + padding,
+                x: Math.max(0, contentBounds.width - panelWidth - panelPadding),
+                y: panelY + panelPadding,
                 width: panelWidth,
                 height: panelHeight
             });
@@ -188,18 +187,17 @@ function resizeBrowserViews(window) {
     browserViews.forEach(view => {
         view.setBounds({
             x: 0,
-            y: 82,
+            y: panelY,
             width: contentBounds.width,
-            height: contentBounds.height - 82
+            height: contentBounds.height - panelY
         });
     });
     // 如果搜索面板存在，则重新定位它
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
-            const padding = 12;
             searchPanelView.setBounds({
-                x: Math.max(0, contentBounds.width - panelWidth - padding),
-                y: 82 + padding,
+                x: Math.max(0, contentBounds.width - panelWidth - panelPadding),
+                y: panelY + panelPadding,
                 width: panelWidth,
                 height: panelHeight
             });
@@ -210,7 +208,9 @@ function resizeBrowserViews(window) {
 }
 
 const panelWidth = 488;
-const panelHeight = 44;
+const panelHeight = 56;
+const panelY = 0 ;
+const panelPadding = 53;
 // 创建并显示搜索面板（BrowserView）
 function createSearchPanel(window) {
     if (!window) return null;
@@ -234,10 +234,10 @@ function createSearchPanel(window) {
 
     // 初始位置与尺寸
     const contentBounds = window.getContentBounds();
-    const padding = 12;
+   
     panel.setBounds({
-        x: Math.max(0, contentBounds.width - panelWidth - padding),
-        y: 82 + padding,
+        x: Math.max(0, contentBounds.width - panelWidth - panelPadding),
+        y: panelY + panelPadding,
         width: panelWidth,
         height: panelHeight
     });
