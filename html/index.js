@@ -1100,9 +1100,15 @@ ipcRenderer.on('browser-view-updated', (_event, data) => {
             }
         }
 
+        // console.log("$$更新标签页:", tabId, title, url);
+
         // 如果是当前活动标签，更新地址栏
         if (currentTabId === tabId && url) {
             updateAddressBar(url);
+        }
+        
+        if (url && title) {
+            recordHistory(title, url);
         }
 
         // 更新导航按钮状态（如果是当前标签）
