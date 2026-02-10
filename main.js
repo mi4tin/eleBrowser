@@ -111,21 +111,23 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
             } catch (e) {
-                // ignore
+                console.error('加载并恢复划线信息失败:', e);
             }
         });
         
         // 监听did-stop-loading事件，处理同一标签页内的导航,每次加载页面都会执行
         view.webContents.on('did-stop-loading', async () => {
             try {
-                console.log("@@@did-stop-loading")
+                const url = view.webContents.getURL();
+
+                console.log("@@@did-stop-loading",url)
                 // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
-                
+
                 // 加载并恢复划线信息
-                await loadAndRestoreUnderline(curUrl, view);
+                await loadAndRestoreUnderline(url, view);
             } catch (e) {
-                // ignore
+                console.error('加载并恢复划线信息失败:', e);
             }
         });
     } catch (e) {
