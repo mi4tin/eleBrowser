@@ -1025,6 +1025,25 @@ ipcRenderer.on('browser-view-updated', async (_event, data) => {
 
         // 更新导航按钮状态（如果是当前标签）
         if (currentTabId === tabId) await updateNavButtons();
+        
+        // 页面加载完成后，加载并恢复划线信息
+        if (currentTabId === tabId && data.loaded && url) {
+            setTimeout(() => {
+                if (url) {
+                    // 通过IPC请求加载该URL的划线数据
+                    ipcRenderer.invoke('load-underline-data', url)
+                    .then(underlineData => {
+                        if (underlineData && underlineData.length > 0) {
+                            // 应用划线数据到页面
+                            underlineData.forEach(underlineInfo => {
+                                restoreUnderlineForBrowserView(tabId, underlineInfo);
+                            });
+                        }
+                    })
+                    .catch(err => console.log('加载划线数据失败:', err));
+                }
+            }, 500); // 延迟0.5秒执行，确保页面内容已加载
+        }
     } catch (e) {
         console.error('处理 browser-view-updated 失败:', e);
     }
@@ -1368,6 +1387,155 @@ ipcRenderer.on('open-underline-tab', () => {
     console.log('收到主进程消息: 打开划线记录标签页');
     openUnderlineTab();
 });
+
+ // 定义恢复划线的函数
+function restoreUnderline(underlineInfo) {
+        try {
+            // 执行JavaScript来恢复划线
+            wv.executeJavaScript(
+                `(function() {
+                    // 遍历所有文本节点，查找匹配的文本
+                    // 检查并注入划线样式
+                    if (!document.getElementById('underline-styles')) {
+                        const style = document.createElement('style');
+                        style.id = 'underline-styles';
+                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                        document.head.appendChild(style);
+                    }
+                    
+                    function highlightText(element, searchText) {
+                        const walker = document.createTreeWalker(
+                            element,
+                            NodeFilter.SHOW_TEXT,
+                            null,
+                            false
+                        );
+                        
+                        const textNodes = [];
+                        let node;
+                        while (node = walker.nextNode()) {
+                            if (node.nodeValue && node.nodeValue.includes(searchText)) {
+                                textNodes.push(node);
+                            }
+                        }
+                        
+                        // 从后往前处理，避免DOM更改影响后续节点位置
+                        for (let i = textNodes.length - 1; i >= 0; i--) {
+                            const textNode = textNodes[i];
+                            const text = textNode.nodeValue;
+                            const startIndex = text.indexOf(searchText);
+                            
+                            if (startIndex !== -1) {
+                                const beforeText = text.substring(0, startIndex);
+                                const matchedText = text.substring(startIndex, startIndex + searchText.length);
+                                const afterText = text.substring(startIndex + searchText.length);
+                                
+                                const span = document.createElement('span');
+                                span.className = 'underline-fb3b780f';
+                                span.textContent = matchedText;
+                                
+                                // 创建新节点
+                                if (beforeText) {
+                                    textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
+                                }
+                                textNode.parentNode.insertBefore(span, textNode);
+                                if (afterText) {
+                                    textNode.nodeValue = afterText;
+                                } else {
+                                    textNode.parentNode.removeChild(textNode);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 确保DOM完全加载后再应用划线
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', function() {
+                            highlightText(document.body, "${underlineInfo.text}");
+                        });
+                    } else {
+                        highlightText(document.body, "${underlineInfo.text}");
+                    }
+                })()`
+            ).catch(err => console.log('恢复划线失败:', err));
+        } catch (e) {
+            console.log('恢复划线异常:', e);
+        }
+    }
+
+function restoreUnderlineForBrowserView(tabId, underlineInfo) {
+    try {
+        // 通过IPC调用主进程的方法，在指定的BrowserView中执行JavaScript来恢复划线
+        ipcRenderer.invoke('execute-javascript-in-browser-view', tabId, 
+            `(function() {
+                // 遍历所有文本节点，查找匹配的文本
+                // 检查并注入划线样式
+                if (!document.getElementById('underline-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'underline-styles';
+                    style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                    document.head.appendChild(style);
+                }
+                
+                function highlightText(element, searchText) {
+                    const walker = document.createTreeWalker(
+                        element,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    
+                    const textNodes = [];
+                    let node;
+                    while (node = walker.nextNode()) {
+                        if (node.nodeValue && node.nodeValue.includes(searchText)) {
+                            textNodes.push(node);
+                        }
+                    }
+                    
+                    // 从后往前处理，避免DOM更改影响后续节点位置
+                    for (let i = textNodes.length - 1; i >= 0; i--) {
+                        const textNode = textNodes[i];
+                        const text = textNode.nodeValue;
+                        const startIndex = text.indexOf(searchText);
+                        
+                        if (startIndex !== -1) {
+                            const beforeText = text.substring(0, startIndex);
+                            const matchedText = text.substring(startIndex, startIndex + searchText.length);
+                            const afterText = text.substring(startIndex + searchText.length);
+                            
+                            const span = document.createElement('span');
+                            span.className = 'underline-fb3b780f';
+                            span.textContent = matchedText;
+                            
+                            // 创建新节点
+                            if (beforeText) {
+                                textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
+                            }
+                            textNode.parentNode.insertBefore(span, textNode);
+                            if (afterText) {
+                                textNode.nodeValue = afterText;
+                            } else {
+                                textNode.parentNode.removeChild(textNode);
+                            }
+                        }
+                    }
+                }
+                
+                // 确保DOM完全加载后再应用划线
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        highlightText(document.body, "${underlineInfo.text}");
+                    });
+                } else {
+                    highlightText(document.body, "${underlineInfo.text}");
+                }
+            })()`
+        ).catch(err => console.log('恢复BrowserView划线失败:', err));
+    } catch (e) {
+        console.log('恢复BrowserView划线异常:', e);
+    }
+}
 
 // 启动时自动创建一个标签
 createTab();

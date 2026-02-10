@@ -107,12 +107,30 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
 
         view.webContents.on('did-finish-load', () => {
             try {
+                console.log("@@@did-finish-load")
                 // const curUrl = view.webContents.getURL();
                 // const curTitle = view.webContents.getTitle();
                 
                 // console.log(`did-finish-load, url: ${curUrl}, title: ${curTitle}`);
 
-                // sendUpdate({ url: curUrl, title: curTitle });
+                // sendUpdate({ url: curUrl, title: curTitle, loaded: true });
+                // 记录最近激活的 tabId
+                lastActiveTabId = tabId;
+            } catch (e) {
+                // ignore
+            }
+        });
+        
+        // 监听did-stop-loading事件，处理同一标签页内的导航
+        view.webContents.on('did-stop-loading', () => {
+            try {
+                console.log("@@@did-stop-loading")
+                const curUrl = view.webContents.getURL();
+                const curTitle = view.webContents.getTitle();
+                
+                console.log(`did-stop-loading, url: ${curUrl}, title: ${curTitle}`);
+
+                sendUpdate({ url: curUrl, title: curTitle, loaded: true });
                 // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
             } catch (e) {
@@ -1143,6 +1161,17 @@ ipcMain.handle('browser-view-can-go-forward', (event, tabId) => {
         return view.webContents.canGoForward();
     }
     return false;
+});
+
+/**
+ * 在指定的BrowserView中执行JavaScript代码
+ */
+ipcMain.handle('execute-javascript-in-browser-view', (event, tabId, code) => {
+    const view = browserViews.get(tabId);
+    if (view && view.webContents) {
+        return view.webContents.executeJavaScript(code);
+    }
+    return Promise.resolve();
 });
 
 // 显示搜索面板（快捷键触发）
