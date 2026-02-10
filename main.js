@@ -1057,8 +1057,8 @@ ipcMain.handle('close-browser-view', (event, tabId) => {
  */
 ipcMain.handle('browser-view-go-back', (event, tabId) => {
     const view = browserViews.get(tabId);
-    if (view && view.webContents.canGoBack()) {
-        view.webContents.goBack();
+    if (view && view.webContents.navigationHistory.canGoBack()) {
+        view.webContents.navigationHistory.goBack();
         return true;
     }
     return false;
@@ -1069,8 +1069,8 @@ ipcMain.handle('browser-view-go-back', (event, tabId) => {
  */
 ipcMain.handle('browser-view-go-forward', (event, tabId) => {
     const view = browserViews.get(tabId);
-    if (view && view.webContents.canGoForward()) {
-        view.webContents.goForward();
+    if (view && view.webContents.navigationHistory.canGoForward()) {
+        view.webContents.navigationHistory.goForward();
         return true;
     }
     return false;
@@ -1140,7 +1140,7 @@ ipcMain.handle('browser-view-get-title', (event, tabId) => {
 ipcMain.handle('browser-view-can-go-back', (event, tabId) => {
     const view = browserViews.get(tabId);
     if (view) {
-        return view.webContents.canGoBack();
+        return view.webContents.navigationHistory.canGoBack();
     }
     return false;
 });
@@ -1151,7 +1151,7 @@ ipcMain.handle('browser-view-can-go-back', (event, tabId) => {
 ipcMain.handle('browser-view-can-go-forward', (event, tabId) => {
     const view = browserViews.get(tabId);
     if (view) {
-        return view.webContents.canGoForward();
+        return view.webContents.navigationHistory.canGoForward();
     }
     return false;
 });
