@@ -142,8 +142,6 @@ function activateBrowserView(window, tabId) {
             window.addBrowserView(searchPanelView);
             // 重新定位
             const contentBounds = window.getContentBounds();
-            const panelWidth = 360;
-            const panelHeight = 44;
             const padding = 12;
             searchPanelView.setBounds({
                 x: Math.max(0, contentBounds.width - panelWidth - padding),
@@ -198,8 +196,6 @@ function resizeBrowserViews(window) {
     // 如果搜索面板存在，则重新定位它
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
-            const panelWidth = 360;
-            const panelHeight = 44;
             const padding = 12;
             searchPanelView.setBounds({
                 x: Math.max(0, contentBounds.width - panelWidth - padding),
@@ -213,6 +209,8 @@ function resizeBrowserViews(window) {
     }
 }
 
+    const panelWidth = 488;
+    const panelHeight = 44;
 // 创建并显示搜索面板（BrowserView）
 function createSearchPanel(window) {
     if (!window) return null;
@@ -236,8 +234,6 @@ function createSearchPanel(window) {
 
     // 初始位置与尺寸
     const contentBounds = window.getContentBounds();
-    const panelWidth = 488;
-    const panelHeight = 44;
     const padding = 12;
     panel.setBounds({
         x: Math.max(0, contentBounds.width - panelWidth - padding),
