@@ -70,6 +70,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         console.error('设置 BrowserView 协议拦截失败:', e);
     }
 
+    var viewData={}
+
     // 转发 BrowserView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
     try {
         const sendUpdate = (data) => {
@@ -83,22 +85,34 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         };
 
         view.webContents.on('did-navigate', (_event, navigationUrl) => {
-            sendUpdate({ url: navigationUrl });
+            if(navigationUrl){
+                viewData["url"]=navigationUrl;
+                sendUpdate(viewData);
+            }
         });
 
         view.webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
-            sendUpdate({ url: navigationUrl });
+            if(navigationUrl){
+                viewData["url"]=navigationUrl;
+                sendUpdate(viewData);
+            }
         });
 
         view.webContents.on('page-title-updated', (_event, title) => {
-            sendUpdate({ title });
+            if(title){
+                viewData["title"]=title;
+                sendUpdate(viewData);
+            }
         });
 
         view.webContents.on('did-finish-load', () => {
             try {
-                const curUrl = view.webContents.getURL();
-                const curTitle = view.webContents.getTitle();
-                sendUpdate({ url: curUrl, title: curTitle });
+                // const curUrl = view.webContents.getURL();
+                // const curTitle = view.webContents.getTitle();
+                
+                // console.log(`did-finish-load, url: ${curUrl}, title: ${curTitle}`);
+
+                // sendUpdate({ url: curUrl, title: curTitle });
                 // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
             } catch (e) {
