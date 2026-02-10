@@ -200,12 +200,12 @@ async function openBookmarksTab() {
             clickCount++;
             
             if (clickCount === 1) {
-                // 第一次点击，启动计时器
+                // 第一次点击，立即激活标签
+                activateTab(tabId);
+                // 启动计时器，判断是否为双击
                 clickTimer = setTimeout(() => {
-                    // 单击：激活标签
-                    activateTab(tabId);
                     clickCount = 0;
-                }, 300); // 300ms 内没有第二次点击则认为是单击
+                }, 300); // 300ms 内没有第二次点击则重置计数
             } else if (clickCount === 2) {
                 // 双击：关闭标签
                 clearTimeout(clickTimer);
@@ -289,12 +289,12 @@ async function openHistoryTab() {
             clickCount++;
             
             if (clickCount === 1) {
-                // 第一次点击，启动计时器
+                // 第一次点击，立即激活标签
+                activateTab(tabId);
+                // 启动计时器，判断是否为双击
                 clickTimer = setTimeout(() => {
-                    // 单击：激活标签
-                    activateTab(tabId);
                     clickCount = 0;
-                }, 300); // 300ms 内没有第二次点击则认为是单击
+                }, 300); // 300ms 内没有第二次点击则重置计数
             } else if (clickCount === 2) {
                 // 双击：关闭标签
                 clearTimeout(clickTimer);
@@ -377,12 +377,12 @@ async function openUnderlineTab() {
             clickCount++;
             
             if (clickCount === 1) {
-                // 第一次点击，启动计时器
+                // 第一次点击，立即激活标签
+                activateTab(tabId);
+                // 启动计时器，判断是否为双击
                 clickTimer = setTimeout(() => {
-                    // 单击：激活标签
-                    activateTab(tabId);
                     clickCount = 0;
-                }, 300); // 300ms 内没有第二次点击则认为是单击
+                }, 300); // 300ms 内没有第二次点击则重置计数
             } else if (clickCount === 2) {
                 // 双击：关闭标签
                 clearTimeout(clickTimer);
@@ -517,12 +517,12 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
             clickCount++;
             
             if (clickCount === 1) {
-                // 第一次点击，启动计时器
+                // 第一次点击，立即激活标签
+                activateTab(tabId);
+                // 启动计时器，判断是否为双击
                 clickTimer = setTimeout(() => {
-                    // 单击：激活标签
-                    activateTab(tabId);
                     clickCount = 0;
-                }, 300); // 300ms 内没有第二次点击则认为是单击
+                }, 300); // 300ms 内没有第二次点击则重置计数
             } else if (clickCount === 2) {
                 // 双击：关闭标签
                 clearTimeout(clickTimer);
