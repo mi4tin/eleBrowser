@@ -116,17 +116,14 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         });
         
         // 监听did-stop-loading事件，处理同一标签页内的导航,每次加载页面都会执行
-        view.webContents.on('did-stop-loading', () => {
+        view.webContents.on('did-stop-loading', async () => {
             try {
                 console.log("@@@did-stop-loading")
-                const curUrl = view.webContents.getURL();
-                const curTitle = view.webContents.getTitle();
-                
-                console.log(`did-stop-loading, url: ${curUrl}, title: ${curTitle}`);
-
-                sendUpdate({ url: curUrl, title: curTitle, loaded: true });
                 // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
+                
+                // 加载并恢复划线信息
+                await loadAndRestoreUnderline(curUrl, view);
             } catch (e) {
                 // ignore
             }
@@ -1322,6 +1319,114 @@ const historyFilePath = path.join(app.getPath('userData'), 'history.json');
 
 // 划线数据文件路径
 const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
+
+/**
+ * 加载并恢复划线信息
+ * @param {string} url - 页面URL
+ * @param {BrowserView} view - BrowserView实例
+ */
+async function loadAndRestoreUnderline(url, view) {
+    try {
+        console.log('加载划线数据请求:', url);
+        
+        let underlineData = {};
+        if (fs.existsSync(underlineFilePath)) {
+            const data = fs.readFileSync(underlineFilePath, 'utf8');
+            underlineData = JSON.parse(data);
+        }
+        
+        const underlines = underlineData[url] || [];
+        if (underlines && underlines.length > 0) {
+            console.log('找到划线数据:', underlines.length, '条');
+            // 恢复划线信息
+            for (const underlineInfo of underlines) {
+                await restoreUnderlineInBrowserView(view, underlineInfo);
+            }
+        }
+    } catch (error) {
+        console.error('加载划线数据失败:', error);
+    }
+}
+
+/**
+ * 在BrowserView中恢复划线信息
+ * @param {BrowserView} view - BrowserView实例
+ * @param {object} underlineInfo - 划线信息
+ */
+async function restoreUnderlineInBrowserView(view, underlineInfo) {
+    try {
+        console.log('恢复划线信息:', underlineInfo.text);
+        
+        // 在BrowserView中执行JavaScript代码来恢复划线
+        await view.webContents.executeJavaScript(
+            `(function() {
+                // 检查并注入划线样式
+                if (!document.getElementById('underline-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'underline-styles';
+                    style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                    document.head.appendChild(style);
+                }
+                
+                function highlightText(element, searchText) {
+                    const walker = document.createTreeWalker(
+                        element,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    
+                    const textNodes = [];
+                    let node;
+                    while (node = walker.nextNode()) {
+                        if (node.nodeValue && node.nodeValue.includes(searchText)) {
+                            textNodes.push(node);
+                        }
+                    }
+                    
+                    // 从后往前处理，避免DOM更改影响后续节点位置
+                    for (let i = textNodes.length - 1; i >= 0; i--) {
+                        const textNode = textNodes[i];
+                        const text = textNode.nodeValue;
+                        const startIndex = text.indexOf(searchText);
+                        
+                        if (startIndex !== -1) {
+                            const beforeText = text.substring(0, startIndex);
+                            const matchedText = text.substring(startIndex, startIndex + searchText.length);
+                            const afterText = text.substring(startIndex + searchText.length);
+                            
+                            const span = document.createElement('span');
+                            span.className = 'underline-fb3b780f';
+                            span.textContent = matchedText;
+                            
+                            // 创建新节点
+                            if (beforeText) {
+                                textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
+                            }
+                            textNode.parentNode.insertBefore(span, textNode);
+                            if (afterText) {
+                                textNode.nodeValue = afterText;
+                            } else {
+                                textNode.parentNode.removeChild(textNode);
+                            }
+                        }
+                    }
+                }
+                
+                // 确保DOM完全加载后再应用划线
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        highlightText(document.body, "${underlineInfo.text}");
+                    });
+                } else {
+                    highlightText(document.body, "${underlineInfo.text}");
+                }
+            })()`
+        );
+    } catch (error) {
+        console.error('恢复划线失败:', error);
+    }
+}
 
 // 确保userData目录存在
 const userDataPath = app.getPath('userData');
