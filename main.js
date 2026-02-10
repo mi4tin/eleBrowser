@@ -108,12 +108,6 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         view.webContents.on('did-finish-load', () => {
             try {
                 console.log("@@@did-finish-load")
-                // const curUrl = view.webContents.getURL();
-                // const curTitle = view.webContents.getTitle();
-                
-                // console.log(`did-finish-load, url: ${curUrl}, title: ${curTitle}`);
-
-                // sendUpdate({ url: curUrl, title: curTitle, loaded: true });
                 // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
             } catch (e) {
@@ -121,7 +115,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
         
-        // 监听did-stop-loading事件，处理同一标签页内的导航
+        // 监听did-stop-loading事件，处理同一标签页内的导航,每次加载页面都会执行
         view.webContents.on('did-stop-loading', () => {
             try {
                 console.log("@@@did-stop-loading")
