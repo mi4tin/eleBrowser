@@ -38,61 +38,317 @@
             text-decoration-thickness: 2px;
             text-underline-offset: 3px;
         }
+        .underlined-text{text-decoration: underline;}
     </style>
 </head>
 <body>
-    <h1>划线功能测试页面</h1>
-    
-    <div class="highlight-note">
-        <strong>测试说明：</strong>
-        <ol>
-            <li>选中下面任意一段文字，右键选择"添加下划线"</li>
-            <li><strong style="color: red;">重点测试：</strong>在没有选中文本的情况下，右键点击已有的划线内容（如下面预设的划线文字），选择"取消划线"</li>
-            <li>验证划线记录是否能正确保存和删除</li>
-            <li>打开划线记录页面(Ctrl+U)查看记录的变化</li>
-        </ol>
-    </div>
+    <div id="content">
+  <p>这是一段<b>示例</b>文本，演示跨标签<b>文本处理</b>。</p>
+  <p>另一段需要<em>处理</em>的文本。</p>
+</div>
 
-    <div class="test-section">
-        <h2>测试段落一</h2>
-        <p>这是第一段测试文字，用来验证划线功能是否正常工作。你可以选中这段文字的一部分，然后右键添加下划线。</p>
-        <p>这里有一些<span class="pre-underlined">重要的信息</span>需要特别标注，比如这个<span class="pre-underlined">关键术语</span>和技术要点。</p>
-    </div>
-
-    <div class="test-section">
-        <h2>测试段落二</h2>
-        <p><span class="pre-underlined">第二段包含了更多需要标记的内容</span>。开发人员经常需要在文档中标记重要信息，这样可以快速回顾关键知识点。</p>
-        <p>学习新技术时，做好笔记和标记是<span class="pre-underlined">非常重要的习惯</span>，这有助于知识的巩固和复习。</p>
-    </div>
-
-    <div class="test-section">
-        <h2>测试段落三</h2>
-        <p>最后一段测试内容，包含了一些技术术语：<span class="pre-underlined">JavaScript</span>、<span class="pre-underlined">HTML</span>、<span class="pre-underlined">CSS</span>、<span class="pre-underlined">Electron</span>等。</p>
-        <p>这些技术栈构成了现代Web开发的基础，掌握它们对于前端开发者来说至关重要。</p>
-    </div>
-
-    <div class="test-section">
-        <h2>测试验证区</h2>
-        <p>请在此处添加您自己的划线内容，然后测试取消功能：</p>
-        <p id="user-content">您可以在这里输入一些文字，然后选中并添加下划线进行测试。</p>
-    </div>
 
     <script>
         // 页面加载完成后注入划线样式
-        document.addEventListener('DOMContentLoaded', function() {
-            if (!document.getElementById('underline-styles')) {
-                const style = document.createElement('style');
-                style.id = 'underline-styles';
-                style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
-                document.head.appendChild(style);
-            }
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     if (!document.getElementById('underline-styles')) {
+        //         const style = document.createElement('style');
+        //         style.id = 'underline-styles';
+        //         style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+        //         document.head.appendChild(style);
+        //     }
             
-            // 为预设的划线元素添加正确的类名
-            const preUnderlinedElements = document.querySelectorAll('.pre-underlined');
-            preUnderlinedElements.forEach(element => {
-                element.classList.add('underline-fb3b780f');
-            });
+        //     // 为预设的划线元素添加正确的类名
+        //     const preUnderlinedElements = document.querySelectorAll('.pre-underlined');
+        //     preUnderlinedElements.forEach(element => {
+        //         element.classList.add('underline-fb3b780f');
+        //     });
+        // });
+
+
+
+        // 使用示例
+const container = document.getElementById('content');
+
+function underlineTextWithRange(container, text) {
+  if (!container || !text) return;
+  
+  // 清空现有下划线（可选）
+  removeUnderlines(container);
+  
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+  
+  let fullText = '';
+  const textNodes = [];
+  let node;
+  
+  // 收集所有文本节点并构建完整文本
+  while (node = walker.nextNode()) {
+    fullText += node.textContent;
+    textNodes.push({
+      node: node,
+      start: fullText.length - node.textContent.length,
+      end: fullText.length
+    });
+  }
+  
+  // 查找所有匹配位置
+  const matches = [];
+  let startIndex = 0;
+  while ((startIndex = fullText.indexOf(text, startIndex)) !== -1) {
+    matches.push({
+      start: startIndex,
+      end: startIndex + text.length
+    });
+    startIndex += text.length;
+  }
+  
+  // 处理每个匹配
+  matches.forEach(match => {
+    const fragments = [];
+    
+    // 找出与匹配范围相交的文本节点
+    textNodes.forEach(textNode => {
+      const overlapStart = Math.max(textNode.start, match.start);
+      const overlapEnd = Math.min(textNode.end, match.end);
+      
+      if (overlapStart < overlapEnd) {
+        fragments.push({
+          node: textNode.node,
+          start: overlapStart - textNode.start,
+          end: overlapEnd - textNode.start
         });
+      }
+    });
+    
+    // 按顺序处理每个片段
+    fragments.forEach(fragment => {
+      const { node, start, end } = fragment;
+      const parent = node.parentNode;
+      
+      // 如果父元素已经是下划线元素，跳过
+      if (parent.classList && parent.classList.contains('underlined-text')) {
+        return;
+      }
+      
+      // 分割文本节点
+      const wholeText = node.textContent;
+      
+      // 创建文档片段
+      const docFragment = document.createDocumentFragment();
+      
+      // 添加前半部分（如果存在）
+      if (start > 0) {
+        const beforeText = wholeText.substring(0, start);
+        docFragment.appendChild(document.createTextNode(beforeText));
+      }
+      
+      // 创建下划线元素并添加中间部分
+      const underlineSpan = document.createElement('span');
+      underlineSpan.className = 'underlined-text';
+      underlineSpan.setAttribute('name', 'underlined-text-aa');
+      underlineSpan.textContent = wholeText.substring(start, end);
+      docFragment.appendChild(underlineSpan);
+      
+      // 添加后半部分（如果存在）
+      if (end < wholeText.length) {
+        const afterText = wholeText.substring(end);
+        docFragment.appendChild(document.createTextNode(afterText));
+      }
+      
+      // 替换原文本节点
+      if (node.parentNode) {
+        node.parentNode.replaceChild(docFragment, node);
+      }
+    });
+  });
+}
+
+// 移除所有下划线（可选功能）
+function removeUnderlines(container) {
+  const underlines = container.querySelectorAll('.underlined-text');
+  underlines.forEach(underline => {
+    const parent = underline.parentNode;
+    const text = document.createTextNode(underline.textContent);
+    parent.replaceChild(text, underline);
+    // 合并相邻的文本节点
+    parent.normalize();
+  });
+}
+
+function underlineTextAcrossElements(container, text) {
+  if (!container || !text) return;
+  console.log('Container:', container);
+  // 创建 TreeWalker 遍历所有文本节点
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+  console.log('Walker created.');
+  let node;
+  const nodes = [];
+  
+  // 收集所有文本节点
+  while (node = walker.nextNode()) {
+    nodes.push(node);
+  }
+  
+  // 拼接所有文本内容，并记录每个节点在总文本中的位置
+  let fullText = '';
+  const nodeRanges = [];
+  
+  nodes.forEach(node => {
+    const start = fullText.length;
+    fullText += node.textContent;
+    const end = fullText.length;
+    nodeRanges.push({ node, start, end });
+  });
+
+  console.log('Full text:', fullText);
+  console.log('Node ranges:', nodeRanges);
+  // 查找所有匹配的位置
+  const matches = [];
+  let startIndex = 0;
+  
+  while ((startIndex = fullText.indexOf(text, startIndex)) !== -1) {
+    const endIndex = startIndex + text.length;
+    matches.push({ start: startIndex, end: endIndex });
+    startIndex = endIndex;
+  }
+  console.log('Matches found:', matches);
+  // 对每个匹配进行处理
+  matches.forEach(match => {
+    const fragments = [];
+    
+    // 找出与匹配范围有重叠的节点
+    nodeRanges.forEach(range => {
+      const overlapStart = Math.max(range.start, match.start);
+      const overlapEnd = Math.min(range.end, match.end);
+      
+      if (overlapStart < overlapEnd) {
+        const nodeStart = overlapStart - range.start;
+        const nodeEnd = overlapEnd - range.start;
+        
+        fragments.push({
+          node: range.node,
+          start: nodeStart,
+          end: nodeEnd
+        });
+      }
+    });
+
+    console.log('fragments:', fragments);
+    
+    // 处理每个片段
+    fragments.forEach((fragment, index) => {
+      const { node, start, end } = fragment;
+      const parent = node.parentNode;
+      
+      if (start === 0 && end === node.textContent.length) {
+        // 整个文本节点都需要添加下划线
+        const underline = document.createElement('span');
+        underline.className = 'underline-fb3b780f';
+        underline.textContent = node.textContent;
+        parent.replaceChild(underline, node);
+      } else if (start > 0 || end < node.textContent.length) {
+        // 只有部分文本需要添加下划线
+        const beforeText = node.textContent.substring(0, start);
+        const underlineText = node.textContent.substring(start, end);
+        const afterText = node.textContent.substring(end);
+        
+        const underline = document.createElement('span');
+        underline.className = 'underline-fb3b780f';
+        underline.textContent = underlineText;
+        
+        const fragment = document.createDocumentFragment();
+        if (beforeText) {
+          fragment.appendChild(document.createTextNode(beforeText));
+        }
+        fragment.appendChild(underline);
+        if (afterText) {
+          fragment.appendChild(document.createTextNode(afterText));
+        }
+        
+        parent.replaceChild(fragment, node);
+      }
+    });
+  });
+}
+    
+
+function underlineWithSelection(container, text) {
+  if (!container || !text) return;
+  
+  // 创建临时元素
+  const temp = document.createElement('div');
+  temp.innerHTML = container.innerHTML;
+  
+  // 创建 Range 进行搜索
+  const walker = document.createTreeWalker(
+    temp,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+  
+  let fullText = '';
+  const nodes = [];
+  let node;
+  
+  while (node = walker.nextNode()) {
+    fullText += node.textContent;
+    nodes.push(node);
+  }
+  
+  const index = fullText.indexOf(text);
+  if (index === -1) return;
+  
+  // 找到匹配的节点范围
+  let charCount = 0;
+  let startNode = null, endNode = null;
+  let startOffset = 0, endOffset = 0;
+  
+  for (const currentNode of nodes) {
+    const nodeLength = currentNode.textContent.length;
+    
+    if (!startNode && charCount + nodeLength > index) {
+      startNode = currentNode;
+      startOffset = index - charCount;
+    }
+    
+    if (!endNode && charCount + nodeLength >= index + text.length) {
+      endNode = currentNode;
+      endOffset = index + text.length - charCount;
+      break;
+    }
+    
+    charCount += nodeLength;
+  }
+  
+  if (startNode && endNode) {
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    
+    const underline = document.createElement('span');
+    underline.className = 'underlined-text';
+    
+    try {
+      range.surroundContents(underline);
+      container.innerHTML = temp.innerHTML;
+    } catch (e) {
+      console.warn('无法跨标签包裹内容:', e);
+    }
+  }
+}
+    
     </script>
 </body>
 </html>
