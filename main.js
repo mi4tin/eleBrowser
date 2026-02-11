@@ -1437,11 +1437,15 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                 // 确保DOM完全加载后再应用划线
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
+                        console.log('DOMContentLoaded事件触发，开始应用划线');
                         highlightText(document.body, "${underlineInfo.text}");
                     });
                 } else {
+                    console.log('DOMContentLoaded事件未触发，立即应用划线');
                     highlightText(document.body, "${underlineInfo.text}");
                 }
+
+                console.log('划线应用完成');
             })()`
         );
     } catch (error) {
