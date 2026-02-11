@@ -1567,7 +1567,7 @@ ipcMain.handle('clear-history', (event) => {
 
 // IPC 处理器：加载划线数据
 ipcMain.handle('load-underline-data', async (event, url) => {
-    console.log('收到加载划线数据请求1', url);
+    console.log('收到加载划线数据请求1', url,underlineFilePath+"@end");
     try {
         let underlineData = {};
         
@@ -1953,16 +1953,19 @@ function handleRemoveUnderline(contents) {
                 }
             })()`
         ).then(() => {
-            console.log("删除划线")
+            console.log("删除划线11")
             // 成功取消下划线后，从划线数据中删除对应的记录
             const url = contents.getURL();
+            console.log("删除划线12",url,underlineFilePath)
             if (url && selectedText && selectedText.trim()) {
                 // 从划线数据中删除
                 try {
                     let underlineData = {};
+                    console.log('删除划线13',fs.existsSync(underlineFilePath))
                     if (fs.existsSync(underlineFilePath)) {
                         const data = fs.readFileSync(underlineFilePath, 'utf8');
                         underlineData = JSON.parse(data);
+                        console.log('加载划线数据1:', underlineData);
                     }
                     
                     if (underlineData[url]) {
@@ -1981,7 +1984,7 @@ function handleRemoveUnderline(contents) {
                         console.log('已删除划线信息:', url, selectedText);
                     }
                 } catch (e) {
-                    console.log('删除划线失败:', e);
+                    console.error('删除划线失败:', e);
                 }
             }
         }).catch((err) => {
