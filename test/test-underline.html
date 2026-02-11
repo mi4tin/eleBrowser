@@ -42,9 +42,9 @@
     </style>
 </head>
 <body>
-    <div id="content">
-  <p>这是一段<b>示例</b>文本，演示跨标签<b>文本处理</b>。</p>
-  <p>另一段需要<em>处理</em>的文本。</p>
+    <div class="aa11" id="content">
+  <p name="a1" class="aa">这是一段<b>示例</b>文本，演示跨标签<b>文本处理</b>。</p>
+  <p name="a1" class="aa">另一段需要<em>处理</em>的文本。</p>
 </div>
 
 
@@ -74,7 +74,7 @@ function underlineTextWithRange(container, text) {
   if (!container || !text) return;
   
   // 清空现有下划线（可选）
-  removeUnderlines(container);
+//   removeUnderlines(container);
   
   const walker = document.createTreeWalker(
     container,

@@ -1358,6 +1358,7 @@ async function loadAndRestoreUnderline(url, view) {
         
         const underlines = underlineData[url] || [];
         if (underlines && underlines.length > 0) {
+            underlineNameIndex=1;//每个页面重置 
             console.log('找到划线数据:', underlines.length, '条');
             // 恢复划线信息
             for (const underlineInfo of underlines) {
@@ -1369,6 +1370,9 @@ async function loadAndRestoreUnderline(url, view) {
     }
 }
 
+
+let underlineNameIndex = 1;
+
 /**
  * 在BrowserView中恢复划线信息
  * @param {BrowserView} view - BrowserView实例
@@ -1376,7 +1380,7 @@ async function loadAndRestoreUnderline(url, view) {
  */
 async function restoreUnderlineInBrowserView(view, underlineInfo) {
     try {
-        console.log('恢复划线信息:', underlineInfo.text);
+        console.log('恢复划线信息:', underlineInfo.text,underlineNameIndex);
         
         // 在BrowserView中执行JavaScript代码来恢复划线
         await view.webContents.executeJavaScript(
@@ -1389,65 +1393,184 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                     document.head.appendChild(style);
                 }
                 
-                function highlightText(element, searchText) {
-                    const walker = document.createTreeWalker(
-                        element,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
+                //老版方法
+                // function highlightText(element, searchText) {
+                //     const walker = document.createTreeWalker(
+                //         element,
+                //         NodeFilter.SHOW_TEXT,
+                //         null,
+                //         false
+                //     );
                     
-                    const textNodes = [];
-                    let node;
-                    while (node = walker.nextNode()) {
-                        if (node.nodeValue && node.nodeValue.includes(searchText)) {
-                            textNodes.push(node);
-                        }
-                    }
+                //     const textNodes = [];
+                //     let node;
+                //     while (node = walker.nextNode()) {
+                //         if (node.nodeValue && node.nodeValue.includes(searchText)) {
+                //             textNodes.push(node);
+                //         }
+                //     }
                     
-                    // 从后往前处理，避免DOM更改影响后续节点位置
-                    for (let i = textNodes.length - 1; i >= 0; i--) {
-                        const textNode = textNodes[i];
-                        const text = textNode.nodeValue;
-                        const startIndex = text.indexOf(searchText);
+                //     // 从后往前处理，避免DOM更改影响后续节点位置
+                //     for (let i = textNodes.length - 1; i >= 0; i--) {
+                //         const textNode = textNodes[i];
+                //         const text = textNode.nodeValue;
+                //         const startIndex = text.indexOf(searchText);
                         
-                        if (startIndex !== -1) {
-                            const beforeText = text.substring(0, startIndex);
-                            const matchedText = text.substring(startIndex, startIndex + searchText.length);
-                            const afterText = text.substring(startIndex + searchText.length);
+                //         if (startIndex !== -1) {
+                //             const beforeText = text.substring(0, startIndex);
+                //             const matchedText = text.substring(startIndex, startIndex + searchText.length);
+                //             const afterText = text.substring(startIndex + searchText.length);
                             
-                            const span = document.createElement('span');
-                            span.className = 'underline-fb3b780f';
-                            span.textContent = matchedText;
+                //             const span = document.createElement('span');
+                //             span.className = 'underline-fb3b780f';
+                //             span.textContent = matchedText;
                             
-                            // 创建新节点
-                            if (beforeText) {
-                                textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
-                            }
-                            textNode.parentNode.insertBefore(span, textNode);
-                            if (afterText) {
-                                textNode.nodeValue = afterText;
-                            } else {
-                                textNode.parentNode.removeChild(textNode);
-                            }
+                //             // 创建新节点
+                //             if (beforeText) {
+                //                 textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
+                //             }
+                //             textNode.parentNode.insertBefore(span, textNode);
+                //             if (afterText) {
+                //                 textNode.nodeValue = afterText;
+                //             } else {
+                //                 textNode.parentNode.removeChild(textNode);
+                //             }
+                //         }
+                //     }
+                // }
+
+
+                function underlineTextWithRange(container, text) {
+                        if (!container || !text) return;
+                        
+                        // 清空现有下划线（可选）
+                        // removeUnderlines(container);
+
+                        console.log('加载划线数据:', text);
+                        
+                        const walker = document.createTreeWalker(
+                            container,
+                            NodeFilter.SHOW_TEXT,
+                            null,
+                            false
+                        );
+                        
+                        let fullText = '';
+                        const textNodes = [];
+                        let node;
+                        
+                        // 收集所有文本节点并构建完整文本
+                        while (node = walker.nextNode()) {
+                            fullText += node.textContent;
+                            textNodes.push({
+                            node: node,
+                            start: fullText.length - node.textContent.length,
+                            end: fullText.length
+                            });
                         }
-                    }
+                        
+                        // 查找所有匹配位置
+                        const matches = [];
+                        let startIndex = 0;
+                        while ((startIndex = fullText.indexOf(text, startIndex)) !== -1) {
+                            matches.push({
+                            start: startIndex,
+                            end: startIndex + text.length
+                            });
+                            startIndex += text.length;
+                        }
+                        
+                        // 处理每个匹配
+                        matches.forEach(match => {
+                            const fragments = [];
+                            
+                            // 找出与匹配范围相交的文本节点
+                            textNodes.forEach(textNode => {
+                            const overlapStart = Math.max(textNode.start, match.start);
+                            const overlapEnd = Math.min(textNode.end, match.end);
+                            
+                            if (overlapStart < overlapEnd) {
+                                fragments.push({
+                                node: textNode.node,
+                                start: overlapStart - textNode.start,
+                                end: overlapEnd - textNode.start
+                                });
+                            }
+                            });
+                            
+                            // 按顺序处理每个片段
+                            fragments.forEach(fragment => {
+                            const { node, start, end } = fragment;
+                            const parent = node.parentNode;
+
+                            console.log('划线parent:', parent);
+                            
+                            // 如果父元素已经是下划线元素，跳过
+                            if (parent&&parent.classList && parent.classList.contains('underline-fb3b780f')) {
+                                return;
+                            }
+                            
+                            // 分割文本节点
+                            const wholeText = node.textContent;
+                            
+                            // 创建文档片段
+                            const docFragment = document.createDocumentFragment();
+                            
+                            // 添加前半部分（如果存在）
+                            if (start > 0) {
+                                const beforeText = wholeText.substring(0, start);
+                                docFragment.appendChild(document.createTextNode(beforeText));
+                            }
+                            
+                            // 创建下划线元素并添加中间部分
+                            const underlineSpan = document.createElement('span');
+                            underlineSpan.className = 'underline-fb3b780f';
+                            underlineSpan.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
+                            underlineSpan.textContent = wholeText.substring(start, end);
+                            docFragment.appendChild(underlineSpan);
+                            
+                            // 添加后半部分（如果存在）
+                            if (end < wholeText.length) {
+                                const afterText = wholeText.substring(end);
+                                docFragment.appendChild(document.createTextNode(afterText));
+                            }
+                            
+                            // 替换原文本节点
+                            if (node.parentNode) {
+                                node.parentNode.replaceChild(docFragment, node);
+                            }
+                            });
+                        });
+                }
+
+                // 移除所有下划线（可选功能）
+                function removeUnderlines(container) {
+                const underlines = container.querySelectorAll('.underline-fb3b780f');
+                underlines.forEach(underline => {
+                    const parent = underline.parentNode;
+                    const text = document.createTextNode(underline.textContent);
+                    parent.replaceChild(text, underline);
+                    // 合并相邻的文本节点
+                    parent.normalize();
+                });
                 }
                 
                 // 确保DOM完全加载后再应用划线
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
                         console.log('DOMContentLoaded事件触发，开始应用划线');
-                        highlightText(document.body, "${underlineInfo.text}");
+                        underlineTextWithRange(document.body, "${underlineInfo.text}");
                     });
                 } else {
                     console.log('DOMContentLoaded事件未触发，立即应用划线');
-                    highlightText(document.body, "${underlineInfo.text}");
+                    underlineTextWithRange(document.body, "${underlineInfo.text}");
                 }
 
                 console.log('划线应用完成');
             })()`
         );
+
+        underlineNameIndex++
     } catch (error) {
         console.error('恢复划线失败:', error);
     }
@@ -1937,19 +2060,30 @@ function handleRemoveUnderline(contents, underlineText = null) {
                         if (currentNode.classList && currentNode.classList.contains('underline-fb3b780f')) {
                             underlineNode = currentNode;
                             console.log("找到划线元素:", underlineNode);
+                            
+                            //获取关联节点
+                            const name=underlineNode.getAttribute('name');
+                            console.log("关联节点名称:", name);
+                            if (name) {
+                                console.log("关联节点名称存在，尝试查找关联节点");
+                                // 根据名称查找关联节点
+                                const associatedNodes = document.getElementsByName(name);
+                                if (associatedNodes.length > 0){
+                                    underlineNodes=[...associatedNodes]//name获取的包含有currentNode节点，直接赋值associatedNodes没有map方法,只能将其转换为数组
+                                }
+                                console.log("划线关联节点:", associatedNodes, underlineNodes,underlineNodes.map);
+                            }else{
+                                console.log("关联节点名称不存在");//这种情况基本不存，因为现在都设置有name属性
+                                underlineNodes.push(underlineNode);
+                            }
+
                             break;
                         }
                         currentNode = currentNode.parentNode;
                     }
-                    
-                    // 如果找到划线元素，移除下划线
-                    if (underlineNode) {
-                        console.log("找到划线");
-                        // 移除划线类名
-                        underlineNode.classList.remove('underline-fb3b780f');
-                        underlineNodes.push(underlineNode);
-                        console.log("已移除划线类名");
-                    } else {
+                        
+                    // 如果未找到划线元素
+                    if (underlineNodes.length == 0) {
                         console.log("未找到划线，尝试查找选中范围内的划线元素");
                         // 如果没有找到包含下划线的父元素，检查选中范围内的所有元素
                         const range = selectedTextObj.getRangeAt(0);
@@ -1973,14 +2107,20 @@ function handleRemoveUnderline(contents, underlineText = null) {
                                 console.log("找到带下划线的节点:", node);
                             }
                         }
-                        
-                        // 移除找到的划线元素的类名
+                    }
+                    
+                    if (underlineNodes.length > 0) {
+                     // 移除找到的划线元素的类名
                         underlineNodes.forEach(node => {
                             console.log("移除划线节点类名:", node);
                             node.classList.remove('underline-fb3b780f');
+                            node.removeAttribute('name');//移除name属性
                             console.log("已移除划线节点类名");
                         });
+                    }else{
+                        console.log("未找到划线元素1");
                     }
+                   
                 } else {
                     // 方案2: 没有选中文本时，查找页面上所有的划线元素
                     console.log("开始取消划线 - 无选中文本，查找所有划线元素");
@@ -2004,6 +2144,8 @@ function handleRemoveUnderline(contents, underlineText = null) {
                         underlineNodes.push(firstElement);
                     }
                 }
+
+                console.log("找到划线元素数量2:",underlineNodes, underlineNodes.map);
                 
                 return {
                     success: underlineNodes.length > 0,
@@ -2015,6 +2157,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
             console.log("删除划线执行结果:", result);
             // 成功取消下划线后，从划线数据中删除对应的记录
             const url = contents.getURL();
+            selectedText=result.removedTexts.join('');
             if (url && selectedText && selectedText.trim()) {
                 // 从划线数据中删除
                 try {
@@ -2051,7 +2194,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                         
                         // 保存更新后的数据
                         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
-                        console.log('已删除划线信息:', url, selectedText);
+                        console.log('已删除划线信息1:', url, selectedText);
                     }
                 } catch (e) {
                     console.error('删除划线失败:', e);
@@ -2093,7 +2236,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                         
                         // 保存更新后的数据
                         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
-                        console.log('已删除划线信息:', url, result.removedTexts);
+                        console.log('已删除划线信息2:', url, result.removedTexts);
                     }
                 } catch (e) {
                     console.error('删除划线失败:', e);
