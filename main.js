@@ -1503,7 +1503,8 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                             const { node, start, end } = fragment;
                             const parent = node.parentNode;
 
-                            console.log('划线parent:', parent);
+                             console.log('划线parent:', parent,parent.tagName);
+                            if (parent.tagName == 'SCRIPT'||parent.tagName == 'STYLE'||parent.tagName == 'HEAD') return;//tagName返回都是大写的
                             
                             // 如果父元素已经是下划线元素，跳过
                             if (parent&&parent.classList && parent.classList.contains('underline-fb3b780f')) {
