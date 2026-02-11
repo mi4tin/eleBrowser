@@ -1921,7 +1921,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                 let underlineNodes = [];
                 
                 // 方案1: 如果有选中文本，按照原有逻辑处理
-                if (selectedTextObj.rangeCount > 0 && selectedTextObj.toString().trim()) {
+                if (selectedTextObj.rangeCount > 0 ) {
                     console.log("开始取消划线 - 有选中文本");
                     // 检查选中的内容是否在划线元素中
                     let currentNode = selectedTextObj.anchorNode;
