@@ -652,24 +652,24 @@ app.on('web-contents-created', (event, contents) => {
                     // }
                     
                     // 检查元素或其祖先是否有下划线类
-                    // let current = element.parentElement; // 从父元素开始检查
-                    // let foundUnderlineElement = null;
-                    // while (current && current !== document.body) {
-                    //     if (current.classList && current.classList.contains('underline-fb3b780f')) {
-                    //         foundUnderlineElement = current;
-                    //         console.log('在祖先元素中找到划线元素:', current.tagName, current.className);
-                    //         break;
-                    //     }
-                    //     current = current.parentElement;
-                    // }
+                    let current = element.parentElement; // 从父元素开始检查
+                    let foundUnderlineElement = null;
+                    while (current && current !== document.body) {
+                        if (current.classList && current.classList.contains('underline-fb3b780f')) {
+                            foundUnderlineElement = current;
+                            console.log('在祖先元素中找到划线元素:', current.tagName, current.className);
+                            break;
+                        }
+                        current = current.parentElement;
+                    }
                     
-                    // if (foundUnderlineElement) {
-                    //     return { 
-                    //         hasUnderline: true, 
-                    //         underlineText: foundUnderlineElement.textContent || foundUnderlineElement.innerText || '',
-                    //         underlineElement: foundUnderlineElement
-                    //     };
-                    // }
+                    if (foundUnderlineElement) {
+                        return { 
+                            hasUnderline: true, 
+                            underlineText: foundUnderlineElement.textContent || foundUnderlineElement.innerText || '',
+                            underlineElement: foundUnderlineElement
+                        };
+                    }
                     
                     // 如果没有找到划线元素，但有选中文本，则可以添加下划线
                     return { hasUnderline: false, underlineText: '' };
