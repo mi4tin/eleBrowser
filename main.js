@@ -625,47 +625,65 @@ app.on('web-contents-created', (event, contents) => {
                 `(function() {
                     // 获取鼠标位置的元素
                     const element = document.elementFromPoint(${params.x}, ${params.y});
-                    if (!element) return { hasUnderline: false };
+                    if (!element) return { hasUnderline: false, underlineText: '' };
 
                     console.log('右键点击元素:', element.tagName, element.className, element,element.classList);
                     
                     // 检查元素本身是否是划线元素
-                    if (element.classList && element.classList.contains('underline-fb3b780f')||
-                    element.querySelector('.underline-fb3b780f') !== null) {
+                    if (element.classList && element.classList.contains('underline-fb3b780f')) {
                         console.log('直接点击了划线元素');
-                        return { hasUnderline: true };
+                        return { 
+                            hasUnderline: true, 
+                            underlineText: element.textContent || element.innerText || '',
+                            underlineElement: element
+                        };
                     }
+                    
+                    // 检查元素内是否有划线子元素
+                    // const underlineChild = element.querySelector('.underline-fb3b780f');
+                    // if (underlineChild) {
+                    //     console.log('在子元素中找到划线元素:', underlineChild);
+                    //     return { 
+                    //         hasUnderline: true, 
+                    //         underlineText: underlineChild.textContent || underlineChild.innerText || '',
+                    //         underlineElement: underlineChild
+                    //     };
+                    // }
                     
                     // 检查元素或其祖先是否有下划线类
-                    let current = element.parentElement; // 从父元素开始检查
-                    let foundUnderlineElement = null;
-                    while (current && current !== document.body) {
-                        if (current.classList && current.classList.contains('underline-fb3b780f')) {
-                            foundUnderlineElement = current;
-                            console.log('在祖先元素中找到划线元素:', current.tagName, current.className);
-                            break;
-                        }
-                        current = current.parentElement;
-                    }
+                    // let current = element.parentElement; // 从父元素开始检查
+                    // let foundUnderlineElement = null;
+                    // while (current && current !== document.body) {
+                    //     if (current.classList && current.classList.contains('underline-fb3b780f')) {
+                    //         foundUnderlineElement = current;
+                    //         console.log('在祖先元素中找到划线元素:', current.tagName, current.className);
+                    //         break;
+                    //     }
+                    //     current = current.parentElement;
+                    // }
                     
-                    if (foundUnderlineElement) {
-                        return { hasUnderline: true };
-                    }
+                    // if (foundUnderlineElement) {
+                    //     return { 
+                    //         hasUnderline: true, 
+                    //         underlineText: foundUnderlineElement.textContent || foundUnderlineElement.innerText || '',
+                    //         underlineElement: foundUnderlineElement
+                    //     };
+                    // }
                     
                     // 如果没有找到划线元素，但有选中文本，则可以添加下划线
-                    return { hasUnderline: false };
+                    return { hasUnderline: false, underlineText: '' };
                 })()`
             ).then(elementCheckResult => {
                 console.log('元素检查结果:', elementCheckResult);
 
-                if(elementCheckResult.hasUnderline|| hasSelection){
+                if(elementCheckResult.hasUnderline || hasSelection){
                     underlineMenu=[ {
                         label: elementCheckResult.hasUnderline ? '取消划线' : '添加下划线',
                         enabled: true,
                         click: () => {
                             if (elementCheckResult.hasUnderline) {
-                                // 取消划线逻辑
-                                handleRemoveUnderline(contents);
+                                // 取消划线逻辑，传递划线文本内容
+                                handleRemoveUnderline(contents, elementCheckResult.underlineText);
                             } else {
                                 // 添加下划线逻辑
                                 handleAddUnderline(contents);
@@ -1878,9 +1896,14 @@ function handleAddUnderline(contents) {
 }
 
 // 处理取消下划线的函数
-function handleRemoveUnderline(contents) {
-    contents.executeJavaScript('window.getSelection().toString()')
-    .then((selectedText) => {
+function handleRemoveUnderline(contents, underlineText = null) {
+    // 如果提供了划线文本，直接使用；否则尝试获取选中文本
+    const getTextPromise = underlineText ? 
+        Promise.resolve(underlineText) : 
+        contents.executeJavaScript('window.getSelection().toString()');
+        
+    getTextPromise.then((selectedText) => {
+        console.log('开始取消划线selectedText:',selectedText)
         // 取消划线
         contents.executeJavaScript(
             `(function() {
@@ -1894,8 +1917,11 @@ function handleRemoveUnderline(contents) {
                 
                 // 获取用户选择的范围
                 const selectedTextObj = window.getSelection();
-                if (selectedTextObj.rangeCount > 0) {
-                    console.log("开始取消划线");
+                let underlineNodes = [];
+                
+                // 方案1: 如果有选中文本，按照原有逻辑处理
+                if (selectedTextObj.rangeCount > 0 && selectedTextObj.toString().trim()) {
+                    console.log("开始取消划线 - 有选中文本");
                     // 检查选中的内容是否在划线元素中
                     let currentNode = selectedTextObj.anchorNode;
                     let underlineNode = null;
@@ -1916,6 +1942,7 @@ function handleRemoveUnderline(contents) {
                         console.log("找到划线");
                         // 移除划线类名
                         underlineNode.classList.remove('underline-fb3b780f');
+                        underlineNodes.push(underlineNode);
                         console.log("已移除划线类名");
                     } else {
                         console.log("未找到划线，尝试查找选中范围内的划线元素");
@@ -1933,7 +1960,6 @@ function handleRemoveUnderline(contents) {
                         );
                         
                         let node;
-                        const underlineNodes = [];
                         
                         while (node = walker.nextNode()) {
                             console.log("遍历节点:", node, "类名:", node.className);
@@ -1950,29 +1976,68 @@ function handleRemoveUnderline(contents) {
                             console.log("已移除划线节点类名");
                         });
                     }
+                } else {
+                    // 方案2: 没有选中文本时，查找页面上所有的划线元素
+                    console.log("开始取消划线 - 无选中文本，查找所有划线元素");
+                    const allUnderlineElements = document.querySelectorAll('.underline-fb3b780f');
+                    console.log("找到划线元素数量:", allUnderlineElements.length);
+                    
+                    // 如果只有一个划线元素，直接移除
+                    if (allUnderlineElements.length === 1) {
+                        const element = allUnderlineElements[0];
+                        console.log("移除唯一划线元素:", element);
+                        element.classList.remove('underline-fb3b780f');
+                        underlineNodes.push(element);
+                    } else if (allUnderlineElements.length > 1) {
+                        // 如果有多个划线元素，需要用户确认或者提供更多信息
+                        console.log("发现多个划线元素，需要进一步处理");
+                        // 这里可以添加更复杂的逻辑来确定要删除哪个元素
+                        // 暂时移除第一个元素作为示例
+                        const firstElement = allUnderlineElements[0];
+                        console.log("移除第一个划线元素:", firstElement);
+                        firstElement.classList.remove('underline-fb3b780f');
+                        underlineNodes.push(firstElement);
+                    }
                 }
+                
+                return {
+                    success: underlineNodes.length > 0,
+                    removedCount: underlineNodes.length,
+                    removedTexts: underlineNodes.map(node => node.textContent || node.innerText || '')
+                };
             })()`
-        ).then(() => {
-            console.log("删除划线11")
+        ).then((result) => {
+            console.log("删除划线执行结果:", result);
             // 成功取消下划线后，从划线数据中删除对应的记录
             const url = contents.getURL();
-            console.log("删除划线12",url,underlineFilePath)
             if (url && selectedText && selectedText.trim()) {
                 // 从划线数据中删除
                 try {
                     let underlineData = {};
-                    console.log('删除划线13',fs.existsSync(underlineFilePath))
                     if (fs.existsSync(underlineFilePath)) {
                         const data = fs.readFileSync(underlineFilePath, 'utf8');
                         underlineData = JSON.parse(data);
-                        console.log('加载划线数据1:', underlineData);
                     }
                     
                     if (underlineData[url]) {
                         // 查找并删除匹配的划线记录
-                        underlineData[url] = underlineData[url].filter(item => 
-                            item.text !== selectedText
-                        );
+                        // 支持精确匹配和模糊匹配
+                        const originalLength = underlineData[url].length;
+                        underlineData[url] = underlineData[url].filter(item => {
+                            // 精确匹配
+                            if (item.text === selectedText) {
+                                return false;
+                            }
+                            // 模糊匹配（去除空白字符后比较）
+                            const cleanItemText = item.text.replace(/\s+/g, '');
+                            const cleanSelectedText = selectedText.replace(/\s+/g, '');
+                            if (cleanItemText === cleanSelectedText) {
+                                return false;
+                            }
+                            return true;
+                        });
+                        
+                        console.log(`从 ${originalLength} 条记录中删除了 ${originalLength - underlineData[url].length} 条`);
                         
                         // 如果该URL没有划线记录了，删除该URL的条目
                         if (underlineData[url].length === 0) {
@@ -1986,12 +2051,54 @@ function handleRemoveUnderline(contents) {
                 } catch (e) {
                     console.error('删除划线失败:', e);
                 }
+            } else if (url && result.removedTexts && result.removedTexts.length > 0) {
+                // 如果没有选中文本但成功移除了划线元素，使用移除的文本进行删除
+                try {
+                    let underlineData = {};
+                    if (fs.existsSync(underlineFilePath)) {
+                        const data = fs.readFileSync(underlineFilePath, 'utf8');
+                        underlineData = JSON.parse(data);
+                    }
+                    
+                    if (underlineData[url]) {
+                        const originalLength = underlineData[url].length;
+                        // 根据移除的文本内容删除对应的记录
+                        result.removedTexts.forEach(removedText => {
+                            underlineData[url] = underlineData[url].filter(item => {
+                                // 精确匹配
+                                if (item.text === removedText) {
+                                    return false;
+                                }
+                                // 模糊匹配
+                                const cleanItemText = item.text.replace(/\s+/g, '');
+                                const cleanRemovedText = removedText.replace(/\s+/g, '');
+                                if (cleanItemText === cleanRemovedText) {
+                                    return false;
+                                }
+                                return true;
+                            });
+                        });
+                        
+                        console.log(`从 ${originalLength} 条记录中删除了相关记录`);
+                        
+                        // 如果该URL没有划线记录了，删除该URL的条目
+                        if (underlineData[url].length === 0) {
+                            delete underlineData[url];
+                        }
+                        
+                        // 保存更新后的数据
+                        fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
+                        console.log('已删除划线信息:', url, result.removedTexts);
+                    }
+                } catch (e) {
+                    console.error('删除划线失败:', e);
+                }
             }
         }).catch((err) => {
             console.log('取消下划线失败:', err);
         });
     }).catch((err) => {
-        console.log('获取选中文本失败:', err);
+        console.log('获取划线文本失败:', err);
     });
 }
 

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>划线功能测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        p {
+            margin: 15px 0;
+        }
+        .highlight-note {
+            background-color: #ffffcc;
+            padding: 10px;
+            border-left: 4px solid #ffcc00;
+            margin: 20px 0;
+        }
+        /* 预设一些划线内容用于测试 */
+        .pre-underlined {
+            text-decoration: underline;
+            text-decoration-color: green;
+            text-decoration-style: solid;
+            text-decoration-thickness: 2px;
+            text-underline-offset: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>划线功能测试页面</h1>
+    
+    <div class="highlight-note">
+        <strong>测试说明：</strong>
+        <ol>
+            <li>选中下面任意一段文字，右键选择"添加下划线"</li>
+            <li><strong style="color: red;">重点测试：</strong>在没有选中文本的情况下，右键点击已有的划线内容（如下面预设的划线文字），选择"取消划线"</li>
+            <li>验证划线记录是否能正确保存和删除</li>
+            <li>打开划线记录页面(Ctrl+U)查看记录的变化</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>测试段落一</h2>
+        <p>这是第一段测试文字，用来验证划线功能是否正常工作。你可以选中这段文字的一部分，然后右键添加下划线。</p>
+        <p>这里有一些<span class="pre-underlined">重要的信息</span>需要特别标注，比如这个<span class="pre-underlined">关键术语</span>和技术要点。</p>
+    </div>
+
+    <div class="test-section">
+        <h2>测试段落二</h2>
+        <p><span class="pre-underlined">第二段包含了更多需要标记的内容</span>。开发人员经常需要在文档中标记重要信息，这样可以快速回顾关键知识点。</p>
+        <p>学习新技术时，做好笔记和标记是<span class="pre-underlined">非常重要的习惯</span>，这有助于知识的巩固和复习。</p>
+    </div>
+
+    <div class="test-section">
+        <h2>测试段落三</h2>
+        <p>最后一段测试内容，包含了一些技术术语：<span class="pre-underlined">JavaScript</span>、<span class="pre-underlined">HTML</span>、<span class="pre-underlined">CSS</span>、<span class="pre-underlined">Electron</span>等。</p>
+        <p>这些技术栈构成了现代Web开发的基础，掌握它们对于前端开发者来说至关重要。</p>
+    </div>
+
+    <div class="test-section">
+        <h2>测试验证区</h2>
+        <p>请在此处添加您自己的划线内容，然后测试取消功能：</p>
+        <p id="user-content">您可以在这里输入一些文字，然后选中并添加下划线进行测试。</p>
+    </div>
+
+    <script>
+        // 页面加载完成后注入划线样式
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!document.getElementById('underline-styles')) {
+                const style = document.createElement('style');
+                style.id = 'underline-styles';
+                style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
+                document.head.appendChild(style);
+            }
+            
+            // 为预设的划线元素添加正确的类名
+            const preUnderlinedElements = document.querySelectorAll('.pre-underlined');
+            preUnderlinedElements.forEach(element => {
+                element.classList.add('underline-fb3b780f');
+            });
+        });
+    </script>
+</body>
+</html>
