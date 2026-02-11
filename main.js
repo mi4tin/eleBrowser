@@ -639,6 +639,7 @@ app.on('web-contents-created', (event, contents) => {
                         };
                     }
                     
+                    //暂时只管元素本身是否有划线类，不检查子元素和祖先元素
                     // 检查元素内是否有划线子元素
                     // const underlineChild = element.querySelector('.underline-fb3b780f');
                     // if (underlineChild) {
