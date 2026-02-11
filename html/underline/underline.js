@@ -279,9 +279,9 @@ class UnderlineManager {
                 const url = decodeURIComponent(encodedUrl);
                 const timestamp = parseInt(item.dataset.timestamp);
                 
-                if (confirm('确定要删除这条划线记录吗？')) {
+                // if (confirm('确定要删除这条划线记录吗？')) {
                     this.deleteUnderline(url, timestamp);
-                }
+                // }
             });
         });
     }
