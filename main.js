@@ -125,7 +125,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 lastActiveTabId = tabId;
 
                 // 加载并恢复划线信息
-                await loadAndRestoreUnderline(url, view);
+                await loadAndRestoreUnderline(url, view.webContents);
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
             }
@@ -1346,7 +1346,7 @@ const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
  * @param {string} url - 页面URL
  * @param {BrowserView} view - BrowserView实例
  */
-async function loadAndRestoreUnderline(url, view) {
+async function loadAndRestoreUnderline(url, contents) {
     try {
         console.log('加载划线数据请求:', url);
         
@@ -1362,7 +1362,7 @@ async function loadAndRestoreUnderline(url, view) {
             console.log('找到划线数据:', underlines.length, '条');
             // 恢复划线信息
             for (const underlineInfo of underlines) {
-                await restoreUnderlineInBrowserView(view.webContents, underlineInfo);
+                await restoreUnderlineInBrowserView(contents, underlineInfo);
             }
         }
     } catch (error) {
@@ -1446,7 +1446,6 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
 
                 function underlineTextWithRange(container, text, mode, occurrenceIndex) {
                         if (!container || !text) return;
-                        
                         // 清空现有下划线（可选）
                         // removeUnderlines(container);
 
@@ -1496,7 +1495,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                             matchesToProcess = matches;
                         }
                         
-                        console.log('待处理匹配:', matchesToProcess);
+                        console.log('待处理匹配数量:', matchesToProcess.length);
 
                         // 处理每个匹配
                         matchesToProcess.forEach(match => {
@@ -1514,20 +1513,27 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                                 end: overlapEnd - textNode.start
                                 });
                             }
-                            });
-                            
-                            // 按顺序处理每个片段
-                            fragments.forEach(fragment => {
+                        });
+                                
+                        // 按顺序处理每个片段
+                        fragments.forEach(fragment => {
+
                             const { node, start, end } = fragment;
                             const parent = node.parentNode;
 
-                             console.log('划线parent:', parent,parent.tagName);
-                            if (parent.tagName == 'SCRIPT'||parent.tagName == 'STYLE'||parent.tagName == 'HEAD') return;//tagName返回都是大写的
+                            console.log('划线node:', node,node.parentNode);
+
+                            if(parent){
+                                console.log('划线parent:', parent,parent.tagName);
+                                if (parent.tagName == 'SCRIPT'||parent.tagName == 'STYLE'||parent.tagName == 'HEAD') return;//tagName返回都是大写的
+                            }
                             
                             // 如果父元素已经是下划线元素，跳过
                             if (parent&&parent.classList && parent.classList.contains('underline-fb3b780f')) {
                                 return;
                             }
+
+                            console.log('划线fragment:', fragment);
                             
                             // 分割文本节点
                             const wholeText = node.textContent;
@@ -1540,6 +1546,8 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                                 const beforeText = wholeText.substring(0, start);
                                 docFragment.appendChild(document.createTextNode(beforeText));
                             }
+
+                            console.log('划线docFragment:', docFragment);
                             
                             // 创建下划线元素并添加中间部分
                             const underlineSpan = document.createElement('span');
@@ -1561,8 +1569,8 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                             if (node.parentNode) {
                                 node.parentNode.replaceChild(docFragment, node);
                             }
-                            });
                         });
+                    });
                 }
 
                 // 移除所有下划线（可选功能）
@@ -1595,6 +1603,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
         underlineNameIndex++
     } catch (error) {
         console.error('恢复划线失败:', error);
+        console.log('恢复划线失败的详细信息:', error.stack);
     }
 }
 
@@ -1988,15 +1997,26 @@ const underlineMode = 2; // 划线模式，1、只加载指定出现次数的文
 function handleAddUnderline(contents, mode = underlineMode) {
     contents.executeJavaScript('window.getSelection().toString()')
     .then((selectedText) => {
-        if (!selectedText || !selectedText.trim()) {
+
+        const url = contents.getURL();
+        if (!url||!selectedText || !selectedText.trim()) {
             console.log('没有选中文本');
             return;
         }
 
+         // 构造划线信息对象
+        let underlineInfo = {
+            text: selectedText,
+            timestamp: Date.now(),
+            url: url,
+            mode: mode,
+            occurrenceIndex: 0
+        };
+
         
-        
-        // 为选中的文本添加绿色下划线
-        contents.executeJavaScript(
+        const addUnderlinePromise = mode === 2
+            ? restoreUnderlineInBrowserView(contents, underlineInfo)
+            : contents.executeJavaScript( // 只给当前选中的添加下划线
             `(function(selectedText, mode) {
                 // 检查并注入划线样式
                 if (!document.getElementById('underline-styles')) {
@@ -2120,28 +2140,24 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 
                 return { occurrenceIndex: result.occurrenceIndex, spansCount: result.spans.length };
             })('${selectedText.replace(/'/g, "\\'")}', ${mode})`
-        ).then((result) => {
+        )
+        
+        
+        addUnderlinePromise.then((result) => {
             // 成功添加下划线后，记录划线信息
-            const url = contents.getURL();
-            if (url && selectedText && selectedText.trim()) {
-                // 构造划线信息对象
-                const underlineInfo = {
-                    text: selectedText,
-                    timestamp: Date.now(),
-                    url: url,
-                    mode: mode,
-                    occurrenceIndex: result.occurrenceIndex
-                };
+            console.log("成功添加下划线.result:", result)
+            console.log('保存划线数据1:', url, underlineInfo);
 
-                console.log('保存划线数据1:', url, underlineInfo);
+            if(mode==1){
+                underlineInfo.occurrenceIndex=result.occurrenceIndex;//只有模式1才会返回result
+            }
                 
-                // 只使用最可靠的方式保存划线数据
-                try {
-                    saveUnderlineDirect(url, underlineInfo);
-                    console.log('已保存划线信息:', url, underlineInfo.text, '模式:', mode, '出现次数:', result.occurrenceIndex);
-                } catch (e) {
-                    console.log('保存划线失败:', e);
-                }
+            // 只使用最可靠的方式保存划线数据
+            try {
+                saveUnderlineDirect(url, underlineInfo);
+                console.log('已保存划线信息:', url, underlineInfo.text, '模式:', mode, '出现次数:', underlineInfo.occurrenceIndex);
+            } catch (e) {
+                console.log('保存划线失败:', e);
             }
         }).catch((err) => {
             console.log('添加下划线失败:', err);
