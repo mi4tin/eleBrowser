@@ -1,4 +1,7 @@
 ==待实现==
++将main.copy2的loadAndRestoreUnderline换进main.js
+
+
 +同一网页内，多个地方有相同内容划线的问题
 +每个标签网站的搜索是独立的
 +文件下载
