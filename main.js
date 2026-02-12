@@ -1514,9 +1514,13 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                                 });
                             }
                         });
-                                
+                        
+                        let index=0
                         // 按顺序处理每个片段
                         fragments.forEach(fragment => {
+                            index++
+
+                            console.log('划线fragmentaaa:',fragment);
 
                             const { node, start, end } = fragment;
                             const parent = node.parentNode;
@@ -1524,7 +1528,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                             console.log('划线node:', node,node.parentNode);
 
                             if(parent){
-                                console.log('划线parent:', parent,parent.tagName);
+                                console.log(index+'划线parent:', parent,parent.tagName);
                                 if (parent.tagName == 'SCRIPT'||parent.tagName == 'STYLE'||parent.tagName == 'HEAD') return;//tagName返回都是大写的
                             }
                             
