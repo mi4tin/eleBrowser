@@ -1568,6 +1568,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                             // 替换原文本节点
                             if (node.parentNode) {
                                 node.parentNode.replaceChild(docFragment, node);
+                                console.log('划线parentNode:', node.parentNode);
                             }
                         });
                     });
