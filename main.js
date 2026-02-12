@@ -1362,7 +1362,7 @@ async function loadAndRestoreUnderline(url, view) {
             console.log('找到划线数据:', underlines.length, '条');
             // 恢复划线信息
             for (const underlineInfo of underlines) {
-                await restoreUnderlineInBrowserView(view, underlineInfo);
+                await restoreUnderlineInBrowserView(view.webContents, underlineInfo);
             }
         }
     } catch (error) {
@@ -1371,7 +1371,7 @@ async function loadAndRestoreUnderline(url, view) {
 }
 
 
-let underlineNameIndex = 1;
+let underlineNameIndex = 1;//用于同一页面的不同下划线的命名标识
 
 /**
  * 在BrowserView中恢复划线信息
@@ -1380,10 +1380,11 @@ let underlineNameIndex = 1;
  */
 async function restoreUnderlineInBrowserView(contents, underlineInfo) {
     try {
-        console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode || 1, underlineInfo.occurrenceIndex || 0, underlineNameIndex);
-        
-        underlineInfo.mode=2
+        underlineInfo.mode=underlineInfo.mode || 1
+        underlineInfo.occurrenceIndex=underlineInfo.occurrenceIndex || 0
 
+        console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndex);
+        
         // 在BrowserView中执行JavaScript代码来恢复划线
         await contents.executeJavaScript(
             `(function(text, mode, occurrenceIndex) {
@@ -1441,6 +1442,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                 //     }
                 // }
 
+                console.log('恢复划线信息2:', text, mode, occurrenceIndex);
 
                 function underlineTextWithRange(container, text, mode, occurrenceIndex) {
                         if (!container || !text) return;
@@ -1494,7 +1496,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                             matchesToProcess = matches;
                         }
                         
-                        console.log('处理匹配:', matchesToProcess);
+                        console.log('待处理匹配:', matchesToProcess);
 
                         // 处理每个匹配
                         matchesToProcess.forEach(match => {
@@ -1587,7 +1589,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                 }
 
                 console.log('划线应用完成');
-            })('${underlineInfo.text}', ${underlineInfo.mode || 1}, ${underlineInfo.occurrenceIndex || 0})`
+            })('${underlineInfo.text}', ${underlineInfo.mode}, ${underlineInfo.occurrenceIndex})`
         );
 
         underlineNameIndex++
@@ -1980,13 +1982,22 @@ app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
 })
 
+const underlineMode = 2; // 划线模式，1、只加载指定出现次数的文本划线，2、加载所有匹配文本的划线
+
 // 处理添加下划线的函数
-function handleAddUnderline(contents) {
+function handleAddUnderline(contents, mode = underlineMode) {
     contents.executeJavaScript('window.getSelection().toString()')
     .then((selectedText) => {
+        if (!selectedText || !selectedText.trim()) {
+            console.log('没有选中文本');
+            return;
+        }
+
+        
+        
         // 为选中的文本添加绿色下划线
         contents.executeJavaScript(
-            `(function() {
+            `(function(selectedText, mode) {
                 // 检查并注入划线样式
                 if (!document.getElementById('underline-styles')) {
                     const style = document.createElement('style');
@@ -1995,11 +2006,47 @@ function handleAddUnderline(contents) {
                     document.head.appendChild(style);
                 }
                 
-                // 获取用户选择的范围
-                const selectedTextObj = window.getSelection();
-                if (selectedTextObj.rangeCount > 0) {
-                    const range = selectedTextObj.getRangeAt(0);
+                // 计算文本在文档中的出现次数
+                function getTextOccurrenceIndex(text, node) {
+                    let count = 0;
+                    let currentNode = node;
                     
+                    // 向上查找直到文档根节点
+                    while (currentNode && currentNode !== document.body) {
+                        currentNode = currentNode.parentNode;
+                    }
+                    
+                    // 遍历文档，计算文本出现次数
+                    function traverseNodes(node) {
+                        if (node.nodeType === 3) { // 文本节点
+                            const textContent = node.textContent;
+                            let index = 0;
+                            while ((index = textContent.indexOf(text, index)) !== -1) {
+                                count++;
+                                // 检查是否是当前选中的文本
+                                if (node === window.getSelection().anchorNode && 
+                                    index <= window.getSelection().anchorOffset && 
+                                    index + text.length >= window.getSelection().focusOffset) {
+                                    return true; // 找到当前选中的文本
+                                }
+                                index += text.length;
+                            }
+                        } else if (node.nodeType === 1) { // 元素节点
+                            for (let i = 0; i < node.childNodes.length; i++) {
+                                if (traverseNodes(node.childNodes[i])) {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    }
+                    
+                    traverseNodes(document.body);
+                    return count;
+                }
+                
+                // 为指定范围添加下划线
+                function addUnderlineToRange(range) {
                     // 创建一个span元素用于添加下划线样式
                     const span = document.createElement('span');
                     span.className = 'underline-fb3b780f';
@@ -2013,9 +2060,67 @@ function handleAddUnderline(contents) {
                         span.appendChild(contents);
                         range.insertNode(span);
                     }
+                    return span;
                 }
-            })()`
-        ).then(() => {
+                
+                // 查找所有匹配的文本并添加下划线
+                function addUnderlineToAllMatches(text) {
+                    const spans = [];
+                    const walker = document.createTreeWalker(
+                        document.body,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    
+                    let node;
+                    while (node = walker.nextNode()) {
+                        let textContent = node.textContent;
+                        let index = 0;
+                        while ((index = textContent.indexOf(text, index)) !== -1) {
+                            const range = document.createRange();
+                            range.setStart(node, index);
+                            range.setEnd(node, index + text.length);
+                            
+                            const span = addUnderlineToRange(range);
+                            spans.push(span);
+                            
+                            index += text.length;
+                        }
+                    }
+                    return spans;
+                }
+                
+                const result = { spans: [], occurrenceIndex: 0 };
+                
+                // 获取用户选择的范围
+                const selectedTextObj = window.getSelection();
+                if (selectedTextObj.rangeCount > 0) {
+                    const range = selectedTextObj.getRangeAt(0);
+                    
+                    if (mode === 1) {
+                        // 模式1: 只为当前选中的文本添加下划线，并记录出现次数
+                        const occurrenceIndex = getTextOccurrenceIndex(selectedText, range.commonAncestorContainer);
+                        result.occurrenceIndex = occurrenceIndex;
+
+                        console.log('当前选中的文本occurrenceIndex:', occurrenceIndex);
+                        
+                        const span = addUnderlineToRange(range);
+                        span.dataset.occurrenceIndex = occurrenceIndex;
+                        result.spans.push(span);
+                    } else if (mode === 2) {
+
+                        console.log('模式2当前选中的文本:', selectedText);
+                        // 模式2: 为所有匹配的文本添加下划线
+                        result.spans = addUnderlineToAllMatches(selectedText);
+                    }
+                }
+
+                console.log('添加下划线结果666:', result);
+                
+                return { occurrenceIndex: result.occurrenceIndex, spansCount: result.spans.length };
+            })('${selectedText.replace(/'/g, "\\'")}', ${mode})`
+        ).then((result) => {
             // 成功添加下划线后，记录划线信息
             const url = contents.getURL();
             if (url && selectedText && selectedText.trim()) {
@@ -2023,7 +2128,9 @@ function handleAddUnderline(contents) {
                 const underlineInfo = {
                     text: selectedText,
                     timestamp: Date.now(),
-                    url: url
+                    url: url,
+                    mode: mode,
+                    occurrenceIndex: result.occurrenceIndex
                 };
 
                 console.log('保存划线数据1:', url, underlineInfo);
@@ -2031,7 +2138,7 @@ function handleAddUnderline(contents) {
                 // 只使用最可靠的方式保存划线数据
                 try {
                     saveUnderlineDirect(url, underlineInfo);
-                    console.log('已保存划线信息:', url, underlineInfo.text);
+                    console.log('已保存划线信息:', url, underlineInfo.text, '模式:', mode, '出现次数:', result.occurrenceIndex);
                 } catch (e) {
                     console.log('保存划线失败:', e);
                 }
