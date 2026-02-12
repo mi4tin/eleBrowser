@@ -1,5 +1,6 @@
 ==待实现==
-+将main.copy2的loadAndRestoreUnderline换进main.js
++将ds或test-underline里下添加下划线方法替换main.js里添加下划线
+
 
 
 +同一网页内，多个地方有相同内容划线的问题
@@ -12,6 +13,7 @@
 
 
 ==完成==
++将main.copy2的loadAndRestoreUnderline换进main.js
 +将webview换成browserview，以解决webview开发者工具不能停靠的问题（搜索使用browserview已证可行见elebrowser2）
 +搜索词变化，搜索效果没变
 +搜索即时性

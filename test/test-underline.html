@@ -43,12 +43,17 @@
 </head>
 <body>
     <div class="aa11" id="content">
+      <p name="a1" class="aa">这一段示例是一段<b>示例</b>又一段</p>
   <p name="a1" class="aa">这是一段<b>示例</b>文本，演示跨标签<b>文本处理</b>。</p>
   <p name="a1" class="aa">另一段需要<em>处理</em>的文本。</p>
 </div>
+<!-- <div id="content">
+<p>示例文本，这里又有一个示例文本，还有第三个示例文本。</p>
+  <p>另一个段落也有示例文本。</p>
+</div> -->
 
 
-    <script>
+<script>
         // 页面加载完成后注入划线样式
         // document.addEventListener('DOMContentLoaded', function() {
         //     if (!document.getElementById('underline-styles')) {
@@ -167,6 +172,283 @@ function underlineTextWithRange(container, text) {
       }
     });
   });
+}
+
+
+
+/**
+ * 跨标签添加下划线，支持同一文本节点的多个匹配
+ * @param {HTMLElement} container 
+ * @param {string} text 
+ */
+function underlineAllMatchesWithRange(container, text) {
+  if (!container || !text) return;
+
+  // 1. 收集所有文本节点，构建完整文本和位置映射
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  let fullText = '';
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    textNodes.push({
+      node,
+      start: fullText.length,
+      end: fullText.length + node.textContent.length,
+      content: node.textContent
+    });
+    fullText += node.textContent;
+  }
+
+  // 2. 找到所有匹配位置
+  const matches = [];
+  let startIndex = 0;
+  while ((startIndex = fullText.indexOf(text, startIndex)) !== -1) {
+    matches.push({
+      start: startIndex,
+      end: startIndex + text.length
+    });
+    startIndex += text.length;
+  }
+
+  if (matches.length === 0) return;
+
+  // 3. 按结束位置从大到小排序（从后往前处理）
+  matches.sort((a, b) => b.end - a.end);
+
+  // 4. 处理每个匹配
+  matches.forEach(match => {
+    // 找出与当前匹配重叠的文本节点片段
+    const fragments = [];
+    textNodes.forEach(nodeInfo => {
+      const overlapStart = Math.max(nodeInfo.start, match.start);
+      const overlapEnd = Math.min(nodeInfo.end, match.end);
+      
+      if (overlapStart < overlapEnd) {
+        fragments.push({
+          node: nodeInfo.node,
+          start: overlapStart - nodeInfo.start,
+          end: overlapEnd - nodeInfo.start,
+          originalContent: nodeInfo.content
+        });
+      }
+    });
+
+    // 处理每个片段（注意：这里操作的 node 是原始文本节点，可能已经被之前的匹配替换）
+    // 但因为我们是从后往前处理，并且每个 node 是原始节点引用，如果该节点已经被替换，它就不在 DOM 中了
+    // 因此需要检查节点是否还在文档中
+    fragments.forEach(fragment => {
+      const { node, start, end, originalContent } = fragment;
+      
+      // 如果节点已经被移除，跳过（实际上，由于从后往前处理，后面的匹配不会破坏前面的节点）
+      if (!node.parentNode) return;
+
+      const parent = node.parentNode;
+      
+      // 如果父元素已经是下划线元素且不属于当前处理，跳过
+      if (parent.classList && parent.classList.contains('underlined-text')) {
+        return;
+      }
+
+      const currentText = node.textContent; // 使用实时文本内容
+
+      // 分割文本节点
+      const docFragment = document.createDocumentFragment();
+      
+      if (start > 0) {
+        docFragment.appendChild(
+          document.createTextNode(currentText.substring(0, start))
+        );
+      }
+
+      const underlineSpan = document.createElement('span');
+      underlineSpan.className = 'underlined-text';
+      underlineSpan.textContent = currentText.substring(start, end);
+      docFragment.appendChild(underlineSpan);
+
+      if (end < currentText.length) {
+        docFragment.appendChild(
+          document.createTextNode(currentText.substring(end))
+        );
+      }
+
+      parent.replaceChild(docFragment, node);
+    });
+  });
+
+  // 5. 合并相邻文本节点，清理多余空文本节点
+  container.normalize();
+}
+
+
+
+/**
+ * 在容器中，根据全局字符偏移量查找所在的文本节点及内部偏移
+ * @param {HTMLElement} container 
+ * @param {number} offset - 从容器文本开头计算的字符偏移（0-based）
+ * @returns {{ node: Text, offset: number }} 文本节点和内部偏移
+ */
+function getTextNodeAtPosition(container, offset) {
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  let currentPos = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    const nodeLength = node.textContent.length;
+    if (offset < currentPos + nodeLength) {
+      return {
+        node: node,
+        offset: offset - currentPos
+      };
+    }
+    currentPos += nodeLength;
+  }
+  throw new Error(`Offset ${offset} out of range`);
+}
+
+
+function underlineAllMatchesDynamic(container, text) {
+  if (!container || !text) return;
+
+  // 1. 获取当前容器的完整文本内容，找到所有匹配位置
+  const fullText = container.textContent;
+  const matches = [];
+  let startIdx = 0;
+  while ((startIdx = fullText.indexOf(text, startIdx)) !== -1) {
+    matches.push({
+      start: startIdx,
+      end: startIdx + text.length
+    });
+    startIdx += text.length;
+  }
+
+  if (matches.length === 0) return;
+
+  // 2. 按结束位置降序处理（从后往前）
+  matches.sort((a, b) => b.end - a.end);
+
+  // 3. 处理每个匹配
+  matches.forEach(match => {
+    // 动态定位起始节点和结束节点（基于当前 DOM）
+    const startInfo = getTextNodeAtPosition(container, match.start);
+    const endInfo = getTextNodeAtPosition(container, match.end - 1); // 结束位置-1，确保落在文本节点内
+
+    const startNode = startInfo.node;
+    const endNode = endInfo.node;
+    const startOffset = startInfo.offset;
+    const endOffset = endInfo.offset + 1; // 因为 endInfo 对应的是最后一个字符的位置
+
+    // 如果起始节点和结束节点是同一个文本节点
+    if (startNode === endNode) {
+      wrapTextNodeSegment(startNode, startOffset, endOffset);
+    } else {
+      // 跨越多个文本节点
+      handleMultiNodeRange(startNode, startOffset, endNode, endOffset);
+    }
+  });
+
+  // 合并相邻文本节点（可选，但建议保留以保持结构清晰）
+  // container.normalize();
+}
+
+/**
+ * 包裹单个文本节点中的一段
+ */
+function wrapTextNodeSegment(node, start, end) {
+  const parent = node.parentNode;
+  if (!parent) return;
+  if (parent.classList && parent.classList.contains('underlined-text')) return;
+
+  const content = node.textContent;
+  const fragment = document.createDocumentFragment();
+
+  if (start > 0) {
+    fragment.appendChild(document.createTextNode(content.substring(0, start)));
+  }
+
+  const span = document.createElement('span');
+  span.className = 'underlined-text';
+  span.textContent = content.substring(start, end);
+  fragment.appendChild(span);
+
+  if (end < content.length) {
+    fragment.appendChild(document.createTextNode(content.substring(end)));
+  }
+
+  parent.replaceChild(fragment, node);
+}
+
+/**
+ * 处理跨文本节点的范围
+ */
+function handleMultiNodeRange(startNode, startOffset, endNode, endOffset) {
+  // 1. 处理起始节点（保留后半部分）
+  const startParent = startNode.parentNode;
+  if (startParent) {
+    const startContent = startNode.textContent;
+    const startFrag = document.createDocumentFragment();
+    
+    // 从 startOffset 到末尾的内容加上下划线
+    const underlineSpan = document.createElement('span');
+    underlineSpan.className = 'underlined-text';
+    underlineSpan.textContent = startContent.substring(startOffset);
+    startFrag.appendChild(underlineSpan);
+    
+    // 前半部分保留为纯文本（如果存在）
+    if (startOffset > 0) {
+      const beforeText = document.createTextNode(startContent.substring(0, startOffset));
+      startFrag.insertBefore(beforeText, underlineSpan);
+    }
+    
+    startParent.replaceChild(startFrag, startNode);
+  }
+
+  // 2. 处理结束节点（保留前半部分）
+  const endParent = endNode.parentNode;
+  if (endParent) {
+    const endContent = endNode.textContent;
+    const endFrag = document.createDocumentFragment();
+    
+    // 从开头到 endOffset 的内容加上下划线
+    const underlineSpan = document.createElement('span');
+    underlineSpan.className = 'underlined-text';
+    underlineSpan.textContent = endContent.substring(0, endOffset);
+    endFrag.appendChild(underlineSpan);
+    
+    // 后半部分保留为纯文本（如果存在）
+    if (endOffset < endContent.length) {
+      const afterText = document.createTextNode(endContent.substring(endOffset));
+      endFrag.appendChild(afterText);
+    }
+    
+    endParent.replaceChild(endFrag, endNode);
+  }
+
+  // 3. 处理中间的所有文本节点（整个包裹）
+  let currentNode = startNode.nextSibling;
+  while (currentNode && currentNode !== endNode) {
+    if (currentNode.nodeType === Node.TEXT_NODE && currentNode.parentNode) {
+      const parent = currentNode.parentNode;
+      const content = currentNode.textContent;
+      if (content.length > 0) {
+        const span = document.createElement('span');
+        span.className = 'underlined-text';
+        span.textContent = content;
+        parent.replaceChild(span, currentNode);
+      }
+    }
+    currentNode = currentNode.nextSibling;
+  }
 }
 
 // 移除所有下划线（可选功能）
@@ -349,6 +631,6 @@ function underlineWithSelection(container, text) {
   }
 }
     
-    </script>
+</script>
 </body>
 </html>
