@@ -1378,13 +1378,15 @@ let underlineNameIndex = 1;
  * @param {BrowserView} view - BrowserView实例
  * @param {object} underlineInfo - 划线信息
  */
-async function restoreUnderlineInBrowserView(view, underlineInfo) {
+async function restoreUnderlineInBrowserView(contents, underlineInfo) {
     try {
-        console.log('恢复划线信息:', underlineInfo.text,underlineNameIndex);
+        console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode || 1, underlineInfo.occurrenceIndex || 0, underlineNameIndex);
         
+        underlineInfo.mode=2
+
         // 在BrowserView中执行JavaScript代码来恢复划线
-        await view.webContents.executeJavaScript(
-            `(function() {
+        await contents.executeJavaScript(
+            `(function(text, mode, occurrenceIndex) {
                 // 检查并注入划线样式
                 if (!document.getElementById('underline-styles')) {
                     const style = document.createElement('style');
@@ -1440,13 +1442,13 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                 // }
 
 
-                function underlineTextWithRange(container, text) {
+                function underlineTextWithRange(container, text, mode, occurrenceIndex) {
                         if (!container || !text) return;
                         
                         // 清空现有下划线（可选）
                         // removeUnderlines(container);
 
-                        console.log('加载划线数据:', text);
+                        console.log('加载划线数据:', text, '模式:', mode, '出现次数:', occurrenceIndex);
                         
                         const walker = document.createTreeWalker(
                             container,
@@ -1480,8 +1482,22 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                             startIndex += text.length;
                         }
                         
+                        // 根据模式决定处理哪些匹配
+                        let matchesToProcess = [];
+                        if (mode === 1 && occurrenceIndex > 0) {
+                            // 模式1：只处理指定出现次数的匹配
+                            if (matches.length >= occurrenceIndex) {
+                                matchesToProcess = [matches[occurrenceIndex - 1]];
+                            }
+                        } else {
+                            // 模式2：处理所有匹配
+                            matchesToProcess = matches;
+                        }
+                        
+                        console.log('处理匹配:', matchesToProcess);
+
                         // 处理每个匹配
-                        matches.forEach(match => {
+                        matchesToProcess.forEach(match => {
                             const fragments = [];
                             
                             // 找出与匹配范围相交的文本节点
@@ -1527,6 +1543,9 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                             const underlineSpan = document.createElement('span');
                             underlineSpan.className = 'underline-fb3b780f';
                             underlineSpan.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
+                            if (mode === 1) {
+                                underlineSpan.dataset.occurrenceIndex = occurrenceIndex;
+                            }
                             underlineSpan.textContent = wholeText.substring(start, end);
                             docFragment.appendChild(underlineSpan);
                             
@@ -1560,15 +1579,15 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
                         console.log('DOMContentLoaded事件触发，开始应用划线');
-                        underlineTextWithRange(document.body, "${underlineInfo.text}");
+                        underlineTextWithRange(document.body, text, mode, occurrenceIndex);
                     });
                 } else {
                     console.log('DOMContentLoaded事件未触发，立即应用划线');
-                    underlineTextWithRange(document.body, "${underlineInfo.text}");
+                    underlineTextWithRange(document.body, text, mode, occurrenceIndex);
                 }
 
                 console.log('划线应用完成');
-            })()`
+            })('${underlineInfo.text}', ${underlineInfo.mode || 1}, ${underlineInfo.occurrenceIndex || 0})`
         );
 
         underlineNameIndex++
@@ -1576,6 +1595,7 @@ async function restoreUnderlineInBrowserView(view, underlineInfo) {
         console.error('恢复划线失败:', error);
     }
 }
+
 
 // 确保userData目录存在
 const userDataPath = app.getPath('userData');
