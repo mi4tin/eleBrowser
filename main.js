@@ -1385,7 +1385,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
 
         console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndex);
         
-        // 在BrowserView中执行JavaScript代码来恢复划线
+        // 在BrowserView中执行JavaScript代码来恢复划线。内部添加划线的核心方法来源 ds(chat.deepseek.com):JS跨标签文本添加下划线方法
         await contents.executeJavaScript(
             `(function(text, mode, occurrenceIndex) {
                 // 检查并注入划线样式
