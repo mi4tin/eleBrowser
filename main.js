@@ -1997,7 +1997,7 @@ app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
 })
 
-const underlineMode = 2; // 划线模式，1、只加载指定出现次数的文本划线，2、加载所有匹配文本的划线
+const underlineMode = 1; // 划线模式，1、只加载指定出现次数的文本划线，2、加载所有匹配文本的划线
 
 // 处理添加下划线的函数
 function handleAddUnderline(contents, mode = underlineMode) {
@@ -2020,7 +2020,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
         };
 
         
-        const addUnderlinePromise = mode === 2
+        const addUnderlinePromise = (mode === 2)
             ? restoreUnderlineInBrowserView(contents, underlineInfo)
             : contents.executeJavaScript( // 只给当前选中的添加下划线
             `(function(selectedText, mode) {
@@ -2048,7 +2048,6 @@ function handleAddUnderline(contents, mode = underlineMode) {
                             const textContent = node.textContent;
                             let index = 0;
                             while ((index = textContent.indexOf(text, index)) !== -1) {
-                                count++;
                                 // 检查是否是当前选中的文本
                                 if (node === window.getSelection().anchorNode && 
                                     index <= window.getSelection().anchorOffset && 
@@ -2056,6 +2055,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                                     return true; // 找到当前选中的文本
                                 }
                                 index += text.length;
+                                count++;
                             }
                         } else if (node.nodeType === 1) { // 元素节点
                             for (let i = 0; i < node.childNodes.length; i++) {
@@ -2089,34 +2089,6 @@ function handleAddUnderline(contents, mode = underlineMode) {
                     return span;
                 }
                 
-                // 查找所有匹配的文本并添加下划线
-                function addUnderlineToAllMatches(text) {
-                    const spans = [];
-                    const walker = document.createTreeWalker(
-                        document.body,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
-                    
-                    let node;
-                    while (node = walker.nextNode()) {
-                        let textContent = node.textContent;
-                        let index = 0;
-                        while ((index = textContent.indexOf(text, index)) !== -1) {
-                            const range = document.createRange();
-                            range.setStart(node, index);
-                            range.setEnd(node, index + text.length);
-                            
-                            const span = addUnderlineToRange(range);
-                            spans.push(span);
-                            
-                            index += text.length;
-                        }
-                    }
-                    return spans;
-                }
-                
                 const result = { spans: [], occurrenceIndex: 0 };
                 
                 // 获取用户选择的范围
@@ -2135,10 +2107,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         span.dataset.occurrenceIndex = occurrenceIndex;
                         result.spans.push(span);
                     } else if (mode === 2) {
-
-                        console.log('模式2当前选中的文本:', selectedText);
-                        // 模式2: 为所有匹配的文本添加下划线
-                        result.spans = addUnderlineToAllMatches(selectedText);
+                        console.error('不应在此有模式2。当前选中的文本:', selectedText);
                     }
                 }
 
