@@ -1518,16 +1518,17 @@ function handleMultiNodeRange(startNode, startOffset, endNode, endOffset) {
 }
 
 
-
-
                 /**
- * 跨标签添加下划线，支持同一文本节点内任意多个匹配
- * @param {HTMLElement} container 
- * @param {string} text 
+ * 跨标签添加下划线，支持指定第几个匹配
+ * @param {HTMLElement} container - 容器元素
+ * @param {string} text - 要添加下划线的文本
+ * @param {number} [matchIndex=null] - 匹配索引（0-based）
+ * @returns {number} 实际处理的匹配数量
  */
-function underlineAllMatches(container, text) {
-  if (!container || !text) return;
+function underlineAllMatches(container, text,mode, matchIndex) {
+  if (!container || !text) return 0;
 
+  // 1. 基于当前实时文本查找所有匹配位置
   const fullText = container.textContent;
   const matches = [];
   let pos = 0;
@@ -1535,14 +1536,27 @@ function underlineAllMatches(container, text) {
     matches.push({ start: pos, end: pos + text.length });
     pos += text.length;
   }
+  if (matches.length === 0) return 0;
 
-  console.log('找到匹配的文本位置:', matches.length, '个');
+  // 2. 确定要处理的匹配列表
+  let matchesToProcess = [];
+  if (mode === 1 && matchIndex >= 0) {
+    // 校验索引合法性
+    if (matchIndex >= 0 && matchIndex < matches.length) {
+      matchesToProcess = [matches[matchIndex]];
+    } else {
+      console.warn("❌ 匹配索引 " + matchIndex + " 超出范围，共有 " + matches.length + " 个匹配");
+      return 0;
+    }
+  } else {
+    matchesToProcess = matches.slice(); // 处理全部
+  }
 
-  if (matches.length === 0) return;
+  // 3. 按结束位置降序排序（从后往前处理，保证节点定位正确）
+  matchesToProcess.sort((a, b) => b.end - a.end);
 
-  matches.sort((a, b) => b.end - a.end);
-
-  matches.forEach(match => {
+  // 4. 处理每个匹配（依赖辅助函数）
+  matchesToProcess.forEach(match => {
     try {
       const startInfo = getTextNodeAtPosition(container, match.start);
       const endInfo = getTextNodeAtPosition(container, match.end - 1);
@@ -1550,15 +1564,17 @@ function underlineAllMatches(container, text) {
       if (startInfo.node === endInfo.node) {
         wrapTextNodeSegment(startInfo.node, startInfo.offset, endInfo.offset + 1);
       } else {
-        handleMultiNodeRange(
+        handleMultiNodeSegment(
           startInfo.node, startInfo.offset,
           endInfo.node, endInfo.offset + 1
         );
       }
     } catch (e) {
-      console.error('处理匹配失败:', match, e);
+      console.warn('⚠️ 处理匹配失败:', match, e);
     }
   });
+
+  return matchesToProcess.length;
 }
 
                 
