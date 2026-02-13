@@ -887,6 +887,18 @@ function registerAppShortcuts() {
                     }
                 }
             },
+             {
+                key: 'Escape',
+                name: '关闭搜索',
+                action: () => {
+                    console.log('应用内快捷键: 关闭搜索');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        // mainWindow.webContents.send('show-search-panel');
+                        // showSearchPanel();
+                        destroySearchPanel(mainWindow);
+                    }
+                }
+            },
             {
                 key: 'CommandOrControl+T',
                 name: '新建标签页',
@@ -1926,15 +1938,6 @@ const template = [
                 : { role: 'quit', label: '退出' }
         ]
     },
-    // {
-    //     label: '刷新',
-    //     accelerator: 'F5',
-    //     click: (menuItem, browserWindow) => {
-    //         if (browserWindow) {
-    //             browserWindow.reload();
-    //         }
-    //     }
-    // },
     {
         label: '书签',
         submenu: [
