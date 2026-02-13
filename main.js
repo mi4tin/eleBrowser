@@ -1556,7 +1556,7 @@ function underlineAllMatches(container, text) {
         );
       }
     } catch (e) {
-      console.warn('处理匹配失败:', match, e);
+      console.error('处理匹配失败:', match, e);
     }
   });
 }
