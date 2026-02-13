@@ -903,7 +903,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 刷新页面');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('refresh-tab');
+                        mainWindow.webContents.reload();
                     }
                 }
             },
@@ -913,7 +913,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 强制刷新页面');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('force-refresh-tab');
+                        mainWindow.webContents.reloadIgnoringCache();
                     }
                 }
             },
@@ -1918,17 +1918,6 @@ const template = [
                     if (win) {
                         win.webContents.send('new-tab');
                     }
-                }
-            },
-            { type: 'separator' },
-            {
-                label: '刷新当前页卡',
-                accelerator: 'F5',
-                click: (menuItem, browserWindow) => {
-                    const win = browserWindow || BrowserWindow.getFocusedWindow();
-                    if (win) {
-                        win.webContents.send('refresh-tab');
-                    } 
                 }
             },
             { type: 'separator' },
