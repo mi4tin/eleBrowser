@@ -617,7 +617,7 @@ app.on('web-contents-created', (event, contents) => {
                                 console.error('发送搜索选中文本消息失败:', err);
                             }
                         }
-                    }]
+                    }, { type: 'separator' }]
             }
             
             // 检查右键点击位置是否有划线元素
@@ -693,10 +693,14 @@ app.on('web-contents-created', (event, contents) => {
                     }]
                 }
 
+                if(hasSelection&&elementCheckResult.hasUnderline==false){
+                    underlineMenu=[...underlineMenu, { type: 'separator' }]
+                }
+
                 
                 const menu = Menu.buildFromTemplate([
-                   ...selectedMenu,
                    ...underlineMenu,
+                    ...selectedMenu,
                    ...baseMenu,
                 ]);
                 
