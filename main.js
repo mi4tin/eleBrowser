@@ -2196,6 +2196,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                 // 获取用户选择的范围
                 const selectedTextObj = window.getSelection();
                 let underlineNodes = [];
+                 let underlineText = '';
                 
                 // 方案1: 如果有选中文本，按照原有逻辑处理
                 if (selectedTextObj.rangeCount > 0 ) {
@@ -2203,7 +2204,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                     // 检查选中的内容是否在划线元素中
                     let currentNode = selectedTextObj.anchorNode;
                     let underlineNode = null;
-                    
+
                     // 向上查找划线元素
                     while (currentNode && currentNode !== document.body) {
                         console.log("检查节点:", currentNode, "类名:", currentNode.className);
@@ -2213,18 +2214,23 @@ function handleRemoveUnderline(contents, underlineText = null) {
                             
                             //获取关联节点
                             const name=underlineNode.getAttribute('name');
+                            const dataOccurrenceIndex=underlineNode.getAttribute('data-occurrence-index');
                             console.log("关联节点名称:", name);
                             if (name) {
                                 console.log("关联节点名称存在，尝试查找关联节点");
-                                // 根据名称查找关联节点
-                                const associatedNodes = document.getElementsByName(name);
+                                
+                                const multiNodes =document.querySelectorAll('[name="'+name+'"][data-occurrence-index="'+dataOccurrenceIndex+'"]');//跨文本节点
+                                const associatedNodes = document.getElementsByName(name);// 根据名称查找关联节点
                                 if (associatedNodes.length > 0){
                                     underlineNodes=[...associatedNodes]//name获取的包含有currentNode节点，直接赋值associatedNodes没有map方法,只能将其转换为数组
                                 }
                                 console.log("划线关联节点:", associatedNodes, underlineNodes,underlineNodes.map);
+
+                                underlineText = Array.from(multiNodes).map(node => node.textContent|| node.innerText || '').join('');
                             }else{
                                 console.log("关联节点名称不存在");//这种情况基本不存，因为现在都设置有name属性
                                 underlineNodes.push(underlineNode);
+                                underlineText = underlineNode.textContent|| underlineNode.innerText || '';
                             }
 
                             break;
@@ -2300,14 +2306,15 @@ function handleRemoveUnderline(contents, underlineText = null) {
                 return {
                     success: underlineNodes.length > 0,
                     removedCount: underlineNodes.length,
-                    removedTexts: underlineNodes.map(node => node.textContent || node.innerText || '')
+                    removedTexts: underlineNodes.map(node => node.textContent || node.innerText || ''),
+                    underlineText: underlineText
                 };
             })()`
         ).then((result) => {
             console.log("删除划线执行结果:", result);
             // 成功取消下划线后，从划线数据中删除对应的记录
             const url = contents.getURL();
-            selectedText=result.removedTexts.join('');
+            selectedText=result.underlineText;
             if (url && selectedText && selectedText.trim()) {
                 // 从划线数据中删除
                 try {
@@ -2350,6 +2357,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                     console.error('删除划线失败:', e);
                 }
             } else if (url && result.removedTexts && result.removedTexts.length > 0) {
+                //正常都不会执行
                 // 如果没有选中文本但成功移除了划线元素，使用移除的文本进行删除
                 try {
                     let underlineData = {};
