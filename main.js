@@ -1429,7 +1429,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                 /**
                  * 包裹单个文本节点中的一段
                  */
-                function wrapTextNodeSegment(node, start, end) {
+                function wrapTextNodeSegment(node, start, end, index) {
                 const parent = node.parentNode;
                 if (!parent) return;
                 if (parent.classList && parent.classList.contains('underline-fb3b780f')) return;
@@ -1444,6 +1444,8 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                 const span = document.createElement('span');
                 span.className = 'underline-fb3b780f';
                 span.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
+                span.setAttribute('data-occurrence-index', index);
+                
                 span.textContent = content.substring(start, end);
                 fragment.appendChild(span);
 
@@ -1458,7 +1460,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                 /**
                  * 处理跨文本节点的范围
                  */
-                function handleMultiNodeRange(startNode, startOffset, endNode, endOffset) {
+                function handleMultiNodeRange(startNode, startOffset, endNode, endOffset, index) {
                 // 1. 处理起始节点（保留后半部分）
                 const startParent = startNode.parentNode;
                 if (startParent) {
@@ -1469,6 +1471,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                     const underlineSpan = document.createElement('span');
                     underlineSpan.className = 'underline-fb3b780f';
                     underlineSpan.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
+                    underlineSpan.setAttribute('data-occurrence-index', index);
                     underlineSpan.textContent = startContent.substring(startOffset);
                     startFrag.appendChild(underlineSpan);
                     
@@ -1491,6 +1494,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                     const underlineSpan = document.createElement('span');
                     underlineSpan.className = 'underline-fb3b780f';
                     underlineSpan.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
+                    underlineSpan.setAttribute('data-occurrence-index', index);
                     underlineSpan.textContent = endContent.substring(0, endOffset);
                     endFrag.appendChild(underlineSpan);
                     
@@ -1513,6 +1517,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                         const span = document.createElement('span');
                         span.className = 'underline-fb3b780f';
                         span.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
+                        span.setAttribute('data-occurrence-index', index);
                         span.textContent = content;
                         parent.replaceChild(span, currentNode);
                     }
@@ -1559,18 +1564,22 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo) {
                 // 3. 按结束位置降序排序（从后往前处理，保证节点定位正确）
                 matchesToProcess.sort((a, b) => b.end - a.end);
 
+
+                var index = 0;
                 // 4. 处理每个匹配（依赖辅助函数）
                 matchesToProcess.forEach(match => {
                     try {
+                    index++;
+                    console.log('处理匹配aa:', match, '索引:', index);
                     const startInfo = getTextNodeAtPosition(container, match.start);
                     const endInfo = getTextNodeAtPosition(container, match.end - 1);
                     
                     if (startInfo.node === endInfo.node) {
-                        wrapTextNodeSegment(startInfo.node, startInfo.offset, endInfo.offset + 1);
+                        wrapTextNodeSegment(startInfo.node, startInfo.offset, endInfo.offset + 1,index);
                     } else {
-                        handleMultiNodeSegment(
+                        handleMultiNodeRange(
                         startInfo.node, startInfo.offset,
-                        endInfo.node, endInfo.offset + 1
+                        endInfo.node, endInfo.offset + 1,index
                         );
                     }
                     } catch (e) {
