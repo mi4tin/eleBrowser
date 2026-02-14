@@ -1325,12 +1325,11 @@ ipcMain.on('search-panel-find', (event, payload) => {
         if (!targetView || !targetView.webContents) return;
         
         const wc = targetView.webContents;
-        const options = { forward: !!forward, findNext: false, matchCase: !!matchCase };
-
-        console.log('执行 findInPage，文本options:',options);
-
+        // findNext必须为true，否则found-in-page事件不触发
+        const options = { forward: true, findNext:true, matchCase: false };
+        
         const foundListener = (e, result) => {
-            console.log('found-in-page 事件:', result);//todo:这里没回调
+            console.log('found-in-page 事件:', result);
             // 规范化并只发送必要字段，避免在渲染端处理 undefined
             const payload = {
                 matches: (result && typeof result.matches === 'number') ? result.matches : 0,
@@ -1347,15 +1346,9 @@ ipcMain.on('search-panel-find', (event, payload) => {
 
         wc.on('found-in-page', foundListener);
         
+        console.log('执行 findInPage.options:',options);
         var id=wc.findInPage(text || '', options);
-        console.log('findInPage 执行结果a:', id);
-
-        options.findNext = true;
-        setTimeout(() => {
-            var id=wc.findInPage(text || '', options);
-        console.log('findInPage 执行结果b:', id);
-        }, 100);
-        
+        console.log('findInPage 执行结果:', id);
     } catch (e) {
         console.error('处理搜索请求失败:', e);
     }
