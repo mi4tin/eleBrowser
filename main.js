@@ -285,8 +285,14 @@ function createSearchPanel(window) {
 
     // 当搜索面板关闭/销毁时清理引用
     panel.webContents.on('destroyed', () => {
+        console.log('搜索面板 webContents 已销毁');
         searchPanelView = null;
     });
+    
+    // 防止内存泄漏：限制事件监听器数量
+    if (window.listenerCount && window.listenerCount('closed') > 10) {
+        console.warn('检测到过多的 closed 事件监听器，可能存在内存泄漏');
+    }
 
     return panel;
 }
@@ -301,11 +307,17 @@ function destroySearchPanel(window) {
             try { targetView.webContents.stopFindInPage('clearSelection'); } catch (e) {}
         }
         if (window && !window.isDestroyed()) window.removeBrowserView(searchPanelView);
+        
+        // 正确销毁搜索面板的webContents
+        if (searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
+            searchPanelView.webContents.destroy();
+        }
     } catch (e) {
         console.error('销毁搜索面板失败:', e);
+    } finally {
+        // 确保清理引用
+        searchPanelView = null;
     }
-    try { searchPanelView.webContents.destroy(); } catch (e) {}
-    searchPanelView = null;
 }
 
 // 处理协议请求，阻止系统弹窗（macOS 和 Windows）
@@ -1311,11 +1323,11 @@ ipcMain.on('search-panel-find', (event, payload) => {
         const { text, forward, findNext, matchCase } = payload || {};
         const targetView = browserViews.get(lastActiveTabId) || Array.from(browserViews.values())[0];
         if (!targetView || !targetView.webContents) return;
-
-        console.log('执行 findInPage，文本:', text, '选项:', { forward, findNext, matchCase });
-
+        
         const wc = targetView.webContents;
-        const options = { forward: !!forward, findNext: true, matchCase: !!matchCase };
+        const options = { forward: !!forward, findNext: false, matchCase: !!matchCase };
+
+        console.log('执行 findInPage，文本options:',options);
 
         const foundListener = (e, result) => {
             console.log('found-in-page 事件:', result);//todo:这里没回调
@@ -1334,7 +1346,16 @@ ipcMain.on('search-panel-find', (event, payload) => {
         };
 
         wc.on('found-in-page', foundListener);
-        wc.findInPage(text || '', options);
+        
+        var id=wc.findInPage(text || '', options);
+        console.log('findInPage 执行结果a:', id);
+
+        options.findNext = true;
+        setTimeout(() => {
+            var id=wc.findInPage(text || '', options);
+        console.log('findInPage 执行结果b:', id);
+        }, 100);
+        
     } catch (e) {
         console.error('处理搜索请求失败:', e);
     }
