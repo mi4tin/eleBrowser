@@ -344,8 +344,9 @@ async function openUnderlineTab() {
 
 // 记录浏览历史
 function recordHistory(title, url) {
+    console.log('记录历史:', title, url);
     // 避免记录内部协议页面
-    if (url.startsWith('dxbrowser://') || url.includes('bookmarks.html') || url.includes('history.html')) {
+    if (url.startsWith('dxbrowser://') || url.startsWith('file://')) {
         return;
     }
     
