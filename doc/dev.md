@@ -1,16 +1,8 @@
 ==待实现==
-+index.js 全局快捷键：F12
-+开发者工具
++index.js运行的一些报错处理
++F12快捷键
++关闭其它标签
 
-+搜索选中文本
-
-+underlineNameIndex 、occurrenceIndex即matchindex等处理
-
-+将ds或test-underline里下添加下划线方法替换main.js里添加下划线
-
-
-
-+同一网页内，多个地方有相同内容划线的问题
 +每个标签网站的搜索是独立的
 +文件下载
 +http、socket5代理
@@ -20,6 +12,14 @@
 
 
 ==完成==
++underlineNameIndex 、occurrenceIndex即matchindex等处理
++同一网页内，多个地方有相同内容划线的问题
+
++将ds或test-underline里下添加下划线方法替换main.js里添加下划线
+
++搜索选中文本
++index.js 全局快捷键：F12
++开发者工具
 +将main.copy2的loadAndRestoreUnderline换进main.js
 +将webview换成browserview，以解决webview开发者工具不能停靠的问题（搜索使用browserview已证可行见elebrowser2）
 +搜索词变化，搜索效果没变
