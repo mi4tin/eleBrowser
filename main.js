@@ -956,7 +956,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 刷新页面');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('refresh-tab');
+                        reloadBrowserView(lastActiveTabId);
                     }
                 }
             },
@@ -966,7 +966,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 强制刷新页面');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('force-refresh-tab');
+                        reloadBrowserViewIgnoringCache(lastActiveTabId);
                     }
                 }
             },
@@ -1156,25 +1156,26 @@ ipcMain.handle('browser-view-go-forward', (event, tabId) => {
  * 导航操作：刷新
  */
 ipcMain.handle('browser-view-reload', (event, tabId) => {
+    return reloadBrowserView(tabId);
+});
+
+function reloadBrowserView(tabId) {
     const view = browserViews.get(tabId);
     if (view) {
         view.webContents.reload();
         return true;
     }
     return false;
-});
+}
 
-/**
- * 导航操作：强制刷新
- */
-ipcMain.handle('browser-view-reload-ignoring-cache', (event, tabId) => {
+function reloadBrowserViewIgnoringCache(tabId) {
     const view = browserViews.get(tabId);
     if (view) {
         view.webContents.reloadIgnoringCache();
         return true;
     }
     return false;
-});
+}
 
 /**
  * 加载指定URL

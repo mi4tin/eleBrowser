@@ -677,36 +677,6 @@ ipcRenderer.on('new-tab', () => {
     createTab();
 });
 
-ipcRenderer.on('refresh-tab', async () => {
-    console.log('收到主进程消息: 刷新标签页');
-    if (currentTabId == null) return;
-    
-    try {
-        // 优先尝试使用 BrowserView 方式刷新
-        const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
-        if (!success) {
-            console.error('BrowserView 刷新操作失败');
-        }
-    } catch (error) {
-        console.error('刷新标签页失败:', error);
-    }
-});
-
-ipcRenderer.on('force-refresh-tab', async () => {
-    console.log('收到主进程消息: 强制刷新标签页');
-    if (currentTabId == null) return;
-    
-    try {
-        // 优先尝试使用 BrowserView 方式强制刷新
-        const success = await ipcRenderer.invoke('browser-view-reload-ignoring-cache', currentTabId);
-        if (!success) {
-            console.error('BrowserView 强制刷新操作失败');
-        }
-    } catch (error) {
-        console.error('强制刷新标签页失败:', error);
-    }
-});
-
 ipcRenderer.on('open-history-tab', () => {
     console.log('收到主进程消息: 打开历史记录标签页');
     openHistoryTab();
