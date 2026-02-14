@@ -1341,21 +1341,51 @@ ipcRenderer.on('new-tab', () => {
     createTab();
 });
 
-ipcRenderer.on('refresh-tab', () => {
+ipcRenderer.on('refresh-tab', async () => {
     console.log('收到主进程消息: 刷新标签页');
     if (currentTabId == null) return;
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (wv) {
-        wv.reload();
+    
+    try {
+        // 优先尝试使用 BrowserView 方式刷新
+        const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
+        if (!success) {
+            // 如果 BrowserView 方式失败，回退到 webview 方式
+            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+            if (wv && typeof wv.reload === 'function') {
+                wv.reload();
+            }
+        }
+    } catch (error) {
+        console.error('刷新标签页失败:', error);
+        // 回退到 webview 方式
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv && typeof wv.reload === 'function') {
+            wv.reload();
+        }
     }
 });
 
-ipcRenderer.on('force-refresh-tab', () => {
+ipcRenderer.on('force-refresh-tab', async () => {
     console.log('收到主进程消息: 强制刷新标签页');
     if (currentTabId == null) return;
-    const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-    if (wv) {
-        wv.reloadIgnoringCache();
+    
+    try {
+        // 优先尝试使用 BrowserView 方式强制刷新
+        const success = await ipcRenderer.invoke('browser-view-reload-ignoring-cache', currentTabId);
+        if (!success) {
+            // 如果 BrowserView 方式失败，回退到 webview 方式
+            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+            if (wv && typeof wv.reloadIgnoringCache === 'function') {
+                wv.reloadIgnoringCache();
+            }
+        }
+    } catch (error) {
+        console.error('强制刷新标签页失败:', error);
+        // 回退到 webview 方式
+        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
+        if (wv && typeof wv.reloadIgnoringCache === 'function') {
+            wv.reloadIgnoringCache();
+        }
     }
 });
 

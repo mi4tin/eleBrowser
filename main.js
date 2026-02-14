@@ -956,7 +956,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 刷新页面');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.reload();
+                        mainWindow.webContents.send('refresh-tab');
                     }
                 }
             },
@@ -966,7 +966,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 强制刷新页面');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.reloadIgnoringCache();
+                        mainWindow.webContents.send('force-refresh-tab');
                     }
                 }
             },
