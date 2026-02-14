@@ -9,7 +9,6 @@ const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
 
-let tabIdCounter = 0;
 let currentTabId = null;
 
 function safeCanGoBack(wv) {
@@ -32,27 +31,7 @@ function safeCanGoForward(wv) {
 
 // Safe wrappers for executeJavaScript / findInPage / stopFindInPage
 
-function safeStopFind(wv, action) {
-    if (!wv) return;
-    try {
-        if (typeof wv.stopFindInPage === 'function') {
-            wv.stopFindInPage(action);
-        }
-    } catch (e) {
-        // ignore
-    }
-}
 
-function safeFindInPage(wv, text, options) {
-    if (!wv) return;
-    try {
-        if (typeof wv.findInPage === 'function') {
-            wv.findInPage(text, options);
-        }
-    } catch (e) {
-        // ignore
-    }
-}
 
 function formatUrl(input) {
     if (!input) return DEFAULT_URL;
@@ -93,19 +72,10 @@ async function loadAddressForCurrentTab() {
         // 尝试使用 BrowserView 方式加载URL
         const success = await ipcRenderer.invoke('browser-view-load-url', currentTabId, target);
         if (!success) {
-            // 如果 BrowserView 方式失败，回退到 webview 方式
-            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-            if (wv) {
-                wv.src = target;
-            }
+            console.error('BrowserView 加载URL操作失败');
         }
     } catch (error) {
         console.error('加载URL失败:', error);
-        // 回退到 webview 方式
-        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-        if (wv) {
-            wv.src = target;
-        }
     }
 }
 
@@ -190,7 +160,6 @@ async function openBookmarksTab() {
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
-        // 注意：这里不再需要切换webview的active状态，因为使用BrowserView
         
         updateAddressBar('dxbrowser://bookmarks/');
     } catch (error) {
@@ -279,7 +248,6 @@ async function openHistoryTab() {
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
-        // 注意：这里不再需要切换webview的active状态，因为使用BrowserView
         
         updateAddressBar('dxbrowser://history/');
     } catch (error) {
@@ -367,7 +335,6 @@ async function openUnderlineTab() {
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
-        // 注意：这里不再需要切换webview的active状态，因为使用BrowserView
         
         updateAddressBar('dxbrowser://underline/');
     } catch (error) {
@@ -427,18 +394,10 @@ function recordHistory(title, url) {
 }
 
 async function updateNavButtons() {
-    const wv = currentTabId != null
-        ? document.querySelector('webview[data-id="' + currentTabId + '"]')
-        : null;
-    
     let canGoBack = false;
     let canGoForward = false;
     
-    if (wv) {
-        // 使用webview的导航状态
-        canGoBack = safeCanGoBack(wv);
-        canGoForward = safeCanGoForward(wv);
-    } else if (currentTabId != null) {
+    if (currentTabId != null) {
         // 使用BrowserView的导航状态
         try {
             canGoBack = await ipcRenderer.invoke('browser-view-can-go-back', currentTabId);
@@ -446,6 +405,8 @@ async function updateNavButtons() {
         } catch (error) {
             console.error('获取BrowserView导航状态失败:', error);
         }
+    }else{
+        console.error('当前没有活动标签页');
     }
     
     backBtn.disabled = !canGoBack;
@@ -546,17 +507,6 @@ async function activateTab(id) {
         updateAddressBar(url);
     } catch (error) {
         console.error('激活标签页失败:', error);
-        // 如果IPC调用失败，尝试使用webview方式
-        const activeWv = document.querySelector('webview[data-id="' + id + '"]');
-        if (activeWv) {
-            let url;
-            try {
-                url = typeof activeWv.getURL === 'function' ? activeWv.getURL() : activeWv.src;
-            } catch (e) {
-                url = activeWv.src;
-            }
-            updateAddressBar(url);
-        }
     }
     
     await updateNavButtons();
@@ -564,7 +514,6 @@ async function activateTab(id) {
 
 async function closeTab(id) {
     const tabEl = document.querySelector('.tab[data-id="' + id + '"]');
-    const wv = document.querySelector('webview[data-id="' + id + '"]');
         
     // 保存加号按钮引用
     const addButton = document.getElementById('add-tab');
@@ -583,7 +532,6 @@ async function closeTab(id) {
     }
 
     if (tabEl) tabEl.remove();
-    if (wv) wv.remove();
 
     // 重新添加加号按钮到末尾
     if (addButton) {
@@ -655,21 +603,6 @@ addressInput.addEventListener('keydown', (e) => {
     }
 });
 
-// 全局快捷键：F12 打开开发者工具
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'F12' || e.keyCode === 123) {
-        e.preventDefault();
-        e.stopPropagation();
-        const wv = currentTabId != null
-            ? document.querySelector('webview[data-id="' + currentTabId + '"]')
-            : null;
-        if (wv) {
-            // 通过 IPC 发送消息到主进程，让主进程打开开发者工具
-            // 主进程会通过 web-contents-created 事件找到对应的 webContents
-            ipcRenderer.send('open-devtools-for-webview', currentTabId);
-        }
-    }
-});
 goBtn.addEventListener('click', () => {
     loadAddressForCurrentTab();
 });
@@ -725,229 +658,6 @@ ipcRenderer.on('open-bookmarks-tab', () => {
     openBookmarksTab();
 });
 
-// 主进程要求打开指定标签页的开发者工具
-ipcRenderer.on('open-devtools-for-tab', (_event, tabId) => {
-    const wv = document.querySelector('webview[data-id="' + tabId + '"]');
-    if (wv) {
-        // 尝试打开开发者工具
-        const tryOpenDevTools = () => {
-            try {
-                // 方法1: 直接调用 openDevTools（如果可用）
-                if (typeof wv.openDevTools === 'function') {
-                    wv.openDevTools();
-                    return;
-                }
-                // 方法2: 通过 getWebContents
-                if (wv.getWebContents) {
-                    const webContents = wv.getWebContents();
-                    if (webContents && typeof webContents.openDevTools === 'function') {
-                        webContents.openDevTools();
-                        return;
-                    }
-                }
-            } catch (err) {
-                console.error('打开开发者工具失败:', err);
-            }
-        };
-        
-        // 如果 webview 已附加，直接尝试
-        tryOpenDevTools();
-        
-        // 如果失败，等待 webview 附加
-        wv.addEventListener('did-attach', tryOpenDevTools, { once: true });
-    }
-});
-
-
-// 搜索功能相关变量
-let currentSearchTerm = '';
-let searchResultsCount = 0;
-let currentResultIndex = 0;
-
-// 获取搜索面板相关元素
-const searchPanel = document.getElementById('search-panel');
-const searchInput = document.getElementById('search-input');
-const searchPrevBtn = document.getElementById('search-prev');
-const searchNextBtn = document.getElementById('search-next');
-const searchCountDisplay = document.getElementById('search-count');
-const searchCloseBtn = document.getElementById('search-close');
-
-// 搜索面板控制函数
-function showSearchPanel() {
-    console.log('显示搜索面板');
-    searchPanel.style.display = 'block';
-    searchInput.focus();
-    searchInput.select();
-    // 重置搜索状态
-    currentSearchTerm = '';
-    searchResultsCount = 0;
-    currentResultIndex = 0;
-    updateSearchCountDisplay();
-}
-
-function hideSearchPanel() {
-    searchPanel.style.display = 'none';
-    clearSearchHighlight();
-}
-
-// 清除搜索高亮
-function clearSearchHighlight() {
-    safeStopFind(wv, 'clearSelection');
-    currentSearchTerm = '';
-    searchResultsCount = 0;
-    currentResultIndex = 0;
-    updateSearchCountDisplay();
-}
-
-// 更新搜索计数显示
-function updateSearchCountDisplay() {
-    console.log('更新搜索计数显示:', currentResultIndex, '/', searchResultsCount);
-    if (searchInput.value.trim()!='') {//searchResultsCount > 0
-        searchCountDisplay.textContent = `${currentResultIndex}/${searchResultsCount}`;
-        searchCountDisplay.style.opacity = '1';
-        // 添加动画效果
-        searchCountDisplay.style.transform = 'scale(1.05)';
-        setTimeout(() => {
-            searchCountDisplay.style.transform = 'scale(1)';
-        }, 150);
-    } else {
-        searchCountDisplay.textContent = '';
-        searchCountDisplay.style.opacity = '0.5';
-    }
-    
-    // 更新导航按钮状态
-    const prevBtn = document.getElementById('search-prev');
-    const nextBtn = document.getElementById('search-next');
-    if (prevBtn && nextBtn) {
-        if (searchResultsCount <= 1) {
-            prevBtn.disabled = true;
-            nextBtn.disabled = true;
-            prevBtn.style.cursor = 'not-allowed';
-            nextBtn.style.cursor = 'not-allowed';
-            prevBtn.style.opacity = '0.5';
-            nextBtn.style.opacity = '0.5';
-        } else {
-            prevBtn.disabled = false;
-            nextBtn.disabled = false;
-            prevBtn.style.cursor = 'pointer';
-            nextBtn.style.cursor = 'pointer';
-            prevBtn.style.opacity = '1';
-            nextBtn.style.opacity = '1';
-        }
-    }
-}
-
-// 获取当前活动的webview
-function getCurrentWebview() {
-    if (currentTabId == null) return null;
-    return document.querySelector('webview[data-id="' + currentTabId + '"]');
-}
-
-// 执行搜索
-function performSearch(forward = true) {
-    const searchTerm = searchInput.value.trim();
-    const wv = getCurrentWebview();
-    
-    if (!wv || !searchTerm) {
-        if (!searchTerm) {
-            clearSearchHighlight();
-        }
-        return;
-    }
-    
-    // 如果搜索词改变，重新开始搜索
-    if (searchTerm !== currentSearchTerm) {
-        currentSearchTerm = searchTerm;
-        safeStopFind(wv, 'clearSelection');
-        
-        // 开始新的搜索
-        safeFindInPage(wv, searchTerm, {
-            findNext: false,
-            forward: true,
-            matchCase: false,
-            wordStart: false,
-            medialCapitalAsWordStart: false
-        });
-    } else {
-        // 继续搜索，根据方向前进或后退
-        safeFindInPage(wv, searchTerm, {
-            findNext: true,
-            forward: forward,
-            matchCase: false,
-            wordStart: false,
-            medialCapitalAsWordStart: false
-        });
-        console.log('继续搜索:', searchTerm, '方向:', forward ? '下一个' : '上一个');
-    }
-}
-
-// 搜索事件监听器
-searchInput.addEventListener('input', () => {
-    if (searchInput.value.trim() === '') {
-        clearSearchHighlight();
-    } else {
-        performSearch(true);
-    }
-});
-
-searchInput.addEventListener('keyup', () => {
-    // if (e.key === 'Enter') {
-    //     performSearch(true);
-    // }
-
-    performSearch(true);
-});
-
-searchPrevBtn.addEventListener('click', () => {
-    if (searchInput.value.trim() !== '') {
-        performSearch(false); // 向前搜索
-    }
-});
-
-searchNextBtn.addEventListener('click', () => {
-    if (searchInput.value.trim() !== '') {
-        performSearch(true); // 向后搜索
-    }
-});
-
-searchCloseBtn.addEventListener('click', hideSearchPanel);
-
-// 为新创建的webview添加事件监听器
-function setupWebviewSearchListener(webview) {
-    console.log('为webview添加搜索监听器:', webview.dataset.id);
-    
-    webview.addEventListener('found-in-page', (event) => {
-        console.log('收到搜索结果事件:', event.result);
-        if (event.result) {
-            searchResultsCount = event.result.matches;
-            console.log('总匹配数:', searchResultsCount);
-
-            currentResultIndex = event.result.activeMatchOrdinal;
-            console.log('当前匹配序号:', currentResultIndex);
-            
-            updateSearchCountDisplay();
-        }
-    });
-    
-    // 当webview导航时清除搜索高亮
-    webview.addEventListener('did-navigate', () => {
-        clearSearchHighlight();
-    });
-    
-    // 页面开始加载时也清除搜索高亮
-    webview.addEventListener('did-start-loading', () => {
-        clearSearchHighlight();
-    });
-}
-
-// 为所有现有webview添加搜索监听器
-function initializeSearchListeners() {
-    // 为所有现有的webview添加监听器
-    document.querySelectorAll('webview').forEach(webview => {
-        setupWebviewSearchListener(webview);
-    });
-}
-
 // 修改createTab函数以添加搜索监听器
 (function() {
     const originalCreateTab = window.createTab || createTab;
@@ -958,71 +668,9 @@ function initializeSearchListeners() {
         // 调用原始函数创建标签页
         const result = originalCreateTab.apply(this, arguments);
         
-        // 获取最新创建的webview
-        const wv = document.querySelector('webview[data-id="' + tabIdCounter + '"]');
-        if (wv) {
-            setupWebviewSearchListener(wv);
-        }
-        
         return result;
     };
 })();
-
-// 在页面加载完成后初始化搜索监听器
-document.addEventListener('DOMContentLoaded', () => {
-    // 延迟一点执行，确保webview已经创建
-    setTimeout(initializeSearchListeners, 100);
-});
-
-// 键盘快捷键支持
-document.addEventListener('keydown', (e) => {
-    console.log('Key pressed:', e.key);
-    // Ctrl+F 或 Cmd+F 打开搜索面板
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        showSearchPanel();
-    }
-    
-    // ESC 关闭搜索面板
-    if (e.key === 'Escape') {
-        if (searchPanel.style.display === 'block') {
-            e.preventDefault();
-            hideSearchPanel();
-        }
-    }
-    
-    // F3 或 Shift+F3 在搜索结果间导航
-    if (e.key === 'F3') {
-        e.preventDefault();
-        if (searchPanel.style.display === 'block' && searchInput.value.trim() !== '') {
-            performSearch(!e.shiftKey); // F3向下，Shift+F3向上
-        } else if (searchPanel.style.display !== 'block') {
-            showSearchPanel();
-        }
-    }
-});
-
-// 监听主进程发送的全局快捷键消息
-ipcRenderer.on('show-search-panel', () => {
-    console.log('收到主进程消息: 打开搜索面板');
-    showSearchPanel();
-});
-
-ipcRenderer.on('show-search-panel-with-text', (event, text) => {
-    try {
-        console.log('收到主进程消息: 打开搜索面板并填充文本', text);
-        if (typeof text === 'string') {
-            searchInput.value = text;
-        } else {
-            searchInput.value = '';
-        }
-        showSearchPanel();
-        // 立即触发一次搜索
-        performSearch(true);
-    } catch (err) {
-        console.error('处理 show-search-panel-with-text 失败:', err);
-    }
-});
 
 ipcRenderer.on('new-tab', () => {
     console.log('收到主进程消息: 新建标签页');
@@ -1037,19 +685,10 @@ ipcRenderer.on('refresh-tab', async () => {
         // 优先尝试使用 BrowserView 方式刷新
         const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
         if (!success) {
-            // 如果 BrowserView 方式失败，回退到 webview 方式
-            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-            if (wv && typeof wv.reload === 'function') {
-                wv.reload();
-            }
+            console.error('BrowserView 刷新操作失败');
         }
     } catch (error) {
         console.error('刷新标签页失败:', error);
-        // 回退到 webview 方式
-        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-        if (wv && typeof wv.reload === 'function') {
-            wv.reload();
-        }
     }
 });
 
@@ -1061,19 +700,10 @@ ipcRenderer.on('force-refresh-tab', async () => {
         // 优先尝试使用 BrowserView 方式强制刷新
         const success = await ipcRenderer.invoke('browser-view-reload-ignoring-cache', currentTabId);
         if (!success) {
-            // 如果 BrowserView 方式失败，回退到 webview 方式
-            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-            if (wv && typeof wv.reloadIgnoringCache === 'function') {
-                wv.reloadIgnoringCache();
-            }
+            console.error('BrowserView 强制刷新操作失败');
         }
     } catch (error) {
         console.error('强制刷新标签页失败:', error);
-        // 回退到 webview 方式
-        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-        if (wv && typeof wv.reloadIgnoringCache === 'function') {
-            wv.reloadIgnoringCache();
-        }
     }
 });
 
@@ -1086,10 +716,6 @@ ipcRenderer.on('open-underline-tab', () => {
     console.log('收到主进程消息: 打开划线记录标签页');
     openUnderlineTab();
 });
-
- // 定义恢复划线的函数
-
-
 
 // 启动时自动创建一个标签
 createTab();
