@@ -193,6 +193,14 @@
     q.select();
   });
 
+  window.electronSearch.on('trigger-search', () => {
+    console.log('收到自动搜索触发指令');
+    if (q.value && q.value.trim() !== '') {
+      console.log('自动触发搜索:', q.value);
+      sendFind(false, true);
+    }
+  });
+
   window.electronSearch.on('found-in-page', (result) => {
     console.log('搜索结果更新:', result);
     if (!result) return;

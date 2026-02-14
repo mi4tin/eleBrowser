@@ -22,6 +22,8 @@
 - **F3 导航支持**：F3 向下搜索，Shift+F3 向上搜索
 - **焦点管理**：打开搜索面板时自动聚焦到输入框
 - **视觉反馈**：输入框获得焦点时显示蓝色边框高亮
+- **智能文本选择**：使用快捷键时自动检测并填充选中文本
+- **自动搜索触发**：选中文本后立即开始搜索，无需额外操作
 
 ## 技术实现
 
@@ -29,6 +31,9 @@
 ```javascript
 // 显示搜索面板
 function showSearchPanel()
+
+// 显示搜索面板并填充选中文本
+function showSearchPanelWithText(selectedText)
 
 // 隐藏搜索面板  
 function hideSearchPanel()
@@ -41,6 +46,18 @@ function updateSearchCountDisplay()
 
 // 执行搜索
 function performSearch(forward = true)
+```
+
+### 智能文本选择实现
+```javascript
+// 获取当前选中文本
+const selectedText = window.getSelection().toString().trim();
+
+// 通过 IPC 传递选中文本到搜索面板
+ipcRenderer.send('set-search-text', selectedText);
+
+// 自动触发搜索
+ipcRenderer.send('trigger-search');
 ```
 
 ### 事件监听

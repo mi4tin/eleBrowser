@@ -881,9 +881,38 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 打开文本搜索');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                        console.log('发送 show-search-panel 消息到主窗口');
-                        // mainWindow.webContents.send('show-search-panel');
-                        showSearchPanel();
+                        console.log('尝试获取选中文本，当前活动tabId:', lastActiveTabId);
+                        
+                        // 直接使用已知的活动tabId
+                        if (lastActiveTabId !== null) {
+                            const activeView = browserViews.get(lastActiveTabId);
+                            if (activeView && activeView.webContents) {
+                                activeView.webContents.executeJavaScript(`
+                                    (() => {
+                                        const selection = window.getSelection();
+                                        return selection ? selection.toString().trim() : '';
+                                    })()
+                                `, true).then(selectedText => {
+                                    console.log('获取到选中文本:', selectedText);
+                                    if (selectedText && selectedText.length > 0) {
+                                        // 如果有选中文本，则传递给搜索面板
+                                        showSearchPanelWithText(selectedText);
+                                    } else {
+                                        // 没有选中文本，正常打开搜索面板
+                                        showSearchPanel();
+                                    }
+                                }).catch(err => {
+                                    console.error('获取选中文本失败:', err);
+                                    showSearchPanel();
+                                });
+                            } else {
+                                console.log('未找到活动的BrowserView，正常打开搜索面板');
+                                showSearchPanel();
+                            }
+                        } else {
+                            console.log('没有活动的tab，正常打开搜索面板');
+                            showSearchPanel();
+                        }
                     }
                 }
             },
@@ -1233,6 +1262,28 @@ function showSearchPanel(text) {
         }, 200);
     } catch (e) {
         console.error('显示搜索面板失败:', e);
+    }
+}
+
+// 显示搜索面板并填充选中文本
+function showSearchPanelWithText(selectedText) {
+    try {
+        console.log('显示搜索面板并填充文本:', selectedText);
+        createSearchPanel(mainWindow);
+        // 聚焦到搜索面板的输入框并填充文本
+        setTimeout(() => {
+            if (searchPanelView && searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
+                searchPanelView.webContents.focus();
+                searchPanelView.webContents.send('set-search-text', selectedText);
+                searchPanelView.webContents.send('focus-input');
+                // 延迟一小段时间后自动触发搜索
+                setTimeout(() => {
+                    searchPanelView.webContents.send('trigger-search');
+                }, 100);
+            }
+        }, 200);
+    } catch (e) {
+        console.error('显示搜索面板并填充文本失败:', e);
     }
 }
 
