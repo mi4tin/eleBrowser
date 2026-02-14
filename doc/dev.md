@@ -1,4 +1,7 @@
 ==待实现==
++index.js 全局快捷键：F12
++开发者工具
+
 +搜索选中文本
 
 +underlineNameIndex 、occurrenceIndex即matchindex等处理

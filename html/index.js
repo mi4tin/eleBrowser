@@ -2,7 +2,6 @@ const { ipcRenderer } = require('electron');
 
 const DEFAULT_URL = "https://www.baidu.com"//'https://wx.mail.qq.com/';
 const tabsContainer = document.getElementById('tabs');
-const webviewsContainer = document.getElementById('webviews');
 const addTabBtn = document.getElementById('add-tab');
 const addressInput = document.getElementById('address-input');
 const goBtn = document.getElementById('address-go');
@@ -12,29 +11,6 @@ const refreshBtn = document.getElementById('nav-refresh');
 
 let tabIdCounter = 0;
 let currentTabId = null;
-
-// Safe helpers for calling webview methods that require the webview
-// to be attached and dom-ready. These wrappers avoid throwing
-// when the underlying method is not available yet.
-function safeGetURL(wv) {
-    if (!wv) return '';
-    try {
-        if (typeof wv.getURL === 'function') return wv.getURL();
-    } catch (e) {
-        // ignore
-    }
-    return wv.src || '';
-}
-
-function safeGetTitle(wv) {
-    if (!wv) return '';
-    try {
-        if (typeof wv.getTitle === 'function') return wv.getTitle();
-    } catch (e) {
-        // ignore
-    }
-    return '';
-}
 
 function safeCanGoBack(wv) {
     if (!wv) return false;
@@ -55,17 +31,6 @@ function safeCanGoForward(wv) {
 }
 
 // Safe wrappers for executeJavaScript / findInPage / stopFindInPage
-function safeExecuteJS(wv, code) {
-    if (!wv) return Promise.resolve();
-    try {
-        if (typeof wv.executeJavaScript === 'function') {
-            return wv.executeJavaScript(code).catch(() => {});
-        }
-    } catch (e) {
-        // ignore
-    }
-    return Promise.resolve();
-}
 
 function safeStopFind(wv, action) {
     if (!wv) return;
@@ -561,256 +526,7 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         return tabId;
     } catch (error) {
         console.error('创建标签页失败:', error);
-        // 如果IPC调用失败，回退到原来的webview方式
-        return createTabFallback(url, title);
     }
-}
-
-// 回退到原来的webview创建方式
-function createTabFallback(url = DEFAULT_URL, title = '新标签页') {
-    const id = ++tabIdCounter;
-    
-    // 检查是否是书签管理器
-    const isBookmarks = url === 'dxbrowser://bookmarks/' || url.includes('bookmarks.html');
-    if (isBookmarks) {
-        return openBookmarksTab();
-    }
-    
-    // 检查是否是历史记录页面
-    const isHistory = url === 'dxbrowser://history/' || url.includes('history.html');
-    if (isHistory) {
-        return openHistoryTab();
-    }
-
-    // 创建 tab 按钮
-    const tabEl = document.createElement('div');
-    tabEl.className = 'tab';
-    tabEl.dataset.id = id;
-    
-    // 创建标签文本容器
-    const textEl = document.createElement('span');
-    textEl.className = 'tab-text';
-    textEl.textContent = title;
-    tabEl.appendChild(textEl);
-    
-    const closeEl = document.createElement('span');
-    closeEl.className = 'close';
-    closeEl.textContent = '×';
-    tabEl.appendChild(closeEl);
-
-    const addButton = document.getElementById('add-tab');
-    if (addButton) {
-        // 临时移除加号按钮
-        addButton.remove();
-    }
-    
-    tabsContainer.appendChild(tabEl);
-    
-    // 重新添加加号按钮到末尾
-    if (addButton) {
-        tabsContainer.appendChild(addButton);
-    }
-
-    // 创建对应的 webview
-    const wv = document.createElement('webview');
-    // 处理 dxbrowser://bookmarks/ 协议，转换为本地文件路径
-    let srcUrl = url;
-    if (url === 'dxbrowser://bookmarks/' || url.startsWith('dxbrowser://bookmarks')) {
-        // 使用绝对路径加载本地文件
-        const path = require('path');
-        console.log("path11:",__dirname);
-        const bookmarksPath = path.join(__dirname, 'bookmarks/bookmarks.html');
-        // 确保路径格式正确（Windows 路径需要转换）
-        let filePath = bookmarksPath.replace(/\\/g, '/');
-        if (!filePath.startsWith('/')) {
-            filePath = '/' + filePath;
-        }
-        srcUrl = 'file://' + filePath;
-    }
-    wv.src = srcUrl;
-    wv.dataset.id = id;
-    wv.setAttribute('nodeintegration', 'false');
-    wv.setAttribute('webpreferences', 'contextIsolation=yes');
-    // 禁用弹出窗口，防止自定义协议链接打开外部应用
-    wv.setAttribute('allowpopups', 'false');
-    
-    // 辅助函数：检查是否为自定义协议
-    function isCustomProtocol(url) {
-        if (!url) return false;
-        try {
-            const parsedUrl = new URL(url);
-            return parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'file:';
-        } catch (e) {
-            // 如果 URL 解析失败，检查是否以常见协议开头
-            return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://');
-        }
-    }
-    
-    // 阻止自定义协议；对于正常 http/https 链接，改为新建标签页打开
-    wv.addEventListener('new-window', (e) => {
-        if (isCustomProtocol(e.url)) {
-            e.preventDefault();
-            console.log('阻止打开自定义协议链接:', e.url);
-            return;
-        }
-
-        if (e.url && (e.url.startsWith('http://') || e.url.startsWith('https://'))) {
-            e.preventDefault();
-            // 在新标签中打开原本要新窗口打开的链接
-            createTab(e.url, e.url);
-        }
-    });
-    
-    // 阻止导航到自定义协议
-    wv.addEventListener('will-navigate', (e) => {
-        if (isCustomProtocol(e.url)) {
-            e.preventDefault();
-            console.log('阻止导航到自定义协议:', e.url);
-        }
-    });
-    
-    // 监听 webview 的 webContents 事件（通过 IPC）
-    wv.addEventListener('did-attach', () => {
-        // webview 附加后，主进程的事件监听器会自动处理
-    });
-    
-    // 在页面加载前注入 JavaScript 来拦截所有协议链接
-    wv.addEventListener('did-start-loading', () => {
-        // 在页面开始加载时就注入拦截代码
-            safeExecuteJS(wv, `
-                (function() {
-                    // 立即拦截所有可能的协议调用方式
-                    if (window.location && window.location.href) {
-                        const currentHref = window.location.href;
-                        if (currentHref && !currentHref.startsWith('http://') && !currentHref.startsWith('https://') && !currentHref.startsWith('file://') && currentHref.includes('://')) {
-                            console.log('阻止初始加载的自定义协议:', currentHref);
-                            window.stop();
-                            return;
-                        }
-                    }
-                })();
-            `);
-    });
-    
-    // 在页面加载时注入 JavaScript 来拦截所有协议链接
-    wv.addEventListener('dom-ready', () => {
-        // 注入代码拦截所有链接点击和协议调用
-        safeExecuteJS(wv, `
-            (function() {
-                // 拦截所有链接点击
-                document.addEventListener('click', function(e) {
-                    let target = e.target;
-                    while (target && target.tagName !== 'A') {
-                        target = target.parentElement;
-                    }
-                    if (target && target.href) {
-                        const url = target.href;
-                        if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && url.includes('://')) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            console.log('阻止自定义协议链接:', url);
-                            return false;
-                        }
-                    }
-                }, true); // 使用捕获阶段
-                
-                // 拦截 window.open 调用
-                const originalOpen = window.open;
-                window.open = function(url, target, features) {
-                    if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && url.includes('://')) {
-                        console.log('阻止 window.open 自定义协议:', url);
-                        return null;
-                    }
-                    return originalOpen.call(window, url, target, features);
-                };
-                
-                // 拦截 location.href 赋值
-                try {
-                    const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
-                    if (locationDescriptor && locationDescriptor.set) {
-                        const originalLocationSetter = locationDescriptor.set;
-                        Object.defineProperty(window, 'location', {
-                            set: function(url) {
-                                if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') && url.includes('://')) {
-                                    console.log('阻止 location 跳转到自定义协议:', url);
-                                    return;
-                                }
-                                originalLocationSetter.call(window, url);
-                            },
-                            get: locationDescriptor.get
-                        });
-                    }
-                } catch (e) {
-                    // 某些浏览器可能不允许修改 location
-                    console.log('无法拦截 location:', e);
-                }
-                
-                // 抑制 xmtls.wasm 加载错误的控制台警告
-                const originalError = console.error;
-                console.error = function(...args) {
-                    const msg = args.join(' ');
-                    if (msg.includes('xmtls.wasm') || msg.includes('ERR_FILE_NOT_FOUND')) {
-                        // 忽略 xmtls.wasm 相关错误，QQ邮箱会自动回退到WebSocket
-                        return;
-                    }
-                    originalError.apply(console, args);
-                };
-            })();
-        `);
-        
-
-    });
-    
-    webviewsContainer.appendChild(wv);
-
-    // webview 加载完成后尝试更新标题
-    wv.addEventListener('page-title-updated', (event) => {
-        var title= event.title || title;
-        const textEl = tabEl.querySelector('.tab-text');
-        if (textEl) {
-            textEl.textContent = title.substr(0,4)+'...';//显示标题前4个字符
-        }
-    });
-
-    const syncAddress = (nextUrl) => {
-        if (currentTabId === id) {
-            updateAddressBar(nextUrl || safeGetURL(wv));
-        }
-    };
-    wv.addEventListener('did-navigate', (event) => syncAddress(event.url));
-    wv.addEventListener('did-navigate-in-page', (event) => syncAddress(event.url));
-    wv.addEventListener('did-stop-loading', async () => {
-        syncAddress(safeGetURL(wv));
-        await updateNavButtons();
-        
-        // 记录历史（仅记录正常网站页面）
-        const currentUrl = safeGetURL(wv);
-        if (currentUrl && !currentUrl.includes('bookmarks.html') && !currentUrl.includes('history.html') && !currentUrl.startsWith('dxbrowser://')) {
-            const pageTitle = safeGetTitle(wv) || currentUrl;
-            recordHistory(pageTitle, currentUrl);
-        }
-        
-        // 页面加载完成后，加载并恢复划线信息
-        setTimeout(() => {
-            const currentUrl = safeGetURL(wv);
-            if (currentUrl) {
-                // 通过IPC请求加载该URL的划线数据
-                ipcRenderer.invoke('load-underline-data', currentUrl)
-                .then(underlineData => {
-                    if (underlineData && underlineData.length > 0) {
-                        // 应用划线数据到页面
-                        underlineData.forEach(underlineInfo => {
-                            restoreUnderline(underlineInfo);
-                        });
-                    }
-                })
-                .catch(err => console.log('加载划线数据失败:', err));
-            }
-        }, 500); // 延迟0.5秒执行，确保页面内容已加载
-    });
-
-    return id;
 }
 
 async function activateTab(id) {
@@ -898,19 +614,10 @@ backBtn.addEventListener('click', async () => {
         // 尝试使用 BrowserView 方式
         const success = await ipcRenderer.invoke('browser-view-go-back', currentTabId);
         if (!success) {
-            // 如果 BrowserView 方式失败，回退到 webview 方式
-            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-            if (safeCanGoBack(wv)) {
-                try { wv.goBack(); } catch (e) { /* ignore */ }
-            }
+            console.error('BrowserView 后退操作失败');
         }
     } catch (error) {
         console.error('后退操作失败:', error);
-        // 回退到 webview 方式
-        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-        if (safeCanGoBack(wv)) {
-            try { wv.goBack(); } catch (e) { /* ignore */ }
-        }
     }
 });
 
@@ -921,19 +628,10 @@ forwardBtn.addEventListener('click', async () => {
         // 尝试使用 BrowserView 方式
         const success = await ipcRenderer.invoke('browser-view-go-forward', currentTabId);
         if (!success) {
-            // 如果 BrowserView 方式失败，回退到 webview 方式
-            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-            if (safeCanGoForward(wv)) {
-                try { wv.goForward(); } catch (e) { /* ignore */ }
-            }
+            console.error('BrowserView 前进操作失败');
         }
     } catch (error) {
         console.error('前进操作失败:', error);
-        // 回退到 webview 方式
-        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-        if (safeCanGoForward(wv)) {
-            try { wv.goForward(); } catch (e) { /* ignore */ }
-        }
     }
 });
 
@@ -944,19 +642,10 @@ refreshBtn.addEventListener('click', async () => {
         // 尝试使用 BrowserView 方式
         const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
         if (!success) {
-            // 如果 BrowserView 方式失败，回退到 webview 方式
-            const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-            if (wv && typeof wv.reload === 'function') {
-                wv.reload();
-            }
+            console.error('BrowserView 刷新操作失败');
         }
     } catch (error) {
         console.error('刷新操作失败:', error);
-        // 回退到 webview 方式
-        const wv = document.querySelector('webview[data-id="' + currentTabId + '"]');
-        if (wv && typeof wv.reload === 'function') {
-            wv.reload();
-        }
     }
 });
 
@@ -1007,7 +696,7 @@ ipcRenderer.on('browser-view-updated', async (_event, data) => {
         if (tabEl && title) {
             const textEl = tabEl.querySelector('.tab-text');
             if (textEl) {
-                // 保持与 webview 相同的展示策略（前4个字符 + ...）
+                // 展示前4个字符 + ...
                 textEl.textContent = title.length > 4 ? title.substr(0, 4) + '...' : title;
             }
         }
@@ -1103,7 +792,6 @@ function hideSearchPanel() {
 
 // 清除搜索高亮
 function clearSearchHighlight() {
-    const wv = getCurrentWebview();
     safeStopFind(wv, 'clearSelection');
     currentSearchTerm = '';
     searchResultsCount = 0;
@@ -1202,7 +890,7 @@ searchInput.addEventListener('input', () => {
     }
 });
 
-searchInput.addEventListener('keyup', (e) => {
+searchInput.addEventListener('keyup', () => {
     // if (e.key === 'Enter') {
     //     performSearch(true);
     // }
@@ -1400,79 +1088,6 @@ ipcRenderer.on('open-underline-tab', () => {
 });
 
  // 定义恢复划线的函数
-function restoreUnderline(underlineInfo) {
-        try {
-            // 执行JavaScript来恢复划线
-            wv.executeJavaScript(
-                `(function() {
-                    // 遍历所有文本节点，查找匹配的文本
-                    // 检查并注入划线样式
-                    if (!document.getElementById('underline-styles')) {
-                        const style = document.createElement('style');
-                        style.id = 'underline-styles';
-                        style.textContent = '.underline-fb3b780f { text-decoration: underline; text-decoration-color: green; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 3px; }';
-                        document.head.appendChild(style);
-                    }
-                    
-                    function highlightText(element, searchText) {
-                        const walker = document.createTreeWalker(
-                            element,
-                            NodeFilter.SHOW_TEXT,
-                            null,
-                            false
-                        );
-                        
-                        const textNodes = [];
-                        let node;
-                        while (node = walker.nextNode()) {
-                            if (node.nodeValue && node.nodeValue.includes(searchText)) {
-                                textNodes.push(node);
-                            }
-                        }
-                        
-                        // 从后往前处理，避免DOM更改影响后续节点位置
-                        for (let i = textNodes.length - 1; i >= 0; i--) {
-                            const textNode = textNodes[i];
-                            const text = textNode.nodeValue;
-                            const startIndex = text.indexOf(searchText);
-                            
-                            if (startIndex !== -1) {
-                                const beforeText = text.substring(0, startIndex);
-                                const matchedText = text.substring(startIndex, startIndex + searchText.length);
-                                const afterText = text.substring(startIndex + searchText.length);
-                                
-                                const span = document.createElement('span');
-                                span.className = 'underline-fb3b780f';
-                                span.textContent = matchedText;
-                                
-                                // 创建新节点
-                                if (beforeText) {
-                                    textNode.parentNode.insertBefore(document.createTextNode(beforeText), textNode);
-                                }
-                                textNode.parentNode.insertBefore(span, textNode);
-                                if (afterText) {
-                                    textNode.nodeValue = afterText;
-                                } else {
-                                    textNode.parentNode.removeChild(textNode);
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 确保DOM完全加载后再应用划线
-                    if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', function() {
-                            highlightText(document.body, "${underlineInfo.text}");
-                        });
-                    } else {
-                        highlightText(document.body, "${underlineInfo.text}");
-                    }
-                })()`
-            ).catch(err => console.log('恢复划线失败:', err));
-        } catch (e) {
-            console.log('恢复划线异常:', e);
-        }
-    }
 
 
 
