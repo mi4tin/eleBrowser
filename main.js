@@ -1317,6 +1317,8 @@ ipcMain.on('show-search-panel-with-text', (event, text) => {
     }
 });
 
+
+
 // 搜索面板发起查找请求
 ipcMain.on('search-panel-find', (event, payload) => {
     try {
@@ -1326,8 +1328,8 @@ ipcMain.on('search-panel-find', (event, payload) => {
         if (!targetView || !targetView.webContents) return;
         
         const wc = targetView.webContents;
-        // findNext必须为true，否则found-in-page事件不触发
-        const options = { forward: true, findNext:true, matchCase: false };
+        // 首次搜索findNext必须为true，否则found-in-page事件不触发
+        const options = { forward: payload.forward, findNext:payload.findNext, matchCase: false };
         
         const foundListener = (e, result) => {
             console.log('found-in-page 事件:', result);
