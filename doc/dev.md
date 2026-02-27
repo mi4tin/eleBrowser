@@ -1,6 +1,4 @@
 ==待实现==
-+搜索上一个无用
-+index.js运行的一些报错处理
 
 +F12快捷键无用
 +关闭其它标签
@@ -14,6 +12,8 @@
 
 
 ==完成==
++index.js运行的一些报错处理
++搜索上一个无用
 +underlineNameIndex 、occurrenceIndex即matchindex等处理
 +同一网页内，多个地方有相同内容划线的问题
 

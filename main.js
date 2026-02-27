@@ -1006,6 +1006,7 @@ function registerAppShortcuts() {
                 action: () => {
                     console.log('应用内快捷键: 打开开发者工具11');
                     if (mainWindow && !mainWindow.isDestroyed()) {
+                        console.log('执行: 打开开发者工具11');
                         mainWindow.webContents.openDevTools();
                     }
                 }
