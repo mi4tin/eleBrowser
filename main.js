@@ -990,27 +990,27 @@ function registerAppShortcuts() {
                     }
                 }
             },
-            {
-                key: 'CommandOrControl+U',
-                name: '打开划线记录',
-                action: () => {
-                    console.log('应用内快捷键: 打开划线记录');
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('open-underline-tab');
-                    }
-                }
-            },
-            {
-                key: 'F12',
-                name: '打开开发者工具',
-                action: () => {
-                    console.log('应用内快捷键: 打开开发者工具11');
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        console.log('执行: 打开开发者工具11');
-                        mainWindow.webContents.openDevTools();
-                    }
-                }
-            }
+            // {
+            //     key: 'CommandOrControl+U',
+            //     name: '打开划线记录',
+            //     action: () => {
+            //         console.log('应用内快捷键: 打开划线记录');
+            //         if (mainWindow && !mainWindow.isDestroyed()) {
+            //             mainWindow.webContents.send('open-underline-tab');
+            //         }
+            //     }
+            // },
+            // {
+            //     key: 'F12',
+            //     name: '打开开发者工具',
+            //     action: () => {
+            //         console.log('应用内快捷键: 打开开发者工具11');
+            //         if (mainWindow && !mainWindow.isDestroyed()) {
+            //             console.log('执行: 打开开发者工具11');
+            //             mainWindow.webContents.openDevTools();
+            //         }
+            //     }
+            // }
         ];
 
         const successfulShortcuts = [];
@@ -2046,6 +2046,23 @@ const template = [
                             mainWindow.restore();
                         }
                         mainWindow.focus();
+                    }
+                }
+            },
+            {
+                label: '打开开发者工具',
+                accelerator: 'F12',
+                click: () => {
+                    // 获取当前活动的标签页webContents
+                    if (lastActiveTabId && browserViews.has(lastActiveTabId)) {
+                        const currentView = browserViews.get(lastActiveTabId);
+                        console.log('打开开发者工具777:', lastActiveTabId);
+                        if (currentView && currentView.webContents) {
+                            currentView.webContents.openDevTools();
+                        }
+                    } else {
+                        // 如果没有活动的BrowserView，就在主窗口打开
+                        myWindow.webContents.openDevTools();
                     }
                 }
             }
