@@ -508,6 +508,7 @@ app.on('web-contents-created', (event, contents) => {
 
             var selectedMenu=[]//选中文本的菜单项
             var underlineMenu=[];//划线相关菜单项
+            var closeTabMenu=[];//关闭标签相关菜单项
             
             //基础菜单项
             var baseMenu=[ {
@@ -632,7 +633,7 @@ app.on('web-contents-created', (event, contents) => {
                     }, { type: 'separator' }]
             }
             
-            // 检查右键点击位置是否有划线元素
+            // 检查右键点击位置是否有划线元素或是否是右键的标签
             contents.executeJavaScript(
                 `(function() {
                     // 获取鼠标位置的元素
@@ -651,12 +652,18 @@ app.on('web-contents-created', (event, contents) => {
                         };
                     }
                     
+                    let isTab = false;
+                    if(element.classList.contains('tab-text')){
+                        console.log('点击了标签');
+                        isTab=true;
+                    }
+                    
                     //暂时只管元素本身是否有划线类，不检查子元素和祖先元素
                     // 检查元素内是否有划线子元素
                     // const underlineChild = element.querySelector('.underline-fb3b780f');
                     // if (underlineChild) {
                     //     console.log('在子元素中找到划线元素:', underlineChild);
-                    //     return { 
+                    //     return {
                     //         hasUnderline: true, 
                     //         underlineText: underlineChild.textContent || underlineChild.innerText || '',
                     //         underlineElement: underlineChild
@@ -684,7 +691,7 @@ app.on('web-contents-created', (event, contents) => {
                     }
                     
                     // 如果没有找到划线元素，但有选中文本，则可以添加下划线
-                    return { hasUnderline: false, underlineText: '' };
+                    return { hasUnderline: false, underlineText: '',isTab:isTab };
                 })()`
             ).then(elementCheckResult => {
                 console.log('元素检查结果:', elementCheckResult);
@@ -709,11 +716,53 @@ app.on('web-contents-created', (event, contents) => {
                     underlineMenu=[...underlineMenu, { type: 'separator' }]
                 }
 
+                if(elementCheckResult.isTab&&type === 'window'){
+                    closeTabMenu=[
+                        {
+                            label: '关闭其它标签',
+                            click: () => {
+                                try {
+                                    if (mainWindow && !mainWindow.isDestroyed()) {
+                                        mainWindow.webContents.send('close-other-tab',lastActiveTabId);
+                                    }
+                                } catch (err) {
+                                    console.error('发送关闭其它标签消息失败:', err);
+                                }
+                            }
+                        },
+                        {
+                            label: '关闭左侧标签',
+                            click: () => {
+                                try {
+                                    if (mainWindow && !mainWindow.isDestroyed()) {
+                                        mainWindow.webContents.send('close-left-tab',lastActiveTabId);
+                                    }
+                                } catch (err) {
+                                    console.error('发送关闭左侧标签消息失败:', err);
+                                }
+                            }
+                        },
+                        {
+                            label: '关闭右侧标签',
+                            click: () => {
+                                try {
+                                    if (mainWindow && !mainWindow.isDestroyed()) {
+                                        mainWindow.webContents.send('close-right-tab',lastActiveTabId);
+                                    }
+                                } catch (err) {
+                                    console.error('发送关闭右侧标签消息失败:', err);
+                                }
+                            }
+                        }
+                    ]
+                }
+
                 
                 const menu = Menu.buildFromTemplate([
                    ...underlineMenu,
                     ...selectedMenu,
                    ...baseMenu,
+                   ...closeTabMenu
                 ]);
                 
                 menu.popup();

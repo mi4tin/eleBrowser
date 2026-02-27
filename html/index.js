@@ -342,6 +342,75 @@ async function openUnderlineTab() {
     }
 }
 
+// 关闭其他标签
+async function closeOtherTabs(exceptTabId) {
+    const allTabs = document.querySelectorAll('.tab');
+    for (let i = 0; i < allTabs.length; i++) {
+        const tab = allTabs[i];
+        const tabId = Number(tab.dataset.id);
+        
+        if (tabId !== exceptTabId) {
+            await closeTab(tabId);
+        }
+    }
+}
+
+// 关闭右侧标签
+async function closeRightTabs(fromTabId) {
+    const allTabs = document.querySelectorAll('.tab');
+    let startIndex = -1;
+    
+    // 找到起始标签的索引
+    for (let i = 0; i < allTabs.length; i++) {
+        if (Number(allTabs[i].dataset.id) === fromTabId) {
+            startIndex = i;
+            break;
+        }
+    }
+    
+    if (startIndex === -1) return;
+    
+    // 关闭右侧的所有标签
+    for (let i = allTabs.length - 1; i > startIndex; i--) {
+        const tab = allTabs[i];
+        const tabId = Number(tab.dataset.id);
+        await closeTab(tabId);
+    }
+}
+
+// 关闭左侧标签
+async function closeLeftTabs(fromTabId) {
+    const allTabs = document.querySelectorAll('.tab');
+    let startIndex = -1;
+    
+    // 找到起始标签的索引
+    for (let i = 0; i < allTabs.length; i++) {
+        if (Number(allTabs[i].dataset.id) === fromTabId) {
+            startIndex = i;
+            break;
+        }
+    }
+    
+    if (startIndex === -1) return;
+    
+    // 关闭左侧的所有标签
+    for (let i = 0; i < startIndex; i++) {
+        const tab = allTabs[i];
+        const tabId = Number(tab.dataset.id);
+        await closeTab(tabId);
+    }
+}
+
+// 关闭所有标签
+async function closeAllTabs() {
+    const allTabs = document.querySelectorAll('.tab');
+    for (let i = allTabs.length - 1; i >= 0; i--) {
+        const tab = allTabs[i];
+        const tabId = Number(tab.dataset.id);
+        await closeTab(tabId);
+    }
+}
+
 // 记录浏览历史
 function recordHistory(title, url) {
     console.log('记录历史:', title, url);
@@ -688,5 +757,20 @@ ipcRenderer.on('open-underline-tab', () => {
     openUnderlineTab();
 });
 
-// 启动时自动创建一个标签
+ipcRenderer.on('close-other-tab', (_event, tabid) => {
+    console.log('收到主进程消息: 关闭其它标签页', tabid);
+    closeOtherTabs(tabid);
+});
+
+ipcRenderer.on('close-left-tab', (_event, tabid) => {
+    console.log('收到主进程消息: 关闭左侧标签页', tabid);
+    closeLeftTabs(tabid);
+});
+
+ipcRenderer.on('close-right-tab', (_event, tabid) => {
+    console.log('收到主进程消息: 关闭右侧标签页', tabid);
+    closeRightTabs(tabid);
+});
+
+// 启动时自动创建一个标签页
 createTab();
