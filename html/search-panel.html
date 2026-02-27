@@ -172,15 +172,17 @@
       matchCase: false
     });
   }
+  
+  let findNext = true;//是否首次搜索。true表示是首次搜索，false表示不是首次搜索
 
   q.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-        console.log('输入框按下 Enter 键，发送搜索请求:', q.value);
-      sendFind(true, true);
-    } 
+      console.log('输入框按下 Enter 键，发送搜索请求:', q.value);
+      sendFind(findNext, true);
+      findNext=false
+    }
   });
 
-  var isfirst = true;
   prev.addEventListener('click', () => {
     console.log('点击上一个按钮，当前搜索词:', q.value);
     

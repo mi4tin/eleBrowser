@@ -1343,9 +1343,15 @@ ipcMain.on('search-panel-find', (event, payload) => {
                 searchPanelView.webContents.send('found-in-page', payload);
             }
             if (payload.final) {
-                try { wc.removeListener('found-in-page', foundListener); } catch (e) {}
+                try { wc.removeAllListeners('found-in-page'); } catch (e) {console.log('移除 found-in-page 监听器失败2:', e);}
             }
         };
+        
+        try { 
+            wc.removeAllListeners('found-in-page'); 
+        } catch (e) {
+            console.log('移除 found-in-page 监听器失败:', e);
+        }
 
         wc.on('found-in-page', foundListener);
         
