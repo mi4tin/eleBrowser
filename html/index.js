@@ -735,12 +735,22 @@ ipcRenderer.on('browser-view-favicon-updated', async (_event, data) => {
         const tabId = Number(data.tabId);
         const faviconUrl = data.favicon;
 
+        // 更新标签页的favicon
         const tabEl = document.querySelector('.tab[data-id="' + tabId + '"]');
         if (tabEl && faviconUrl) {
             const faviconImg = tabEl.querySelector('.tab-favicon img');
             if (faviconImg) {
                 faviconImg.src = faviconUrl;
                 faviconImg.style.display = 'block'; // 显示favicon图片
+            }
+        }
+
+        // 如果是当前活动标签，则同时更新地址栏的favicon
+        if (currentTabId === tabId && faviconUrl) {
+            const addressFaviconImg = document.getElementById('address-favicon').querySelector('img');
+            if (addressFaviconImg) {
+                addressFaviconImg.src = faviconUrl;
+                addressFaviconImg.style.display = 'block'; // 显示favicon图片
             }
         }
     } catch (e) {
