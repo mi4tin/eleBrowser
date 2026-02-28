@@ -130,6 +130,20 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 console.error('加载并恢复划线信息失败:', e);
             }
         });
+
+        // 监听页面favicon更新事件
+        view.webContents.on('page-favicon-updated', (_event, favicons) => {
+            if(favicons && favicons.length > 0){
+                // 发送favicon更新事件到渲染进程
+                try {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('browser-view-favicon-updated', { tabId, favicon: favicons[0] });
+                    }
+                } catch (err) {
+                    console.error('发送 browser-view-favicon-updated 失败:', err);
+                }
+            }
+        });
     } catch (e) {
         console.error('注册 BrowserView 事件监听失败:', e);
     }

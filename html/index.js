@@ -496,6 +496,12 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         tabEl.className = 'tab';
         tabEl.dataset.id = tabId;
         
+        // 创建标签favicon容器
+        const faviconEl = document.createElement('span');
+        faviconEl.className = 'tab-favicon';
+        faviconEl.innerHTML = '<img src="" alt="" style="display:none;">'; // 初始化一个隐藏的img元素
+        tabEl.appendChild(faviconEl);
+
         // 创建标签文本容器
         const textEl = document.createElement('span');
         textEl.className = 'tab-text';
@@ -720,6 +726,25 @@ ipcRenderer.on('browser-view-updated', async (_event, data) => {
         if (currentTabId === tabId) await updateNavButtons();
     } catch (e) {
         console.error('处理 browser-view-updated 失败:', e);
+    }
+});
+
+// 主进程通知 favicon 更新
+ipcRenderer.on('browser-view-favicon-updated', async (_event, data) => {
+    try {
+        const tabId = Number(data.tabId);
+        const faviconUrl = data.favicon;
+
+        const tabEl = document.querySelector('.tab[data-id="' + tabId + '"]');
+        if (tabEl && faviconUrl) {
+            const faviconImg = tabEl.querySelector('.tab-favicon img');
+            if (faviconImg) {
+                faviconImg.src = faviconUrl;
+                faviconImg.style.display = 'block'; // 显示favicon图片
+            }
+        }
+    } catch (e) {
+        console.error('处理 browser-view-favicon-updated 失败:', e);
     }
 });
 
