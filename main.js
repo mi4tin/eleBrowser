@@ -654,15 +654,24 @@ app.on('web-contents-created', (event, contents) => {
                     
                     let hasLeftTab=false,hasRightTab=false;
                     // console.log('检查元素的兄弟元素:', element.parentElement.previousElementSibling.classList, element.parentElement.nextElementSibling);
-                    if(element.parentElement.previousElementSibling&&element.parentElement.previousElementSibling.classList.contains('tab')){
+                    if(
+                    (element.previousElementSibling&&element.previousElementSibling.classList.contains('tab'))
+                    ||
+                    (element.parentElement.previousElementSibling&&element.parentElement.previousElementSibling.classList.contains('tab'))
+                    ){
                         hasLeftTab=true;
                     }
-                    if(element.parentElement.nextElementSibling&&element.parentElement.nextElementSibling.classList.contains('tab')){
+                    
+                    if(
+                    (element.nextElementSibling&&element.nextElementSibling.classList.contains('tab'))
+                    ||
+                    (element.parentElement.nextElementSibling&&element.parentElement.nextElementSibling.classList.contains('tab'))
+                    ){
                         hasRightTab=true;
                     }
                     
                     let isTab = false;
-                    if(element.classList.contains('tab-text')){
+                    if(element.classList.contains('tab-text')||element.classList.contains('tab')){
                         console.log('点击了标签');
                         isTab=true;
                     }
