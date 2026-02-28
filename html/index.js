@@ -342,6 +342,7 @@ async function openUnderlineTab() {
     }
 }
 
+
 // 关闭其他标签
 async function closeOtherTabs(exceptTabId) {
     const allTabs = document.querySelectorAll('.tab');
@@ -755,6 +756,11 @@ ipcRenderer.on('open-history-tab', () => {
 ipcRenderer.on('open-underline-tab', () => {
     console.log('收到主进程消息: 打开划线记录标签页');
     openUnderlineTab();
+});
+
+ipcRenderer.on('close-tab', (_event, tabid) => {
+    console.log('收到主进程消息: 关闭标签页', tabid);
+    closeTab(tabid);
 });
 
 ipcRenderer.on('close-other-tab', (_event, tabid) => {

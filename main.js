@@ -652,6 +652,15 @@ app.on('web-contents-created', (event, contents) => {
                         };
                     }
                     
+                    let hasLeftTab=false,hasRightTab=false;
+                    // console.log('检查元素的兄弟元素:', element.parentElement.previousElementSibling.classList, element.parentElement.nextElementSibling);
+                    if(element.parentElement.previousElementSibling&&element.parentElement.previousElementSibling.classList.contains('tab')){
+                        hasLeftTab=true;
+                    }
+                    if(element.parentElement.nextElementSibling&&element.parentElement.nextElementSibling.classList.contains('tab')){
+                        hasRightTab=true;
+                    }
+                    
                     let isTab = false;
                     if(element.classList.contains('tab-text')){
                         console.log('点击了标签');
@@ -691,7 +700,7 @@ app.on('web-contents-created', (event, contents) => {
                     }
                     
                     // 如果没有找到划线元素，但有选中文本，则可以添加下划线
-                    return { hasUnderline: false, underlineText: '',isTab:isTab };
+                    return { hasUnderline: false, underlineText: '',isTab:isTab, hasLeftTab:hasLeftTab, hasRightTab:hasRightTab };
                 })()`
             ).then(elementCheckResult => {
                 console.log('元素检查结果:', elementCheckResult);
@@ -718,8 +727,22 @@ app.on('web-contents-created', (event, contents) => {
 
                 if(elementCheckResult.isTab&&type === 'window'){
                     closeTabMenu=[
+                        { type: 'separator' },
+                        {
+                            label: '关闭标签',
+                            click: () => {
+                                try {
+                                    if (mainWindow && !mainWindow.isDestroyed()) {
+                                        mainWindow.webContents.send('close-tab',lastActiveTabId);
+                                    }
+                                } catch (err) {
+                                    console.error('发送关闭标签消息失败:', err);
+                                }
+                            }
+                        },
                         {
                             label: '关闭其它标签',
+                            enabled: elementCheckResult.hasLeftTab || elementCheckResult.hasRightTab,
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -732,6 +755,7 @@ app.on('web-contents-created', (event, contents) => {
                         },
                         {
                             label: '关闭左侧标签',
+                            enabled: elementCheckResult.hasLeftTab,
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -744,6 +768,7 @@ app.on('web-contents-created', (event, contents) => {
                         },
                         {
                             label: '关闭右侧标签',
+                            enabled: elementCheckResult.hasRightTab,
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
