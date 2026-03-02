@@ -23,13 +23,15 @@
         }
         
         .history-autocomplete-item {
-            padding: 8px 12px;
+            padding: 6px 12px;
             cursor: pointer;
             border-bottom: 1px solid #f0f0f0;
             display: flex;
             align-items: center;
             gap: 8px;
             transition: background-color 0.15s;
+            height: 32px;
+            line-height: 20px;
         }
         
         .history-autocomplete-item:last-child {
@@ -56,6 +58,10 @@
         .history-autocomplete-item .content {
             flex: 1;
             min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
         }
         
         .history-autocomplete-item .title {
@@ -64,15 +70,18 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-bottom: 2px;
+            flex-shrink: 1;
+            max-width: 60%;
         }
         
         .history-autocomplete-item .url {
-            font-size: 11px;
+            font-size: 12px;
             color: #666;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex-shrink: 1;
+            max-width: 40%;
         }
         
         .empty-state {
@@ -130,11 +139,12 @@
                 html += `
                     <div class="history-autocomplete-item" data-index="${index}">
                         <div class="favicon">
-                            <img src="https://www.google.com/s2/favicons?domain=${new URL(item.url).hostname}" onerror="this.style.display='none'" />
+                            <img src="${new URL(item.url).origin}/favicon.ico" onerror="this.style.display='none'" />
                         </div>
                         <div class="content">
-                            <div class="title">${escapeHtml(item.title)}</div>
-                            <div class="url">${escapeHtml(item.url)}</div>
+                            <div class="title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+                            &nbsp;-&nbsp;
+                            <div class="url" title="${escapeHtml(item.url)}">${escapeHtml(item.url)}</div>
                         </div>
                     </div>
                 `;
