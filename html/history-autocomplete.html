@@ -180,6 +180,13 @@
                 selectedIndex = index;
                 //滚到可见区域
                 items[index].scrollIntoView({ block: 'nearest' });
+                
+                // 通知主进程更新输入框
+                const selectedItem = selectedItems[index];
+
+                console.log('通知主进程更新输入框:', selectedItem.url);
+
+                ipcRenderer.invoke('history-autocomplete-navigated', selectedItem);
             }
         }
         

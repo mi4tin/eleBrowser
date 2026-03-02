@@ -6,7 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         //只允许特定的IPC通道
         const validChannels = [
             'history-autocomplete-selected',
-            'hide-history-autocomplete'
+            'hide-history-autocomplete',
+            'history-autocomplete-navigated',
+            'history-autocomplete-selected-default'
         ];
         if (validChannels.includes(channel)) {
             return ipcRenderer.invoke(channel, ...args);

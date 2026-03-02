@@ -972,6 +972,17 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
     }
 });
 
+//接收历史记录自动匹配导航选择结果
+ipcRenderer.on('history-autocomplete-navigated', (event, selectedItem) => {
+    console.log('接收到历史记录自动匹配导航选择:', selectedItem);
+    addressInput.value = selectedItem.url;
+
+    console.log('自动匹配导航选择结果:', selectedItem.url);
+    
+    // 将光标移动到输入框末尾
+    addressInput.setSelectionRange(selectedItem.url.length, selectedItem.url.length);
+});
+
 
 //窗resize事件监听器
 window.addEventListener('resize', () => {
