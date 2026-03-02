@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>历史记录自动匹配调试测试</title>
+</head>
+<body>
+    <h1>历史记录自动匹配调试测试</h1>
+    <input type="text" id="testInput" placeholder="在此输入内容测试自动匹配" style="width: 400px; height: 30px; padding: 10px;">
+    <br><br>
+    <button onclick="testShow()">测试显示</button>
+    <button onclick="testHide()">测试隐藏</button>
+    <button onclick="testSearch()">测试搜索</button>
+    <div id="log"></div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const testInput = document.getElementById('testInput');
+        const logDiv = document.getElementById('log');
+        
+        function log(message) {
+            const timestamp = new Date().toISOString().substr(11, 12);
+            logDiv.innerHTML += `<p>[${timestamp}] ${message}</p>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // 接收历史记录自动匹配选择结果
+        ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
+            log(`接收到选择结果: ${selectedItem.title} (${selectedItem.url})`);
+        });
+        
+        async function testShow() {
+            log('测试显示自动匹配...');
+            try {
+                const bounds = {
+                    x: 100,
+                    y: 100,
+                    width: 300,
+                    height: 30
+                };
+                const items = [
+                    { id: 1, title: "测试网站", url: "https://test.com", matchScore: 100 }
+                ];
+                const result = await ipcRenderer.invoke('show-history-autocomplete', items, bounds);
+                log(`显示结果: ${JSON.stringify(result)}`);
+            } catch (error) {
+                log(`显示失败: ${error.message}`);
+            }
+        }
+        
+        async function testHide() {
+            log('测试隐藏自动匹配...');
+            try {
+                const result = await ipcRenderer.invoke('hide-history-autocomplete');
+                log(`隐藏结果: ${JSON.stringify(result)}`);
+            } catch (error) {
+                log(`隐藏失败: ${error.message}`);
+            }
+        }
+        
+        async function testSearch() {
+            log('测试搜索历史记录...');
+            try {
+                const results = await ipcRenderer.invoke('search-history', 'test');
+                log(`搜索结果数量: ${results.length}`);
+            } catch (error) {
+                log(`搜索失败: ${error.message}`);
+            }
+        }
+        
+        // 监听来自主进程的消息
+        ipcRenderer.on('update-history-autocomplete', (items) => {
+            log(`接收到匹配数据: ${JSON.stringify(items[0])}`);
+        });
+        
+        log('页面已加载，可以开始测试');
+    </script>
+</body>
+</html>

@@ -824,6 +824,8 @@ async function showAutocomplete(items) {
         const result = await ipcRenderer.invoke('show-history-autocomplete', items, addressInputBounds);
         if (!result.success) {
             console.error('显示历史记录自动匹配失败:', result.error);
+        } else {
+            console.log('成功发送显示请求，匹配项数:', items.length);
         }
     } catch (error) {
         console.error('显示历史记录自动匹配失败:', error);
@@ -836,6 +838,8 @@ async function hideAutocomplete() {
         const result = await ipcRenderer.invoke('hide-history-autocomplete');
         if (!result.success) {
             console.error('隐藏历史记录自动匹配失败:', result.error);
+        } else {
+            console.log('成功发送隐藏请求');
         }
     } catch (error) {
         console.error('隐藏历史记录自动匹配失败:', error);
@@ -849,8 +853,10 @@ async function searchHistory(query) {
         return;
     }
     
+    console.log('开始搜索历史记录，查询:', query);
     try {
         const results = await ipcRenderer.invoke('search-history', query.trim());
+        console.log('搜索到结果数量:', results.length);
         await showAutocomplete(results);
     } catch (error) {
         console.error('搜索历史记录失败:', error);
@@ -864,6 +870,7 @@ function throttledSearch(query) {
         clearTimeout(autocompleteSearchTimeout);
     }
     
+    console.log('设置搜索延时，查询:', query);
     autocompleteSearchTimeout = setTimeout(() => {
         searchHistory(query);
     }, 300); // 300ms延迟
@@ -905,6 +912,7 @@ addressInput.addEventListener('input', (e) => {
         return;
     }
     
+    console.log('地址栏输入:', query);
     throttledSearch(query);
 });
 
@@ -925,11 +933,15 @@ addressInput.addEventListener('keydown', async (e) => {
 
 //失时隐藏自动匹配
 addressInput.addEventListener('blur', () => {
+    console.log('地址栏失去焦点');
     setTimeout(async () => {
         //检查是否焦点转移到了自动匹配BrowserView
         const result = await ipcRenderer.invoke('check-autocomplete-focus');
         if (!result.hasFocus) {
+            console.log('焦点未转移到自动匹配BrowserView，隐藏结果');
             hideAutocomplete();
+        } else {
+            console.log('焦点已转移到自动匹配BrowserView，保持显示');
         }
     }, 150);
 });
@@ -937,6 +949,7 @@ addressInput.addEventListener('blur', () => {
 //点击页面其他地方隐藏自动匹配
 document.addEventListener('click', (e) => {
     if (!addressInput.contains(e.target)) {
+        console.log('点击页面其他地方，隐藏自动匹配');
         hideAutocomplete();
     }
 });

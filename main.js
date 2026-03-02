@@ -84,6 +84,9 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
     if (!historyAutocompleteView) return;
     
     try {
+        // 确保BrowserView被添加到窗口中
+        window.addBrowserView(historyAutocompleteView);
+        
         //计算位置和尺寸
         const contentBounds = window.getContentBounds();
         const itemHeight = 36; //项目的高度
@@ -114,7 +117,7 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
     }
 }
 
-//记录自动匹配BrowserView
+//隐藏历史记录自动匹配BrowserView
 function hideHistoryAutocomplete(window) {
     if (!historyAutocompleteView) return;
     
