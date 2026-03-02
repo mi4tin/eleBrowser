@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BrowserView通信测试</title>
+</head>
+<body>
+    <h1>BrowserView通信测试</h1>
+    <button onclick="testCommunication()">测试通信</button>
+    <div id="result"></div>
+
+    <script>
+        // 使用preload脚本暴露的API
+        const ipcRenderer = window.electronAPI;
+        const resultDiv = document.getElementById('result');
+        
+        //监听来自主进程的消息
+        ipcRenderer.on('update-history-autocomplete', (items) => {
+            resultDiv.innerHTML += `<p>收到数据: ${JSON.stringify(items[0])}</p>`;
+            console.log('收到数据:', items);
+        });
+        
+        async function testCommunication() {
+            resultDiv.innerHTML = '<p>开始测试...</p>';
+            
+            // 发送测试数据
+            try {
+                const testData = [{ 
+                    title: "测试数据", 
+                    url: "https://test.com",
+                    matchScore: 100 
+                }];
+                
+                // 通过IPC发送测试消息到主进程
+                await ipcRenderer.invoke('history-autocomplete-selected', testData[0]);
+                resultDiv.innerHTML += '<p>已发送测试消息到主进程</p>';
+                
+            } catch (error) {
+                resultDiv.innerHTML += `<p>发送失败: ${error.message}</p>`;
+                console.error('发送失败:', error);
+            }
+        }
+        
+        // 页面加载完成后显示信息
+        document.addEventListener('DOMContentLoaded', () => {
+            resultDiv.innerHTML = '<p>BrowserView通信测试页面已加载</p>';
+            console.log('测试页面已加载');
+        });
+    </script>
+</body>
+</html>

@@ -107,7 +107,8 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
+        // 使用preload脚本暴露的API
+        const ipcRenderer = window.electronAPI;
         const container = document.getElementById('autocomplete-container');
         let selectedItems = [];
         let selectedIndex = -1;
@@ -176,13 +177,13 @@
         });
         
         //接收匹配结果
-        ipcRenderer.on('update-history-autocomplete', (event, items) => {
+        ipcRenderer.on('update-history-autocomplete', (items) => {
             console.log('接收匹配结果:', items[0]);
             renderResults(items);
         });
         
         //接收键盘导航指令
-        ipcRenderer.on('history-autocomplete-keyboard', (event, action) => {
+        ipcRenderer.on('history-autocomplete-keyboard', (action) => {
             if (!selectedItems.length) return;
             
             switch (action) {
