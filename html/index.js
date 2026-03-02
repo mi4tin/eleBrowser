@@ -960,3 +960,10 @@ ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
     addressInput.value = selectedItem.url;
     loadAddressForCurrentTab();
 });
+
+
+//窗resize事件监听器
+window.addEventListener('resize', () => {
+    const bounds = getAddressInputBounds();  // 获取新地址栏边界
+    ipcRenderer.invoke('update-address-input-bounds', bounds);  // 更新到主进程
+});
