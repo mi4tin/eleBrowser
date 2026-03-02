@@ -11,28 +11,6 @@ const refreshBtn = document.getElementById('nav-refresh');
 
 let currentTabId = null;
 
-function safeCanGoBack(wv) {
-    if (!wv) return false;
-    try {
-        return typeof wv.canGoBack === 'function' && wv.canGoBack();
-    } catch (e) {
-        return false;
-    }
-}
-
-function safeCanGoForward(wv) {
-    if (!wv) return false;
-    try {
-        return typeof wv.canGoForward === 'function' && wv.canGoForward();
-    } catch (e) {
-        return false;
-    }
-}
-
-// Safe wrappers for executeJavaScript / findInPage / stopFindInPage
-
-
-
 function formatUrl(input) {
     if (!input) return DEFAULT_URL;
     const trimmed = input.trim();
@@ -482,7 +460,7 @@ async function updateNavButtons() {
     
     backBtn.disabled = !canGoBack;
     forwardBtn.disabled = !canGoForward;
-    refreshBtn.disabled = !wv && currentTabId == null;
+    refreshBtn.disabled = currentTabId == null;
 }
 
 async function createTab(url = DEFAULT_URL, title = '新标签页') {
