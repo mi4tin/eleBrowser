@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IPC测试页面</title>
+</head>
+<body>
+    <h1>IPC处理器测试</h1>
+    <button onclick="testCheckAutocompleteFocus()">测试 check-autocomplete-focus</button>
+    <div id="result"></div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        async function testCheckAutocompleteFocus() {
+            const resultDiv = document.getElementById('result');
+            try {
+                resultDiv.innerHTML = '正在测试...';
+                const result = await ipcRenderer.invoke('check-autocomplete-focus');
+                resultDiv.innerHTML = `测试结果: ${JSON.stringify(result)}`;
+                console.log('IPC测试结果:', result);
+            } catch (error) {
+                resultDiv.innerHTML = `测试失败: ${error.message}`;
+                console.error('IPC测试失败:', error);
+            }
+        }
+        
+        // 页面加载完成后自动测试
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('测试页面已加载');
+        });
+    </script>
+</body>
+</html>

@@ -33,7 +33,8 @@ const viewY = 82;
  * @param {string} url -要的URL
  * @returns {number} tabId - 新创建的标签页ID
  */
-function createHistoryAutocompleteView(window, url = 'https://www.baidu.com') {
+// 创建历史记录自动匹配的BrowserView
+function createHistoryAutocompleteView(window) {
     if (historyAutocompleteView) {
         // 如果已经存在，先销毁
         try {
@@ -2162,6 +2163,22 @@ ipcMain.handle('history-autocomplete-keyboard', (event, action) => {
     } catch (error) {
         console.error('发送键盘导航指令失败:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// IPC处理器：检查自动匹配BrowserView是否具有焦点
+ipcMain.handle('check-autocomplete-focus', (event) => {
+    try {
+        if (historyAutocompleteView && !historyAutocompleteView.webContents.isDestroyed()) {
+            //检查BrowserView是否是活动的
+            const isFocused = historyAutocompleteView.webContents.isFocused();
+            console.log('自动匹配BrowserView焦点状态:', isFocused);
+            return { hasFocus: isFocused };
+        }
+        return { hasFocus: false };
+    } catch (error) {
+        console.error('检查自动匹配焦点状态失败:', error);
+        return { hasFocus: false, error: error.message };
     }
 });
 
