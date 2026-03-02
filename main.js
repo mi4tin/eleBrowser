@@ -2184,6 +2184,21 @@ ipcMain.handle('history-autocomplete-selected', (event, selectedItem) => {
     }
 });
 
+// IPC处理器：处理历史记录自动匹配默认选中
+ipcMain.handle('history-autocomplete-selected-default', (event, selectedItem) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            // 发送默认选中结果到渲染进程
+            mainWindow.webContents.send('history-autocomplete-selected-default', selectedItem);
+            return { success: true };
+        }
+        return { success: false, error: '主窗口不存在' };
+    } catch (error) {
+        console.error('处理历史记录自动匹配默认选中失败:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // IPC处理器：发送键盘导航指令到历史记录自动匹配
 ipcMain.handle('history-autocomplete-keyboard', (event, action) => {
     try {

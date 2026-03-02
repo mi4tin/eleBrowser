@@ -961,6 +961,17 @@ ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
     loadAddressForCurrentTab();
 });
 
+//接收历史记录自动匹配默认选中结果
+ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) => {
+    console.log('接收到历史记录自动匹配默认选中:', selectedItem);
+    const currentValue = addressInput.value;
+    if (currentValue && selectedItem.url.startsWith(currentValue)) {
+        addressInput.value = selectedItem.url;
+        // 选中未输入的部分
+        addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
+    }
+});
+
 
 //窗resize事件监听器
 window.addEventListener('resize', () => {

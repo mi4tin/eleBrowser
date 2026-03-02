@@ -136,12 +136,13 @@
             }
             
             selectedItems = items;
-            selectedIndex = -1;
+            selectedIndex = 0; // 默认选中第一个
             
             let html = '';
             items.forEach((item, index) => {
+                const isSelected = index === 0 ? ' selected' : '';
                 html += `
-                    <div class="history-autocomplete-item" data-index="${index}">
+                    <div class="history-autocomplete-item${isSelected}" data-index="${index}">
                         <div class="favicon">
                             <img src="${new URL(item.url).origin}/favicon.ico" onerror="this.style.display='none'" />
                         </div>
@@ -155,6 +156,11 @@
             });
             
             container.innerHTML = html;
+            
+            // 通知主进程默认选中第一个结果
+            if (items.length > 0) {
+                ipcRenderer.invoke('history-autocomplete-selected-default', items[0]);
+            }
         }
         
         //HTML转义
