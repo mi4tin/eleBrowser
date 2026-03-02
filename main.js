@@ -102,8 +102,11 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
         
         // 发送匹配结果到BrowserView
         if (!historyAutocompleteView.webContents.isDestroyed()) {
+            console.log('发送历史记录自动匹配数据到BrowserView');
             historyAutocompleteView.webContents.send('update-history-autocomplete', items);
         }
+
+        console.log('显示历史记录自动匹配BrowserView.items[0]:', JSON.stringify(items[0]));
         
         console.log(`显示历史记录自动匹配，项目数: ${items.length}, 位置: (${x}, ${y}),尺: ${width}x${maxHeight}`);
     } catch (error) {
