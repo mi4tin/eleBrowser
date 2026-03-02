@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史记录自动匹配预览</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .preview-container {
+            width: 500px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .preview-header {
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .history-autocomplete-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .history-autocomplete-item {
+            padding: 6px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.15s;
+            height: 32px;
+            line-height: 20px;
+        }
+        
+        .history-autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-autocomplete-item:hover,
+        .history-autocomplete-item.selected {
+            background-color: #f0f7ff;
+        }
+        
+        .history-autocomplete-item .favicon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+        
+        .history-autocomplete-item .favicon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .history-autocomplete-item .content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+        }
+        
+        .history-autocomplete-item .title {
+            font-size: 13px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 1;
+            min-width: 80px;
+        }
+        
+        .history-autocomplete-item .url {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 1;
+            min-width: 100px;
+        }
+        
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+        }
+        
+        /*条样式 */
+        .history-autocomplete-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .history-autocomplete-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .history-autocomplete-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .history-autocomplete-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <div class="preview-header">历史记录自动匹配预览</div>
+        <div class="history-autocomplete-container" id="autocomplete-container">
+            <div class="empty-state">开始输入搜索历史记录</div>
+        </div>
+    </div>
+
+    <script>
+        //模拟数据
+        const mockData = [
+            {
+                title: "Google -搜索世界上最准确的信息",
+                url: "https://www.google.com/search?q=eleBrowser+electron+browser"
+            },
+            {
+                title: "GitHub - Where the world builds software",
+                url: "https://github.com/eleBrowser/eleBrowser-project"
+            },
+            {
+                title: "Electron官方文档 - 使用Web技术构建跨平台桌面应用",
+                url: "https://www.electronjs.org/docs/latest"
+            },
+            {
+                title: "MDN Web Docs - Web开发技术文档和教程",
+                url: "https://developer.mozilla.org/zh-CN/docs/Web"
+            },
+            {
+                title: "Stack Overflow - 开发者问答社区",
+                url: "https://stackoverflow.com/questions/tagged/electron"
+            }
+        ];
+        
+        const container = document.getElementById('autocomplete-container');
+        
+        //渲匹配结果
+        function renderResults(items) {
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div class="empty-state">没有找到匹配的历史记录</div>';
+                return;
+            }
+            
+            let html = '';
+            items.forEach((item, index) => {
+                html += `
+                    <div class="history-autocomplete-item" data-index="${index}">
+                        <div class="favicon">
+                            <img src="https://www.google.com/s2/favicons?domain=${new URL(item.url).hostname}" onerror="this.style.display='none'" />
+                        </div>
+                        <div class="content">
+                            <div class="title" title="${item.title}">${item.title}</div>
+                            <div class="url" title="${item.url}">${item.url}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 初始化显示模拟数据
+        setTimeout(() => {
+            renderResults(mockData);
+        }, 1000);
+        
+        console.log('历史记录自动匹配预览页面已加载');
+    </script>
+</body>
+</html>
