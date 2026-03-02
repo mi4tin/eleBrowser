@@ -228,6 +228,9 @@ class HistoryManager {
         
         const historyHTML = pagedData.items.map((item, index) => `
             <div class="history-item" data-id="${item.id}">
+                <div class="item-favicon">
+                    <img src="${this.getFaviconUrl(item.url)}" alt="" onerror="this.style.display='none';" />
+                </div>
                 <div class="item-info open-btn">
                     <div class="item-title">${this.escapeHtml(item.title)}</div>
                     <div class="item-url">${this.escapeHtml(item.url)}</div>
@@ -360,6 +363,17 @@ class HistoryManager {
         });
     }
     
+    // 获取网站favicon URL
+    getFaviconUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            return `${urlObj.origin}/favicon.ico`;
+        } catch (e) {
+            // 如果URL解析失败，返回一个默认的favicon
+            return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="%23ccc"/><text x="8" y="12" font-size="10" text-anchor="middle" fill="%23666">🌐</text></svg>';
+        }
+    }
+
     // HTML转义
     escapeHtml(text) {
         const div = document.createElement('div');

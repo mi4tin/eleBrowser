@@ -97,6 +97,22 @@ body {
     flex: 1;
 }
 
+.item-favicon {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-favicon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
 .item-title {
     font-weight: 500;
     color: #333;
