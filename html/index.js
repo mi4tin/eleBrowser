@@ -813,5 +813,159 @@ ipcRenderer.on('close-right-tab', (_event, tabid) => {
     closeRightTabs(tabid);
 });
 
-// 启动时自动创建一个标签页
+//启时动时自动创建一个标签页
 createTab();
+
+// ===记录自动匹配功能 ===
+// === 历史记录自动匹配功能（使用BrowserView方案） ===
+let autocompleteSearchTimeout = null;
+let addressInputBounds = null;
+
+// 获取地址栏位置信息
+function getAddressInputBounds() {
+    const rect = addressInput.getBoundingClientRect();
+    const bounds = {
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+    };
+    console.log('地址栏位置:', bounds);
+    return bounds;
+}
+
+//显示自动匹配结果
+async function showAutocomplete(items) {
+    if (!items || items.length === 0) {
+        await hideAutocomplete();
+        return;
+    }
+    
+    try {
+        addressInputBounds = getAddressInputBounds();
+        const result = await ipcRenderer.invoke('show-history-autocomplete', items, addressInputBounds);
+        if (!result.success) {
+            console.error('显示历史记录自动匹配失败:', result.error);
+        }
+    } catch (error) {
+        console.error('显示历史记录自动匹配失败:', error);
+    }
+}
+
+//隐藏自动匹配
+async function hideAutocomplete() {
+    try {
+        const result = await ipcRenderer.invoke('hide-history-autocomplete');
+        if (!result.success) {
+            console.error('隐藏历史记录自动匹配失败:', result.error);
+        }
+    } catch (error) {
+        console.error('隐藏历史记录自动匹配失败:', error);
+    }
+}
+
+// 搜索历史记录
+async function searchHistory(query) {
+    if (!query || query.trim() === '') {
+        await hideAutocomplete();
+        return;
+    }
+    
+    try {
+        const results = await ipcRenderer.invoke('search-history', query.trim());
+        await showAutocomplete(results);
+    } catch (error) {
+        console.error('搜索历史记录失败:', error);
+        await hideAutocomplete();
+    }
+}
+
+// 搜索函数
+function throttledSearch(query) {
+    if (autocompleteSearchTimeout) {
+        clearTimeout(autocompleteSearchTimeout);
+    }
+    
+    autocompleteSearchTimeout = setTimeout(() => {
+        searchHistory(query);
+    }, 300); // 300ms延迟
+}
+
+//处理键盘导航
+async function handleAutocompleteNavigation(key) {
+    try {
+        switch (key) {
+            case 'ArrowDown':
+                await ipcRenderer.invoke('history-autocomplete-keyboard', 'down');
+                return true;
+            case 'ArrowUp':
+                await ipcRenderer.invoke('history-autocomplete-keyboard', 'up');
+                return true;
+            case 'Enter':
+                await ipcRenderer.invoke('history-autocomplete-keyboard', 'enter');
+                return true;
+            case 'Escape':
+                await ipcRenderer.invoke('history-autocomplete-keyboard', 'escape');
+                return true;
+        }
+    } catch (error) {
+        console.error('处理自动匹配导航失败:', error);
+    }
+    
+    return false;
+}
+
+// === 事件监听器 ===
+
+//地址栏输入事件
+addressInput.addEventListener('input', (e) => {
+    const query = e.target.value;
+    
+    // 如果是内部协议或特殊页面，不显示自动匹配
+    if (query.startsWith('dxbrowser://') || query.startsWith('file://')) {
+        hideAutocomplete();
+        return;
+    }
+    
+    throttledSearch(query);
+});
+
+//地址栏键盘事件
+addressInput.addEventListener('keydown', async (e) => {
+    //处理自动匹配导航
+    if (await handleAutocompleteNavigation(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
+    //普回车键处理
+    if (e.key === 'Enter') {
+        loadAddressForCurrentTab();
+    }
+});
+
+//失时隐藏自动匹配
+addressInput.addEventListener('blur', () => {
+    setTimeout(async () => {
+        //检查是否焦点转移到了自动匹配BrowserView
+        const result = await ipcRenderer.invoke('check-autocomplete-focus');
+        if (!result.hasFocus) {
+            hideAutocomplete();
+        }
+    }, 150);
+});
+
+//点击页面其他地方隐藏自动匹配
+document.addEventListener('click', (e) => {
+    if (!addressInput.contains(e.target)) {
+        hideAutocomplete();
+    }
+});
+
+//接收历史记录自动匹配选择结果
+ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
+    console.log('接收到历史记录自动匹配选择:', selectedItem);
+    addressInput.value = selectedItem.url;
+    loadAddressForCurrentTab();
+});

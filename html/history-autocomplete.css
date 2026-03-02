@@ -1,0 +1,82 @@
+.history-autocomplete-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.history-autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.15s;
+}
+
+.history-autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.history-autocomplete-item:hover,
+.history-autocomplete-item.selected {
+    background-color: #f0f7ff;
+}
+
+.history-autocomplete-item .favicon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.history-autocomplete-item .favicon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.history-autocomplete-item .content {
+    flex: 1;
+    min-width: 0;
+}
+
+.history-autocomplete-item .title {
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.history-autocomplete-item .url {
+    font-size: 11px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+/*条样式 */
+.history-autocomplete-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.history-autocomplete-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.history-autocomplete-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.history-autocomplete-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

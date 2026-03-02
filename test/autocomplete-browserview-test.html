@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史记录自动匹配BrowserView测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .address-bar-test {
+            margin: 20px 0;
+        }
+        .address-input-container {
+            position: relative;
+            width: 500px;
+            margin: 0 auto;
+        }
+        .address-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            outline: none;
+        }
+        .address-input:focus {
+            border-color: #4b8bff;
+            box-shadow: 0 0 0 2px rgba(75, 139, 255, 0.15);
+        }
+        .instructions {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .test-buttons {
+            margin: 20px 0;
+        }
+        .btn {
+            background: #4b8bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #3a7bff;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>历史记录自动匹配BrowserView方案测试</h1>
+        
+        <div class="instructions">
+            <h3>测试说明：</h3>
+            <ol>
+                <li>在下方输入框中输入网址关键词（如 "baidu"、"google"等）</li>
+                <li>观察是否在输入框下方显示独立的BrowserView匹配结果</li>
+                <li>使用上下箭头键导航匹配项</li>
+                <li>按回车键选择匹配项</li>
+                <li>点击匹配项也可以选择</li>
+                <li>验证匹配结果不会被网页内容遮挡</li>
+            </ol>
+        </div>
+        
+        <div class="test-buttons">
+            <button class="btn" onclick="addTestHistory()">添加测试历史记录</button>
+            <button class="btn" onclick="clearTestHistory()">清空测试历史</button>
+            <button class="btn" onclick="testBrowserViewCreation()">测试BrowserView创建</button>
+        </div>
+        
+        <div class="address-bar-test">
+            <h3>测试地址栏：</h3>
+            <div class="address-input-container">
+                <input id="test-address-input" class="address-input" type="text" placeholder="输入网址关键词进行测试..." autocomplete="off" />
+            </div>
+        </div>
+        
+        <div id="test-status"></div>
+        
+        <div id="test-results">
+            <h3>测试结果：</h3>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const addressInput = document.getElementById('test-address-input');
+        const statusDiv = document.getElementById('test-status');
+        const resultsContent = document.getElementById('results-content');
+        let autocompleteSearchTimeout = null;
+
+        // 测试用的历史记录数据
+        const testHistory = [
+            { id: 1, title: "百度一下，你就知道", url: "https://www.baidu.com", timestamp: Date.now() - 1000 },
+            { id: 2, title: "Google", url: "https://www.google.com", timestamp: Date.now() - 2000 },
+            { id: 3, title: "GitHub: Where the world builds software", url: "https://github.com", timestamp: Date.now() - 3000 },
+            { id: 4, title: "Stack Overflow - Where Developers Learn", url: "https://stackoverflow.com", timestamp: Date.now() - 4000 },
+            { id: 5, title: "MDN Web Docs", url: "https://developer.mozilla.org", timestamp: Date.now() - 5000 }
+        ];
+
+        //记录测试结果
+        function logResult(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const statusClass = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            statusDiv.innerHTML = `<div class="status ${statusClass}">[${timestamp}] ${message}</div>`;
+            resultsContent.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            resultsContent.scrollTop = resultsContent.scrollHeight;
+        }
+
+        // 获取地址栏位置信息
+        function getAddressInputBounds() {
+            const rect = addressInput.getBoundingClientRect();
+            return {
+                x: Math.round(rect.left),
+                y: Math.round(rect.top),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height)
+            };
+        }
+
+        //显示自动匹配结果
+        async function showAutocomplete(items) {
+            if (!items || items.length === 0) {
+                await hideAutocomplete();
+                return;
+            }
+            
+            try {
+                const bounds = getAddressInputBounds();
+                logResult(`发送显示请求，位置: ${JSON.stringify(bounds)}`, 'info');
+                const result = await ipcRenderer.invoke('show-history-autocomplete', items, bounds);
+                if (result.success) {
+                    logResult('成功显示历史记录自动匹配BrowserView', 'success');
+                } else {
+                    logResult(`显示失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                logResult(`显示历史记录自动匹配失败: ${error.message}`, 'error');
+            }
+        }
+
+        //隐藏自动匹配
+        async function hideAutocomplete() {
+            try {
+                const result = await ipcRenderer.invoke('hide-history-autocomplete');
+                if (result.success) {
+                    logResult('成功隐藏历史记录自动匹配BrowserView', 'success');
+                } else {
+                    logResult(`隐藏失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                logResult(`隐藏历史记录自动匹配失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 搜索历史记录（模拟）
+        async function searchHistory(query) {
+            if (!query || query.trim() === '') {
+                await hideAutocomplete();
+                return;
+            }
+            
+            // 模拟搜索延迟
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            const searchTerm = query.toLowerCase().trim();
+            const matches = [];
+            
+            // 搜索历史记录
+            for (const item of testHistory) {
+                const urlMatch = item.url.toLowerCase().includes(searchTerm);
+                const titleMatch = item.title.toLowerCase().includes(searchTerm);
+                
+                if (urlMatch || titleMatch) {
+                    let score = 0;
+                    if (urlMatch) {
+                        if (item.url.toLowerCase() === searchTerm) {
+                            score += 100;
+                        } else if (item.url.toLowerCase().startsWith(searchTerm)) {
+                            score += 50;
+                        } else {
+                            score += 20;
+                        }
+                    }
+                    
+                    if (titleMatch) {
+                        if (item.title.toLowerCase() === searchTerm) {
+                            score += 80;
+                        } else if (item.title.toLowerCase().startsWith(searchTerm)) {
+                            score += 40;
+                        } else {
+                            score += 15;
+                        }
+                    }
+                    
+                    matches.push({
+                        ...item,
+                        matchScore: score
+                    });
+                }
+            }
+            
+            //按匹配度排序
+            matches.sort((a, b) => b.matchScore - a.matchScore);
+            await showAutocomplete(matches.slice(0, 10));
+        }
+
+        // 搜索函数
+        function throttledSearch(query) {
+            if (autocompleteSearchTimeout) {
+                clearTimeout(autocompleteSearchTimeout);
+            }
+            
+            autocompleteSearchTimeout = setTimeout(() => {
+                searchHistory(query);
+            }, 300);
+        }
+
+        //处理键盘导航
+        async function handleAutocompleteNavigation(key) {
+            try {
+                switch (key) {
+                    case 'ArrowDown':
+                        await ipcRenderer.invoke('history-autocomplete-keyboard', 'down');
+                        logResult('发送向下导航指令', 'info');
+                        return true;
+                    case 'ArrowUp':
+                        await ipcRenderer.invoke('history-autocomplete-keyboard', 'up');
+                        logResult('发送向上导航指令', 'info');
+                        return true;
+                    case 'Enter':
+                        await ipcRenderer.invoke('history-autocomplete-keyboard', 'enter');
+                        logResult('发送回车选择指令', 'info');
+                        return true;
+                    case 'Escape':
+                        await ipcRenderer.invoke('history-autocomplete-keyboard', 'escape');
+                        logResult('发送ESC取消指令', 'info');
+                        return true;
+                }
+            } catch (error) {
+                logResult(`处理自动匹配导航失败: ${error.message}`, 'error');
+            }
+            
+            return false;
+        }
+
+        // 添加测试历史记录
+        function addTestHistory() {
+            const newItems = [
+                { id: Date.now(), title: "测试网站 " + Date.now(), url: "https://test" + Date.now() + ".com", timestamp: Date.now() }
+            ];
+            testHistory.unshift(...newItems);
+            logResult("添加了测试历史记录", 'success');
+        }
+
+        //清空测试历史
+        function clearTestHistory() {
+            testHistory.length = 0;
+            hideAutocomplete();
+            logResult("清空了测试历史记录", 'success');
+        }
+
+        // 测试BrowserView创建
+        async function testBrowserViewCreation() {
+            try {
+                logResult('开始测试BrowserView创建...', 'info');
+                const bounds = getAddressInputBounds();
+                const result = await ipcRenderer.invoke('show-history-autocomplete', testHistory.slice(0, 3), bounds);
+                if (result.success) {
+                    logResult('BrowserView创建测试成功', 'success');
+                    // 3秒后自动隐藏
+                    setTimeout(() => {
+                        hideAutocomplete();
+                    }, 3000);
+                } else {
+                    logResult(`BrowserView创建测试失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                logResult(`BrowserView创建测试异常: ${error.message}`, 'error');
+            }
+        }
+
+        // 事件监听器
+        addressInput.addEventListener('input', (e) => {
+            const query = e.target.value;
+            logResult(`输入内容: "${query}"`, 'info');
+            throttledSearch(query);
+        });
+
+        addressInput.addEventListener('keydown', async (e) => {
+            if (await handleAutocompleteNavigation(e.key)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            
+            if (e.key === 'Enter') {
+                logResult(`访问网址: ${addressInput.value}`, 'info');
+            }
+        });
+
+        addressInput.addEventListener('blur', () => {
+            setTimeout(async () => {
+                logResult('地址栏失去焦点，准备隐藏匹配结果', 'info');
+                await hideAutocomplete();
+            }, 150);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!addressInput.contains(e.target)) {
+                logResult('点击页面其他区域，隐藏匹配结果', 'info');
+                hideAutocomplete();
+            }
+        });
+
+        //接收历史记录自动匹配选择结果
+        ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
+            logResult(`接收到选择结果: ${selectedItem.title} (${selectedItem.url})`, 'success');
+            addressInput.value = selectedItem.url;
+        });
+
+        // 初始化
+        logResult("测试页面已加载，可以开始测试BrowserView自动匹配功能", 'success');
+        logResult("请在地址栏输入框中输入关键词测试（如 'baidu'、'google'等）", 'info');
+    </script>
+</body>
+</html>

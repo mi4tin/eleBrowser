@@ -1,13 +1,15 @@
 const { app , BrowserWindow, BrowserView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 
-// BrowserView管理器 - 存储所有BrowserView实例
+// BrowserView管理器 -存储所有BrowserView实例
 const browserViews = new Map(); // Map<tabId, BrowserView>
-let tabIdCounter = 0; // 标签页ID计数器
+let tabIdCounter = 0; //标签页ID计数器
 // 当前激活的 tabId
 let lastActiveTabId = null;
 // 搜索面板 BrowserView
 let searchPanelView = null;
+//记录自动匹配 BrowserView
+let historyAutocompleteView = null;
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -27,8 +29,120 @@ const viewY = 82;
 
 /**
  * 创建新的BrowserView
- * @param {BrowserWindow} window - 父窗口
- * @param {string} url - 要加载的URL
+ * @param {BrowserWindow} window -
+ * @param {string} url -要的URL
+ * @returns {number} tabId - 新创建的标签页ID
+ */
+function createHistoryAutocompleteView(window, url = 'https://www.baidu.com') {
+    if (historyAutocompleteView) {
+        // 如果已经存在，先销毁
+        try {
+            if (window && !window.isDestroyed()) {
+                window.removeBrowserView(historyAutocompleteView);
+            }
+            if (historyAutocompleteView.webContents && !historyAutocompleteView.webContents.isDestroyed()) {
+                historyAutocompleteView.webContents.destroy();
+            }
+        } catch (e) {
+            console.error('销毁历史记录自动匹配BrowserView失败:', e);
+        }
+        historyAutocompleteView = null;
+    }
+    
+    try {
+        // 创建BrowserView实例
+        historyAutocompleteView = new BrowserView({
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: path.join(__dirname, 'preload-history-autocomplete.js')
+            }
+        });
+        
+        // 设置BrowserView到窗口
+        window.addBrowserView(historyAutocompleteView);
+        
+        // 加载自动匹配页面
+        const autocompleteUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/history-autocomplete.html';
+        historyAutocompleteView.webContents.loadURL(autocompleteUrl);
+        
+        console.log('历史记录自动匹配BrowserView创建成功');
+        return historyAutocompleteView;
+    } catch (error) {
+        console.error('创建历史记录自动匹配BrowserView失败:', error);
+        return null;
+    }
+}
+
+//显示历史记录自动匹配BrowserView
+function showHistoryAutocomplete(window, items, addressInputBounds) {
+    if (!historyAutocompleteView) {
+        createHistoryAutocompleteView(window);
+    }
+    
+    if (!historyAutocompleteView) return;
+    
+    try {
+        //计算位置和尺寸
+        const contentBounds = window.getContentBounds();
+        const itemHeight = 36; //项目的高度
+        const maxHeight = Math.min(items.length * itemHeight + 20, 300); // 最大高度300px
+        const width = addressInputBounds.width;
+        const x = addressInputBounds.x;
+        const y = addressInputBounds.y + addressInputBounds.height;
+        
+        // 设置位置和尺寸
+        historyAutocompleteView.setBounds({
+            x: x,
+            y: y,
+            width: width,
+            height: maxHeight
+        });
+        
+        // 发送匹配结果到BrowserView
+        if (!historyAutocompleteView.webContents.isDestroyed()) {
+            historyAutocompleteView.webContents.send('update-history-autocomplete', items);
+        }
+        
+        console.log(`显示历史记录自动匹配，项目数: ${items.length}, 位置: (${x}, ${y}),尺: ${width}x${maxHeight}`);
+    } catch (error) {
+        console.error('显示历史记录自动匹配失败:', error);
+    }
+}
+
+//记录自动匹配BrowserView
+function hideHistoryAutocomplete(window) {
+    if (!historyAutocompleteView) return;
+    
+    try {
+        if (window && !window.isDestroyed()) {
+            window.removeBrowserView(historyAutocompleteView);
+        }
+        console.log('隐藏历史记录自动匹配BrowserView');
+    } catch (error) {
+        console.error('隐藏历史记录自动匹配BrowserView失败:', error);
+    }
+}
+
+//销历史记录自动匹配BrowserView
+function destroyHistoryAutocompleteView() {
+    if (!historyAutocompleteView) return;
+    
+    try {
+        if (historyAutocompleteView.webContents && !historyAutocompleteView.webContents.isDestroyed()) {
+            historyAutocompleteView.webContents.destroy();
+        }
+        historyAutocompleteView = null;
+        console.log('销毁历史记录自动匹配BrowserView');
+    } catch (error) {
+        console.error('销毁历史记录自动匹配BrowserView失败:', error);
+    }
+}
+
+/**
+ * 创建新的BrowserView
+ * @param {BrowserWindow} window -
+ * @param {string} url -的URL
  * @returns {number} tabId - 新创建的标签页ID
  */
 function createBrowserView(window, url = 'https://www.baidu.com') {
@@ -1921,6 +2035,133 @@ ipcMain.handle('get-history', (event) => {
     } catch (e) {
         console.error('获取历史记录失败:', e);
         return [];
+    }
+});
+
+// IPC处理器：搜索历史记录
+ipcMain.handle('search-history', (event, query) => {
+    try {
+        let history = [];
+        
+        //检查历史记录文件是否存在
+        if (fs.existsSync(historyFilePath)) {
+            const data = fs.readFileSync(historyFilePath, 'utf8');
+            history = JSON.parse(data);
+        }
+        
+        if (!query || query.trim() === '') {
+            return [];
+        }
+        
+        const searchTerm = query.toLowerCase().trim();
+        const matches = [];
+        
+        // 搜索历史记录（按URL和标题）
+        for (const item of history) {
+            const urlMatch = item.url.toLowerCase().includes(searchTerm);
+            const titleMatch = item.title.toLowerCase().includes(searchTerm);
+            
+            if (urlMatch || titleMatch) {
+                //计匹配度
+                let score = 0;
+                if (urlMatch) {
+                    // URL完全匹配得分最高
+                    if (item.url.toLowerCase() === searchTerm) {
+                        score += 100;
+                    } else if (item.url.toLowerCase().startsWith(searchTerm)) {
+                        // URL前缀匹配
+                        score += 50 + (searchTerm.length / item.url.length) * 30;
+                    } else {
+                        // URL包含匹配
+                        score += 20 + (searchTerm.length / item.url.length) * 10;
+                    }
+                }
+                
+                if (titleMatch) {
+                    //标题完全匹配
+                    if (item.title.toLowerCase() === searchTerm) {
+                        score += 80;
+                    } else if (item.title.toLowerCase().startsWith(searchTerm)) {
+                        // 标题前缀匹配
+                        score += 40 + (searchTerm.length / item.title.length) * 20;
+                    } else {
+                        //标题包含匹配
+                        score += 15 + (searchTerm.length / item.title.length) * 10;
+                    }
+                }
+                
+                matches.push({
+                    ...item,
+                    matchScore: score
+                });
+            }
+        }
+        
+        //按匹配度排序，取前10个
+        matches.sort((a, b) => b.matchScore - a.matchScore);
+        return matches.slice(0, 10);
+    } catch (e) {
+        console.error('搜索历史记录失败:', e);
+        return [];
+    }
+});
+
+// IPC处理器：显示历史记录自动匹配
+ipcMain.handle('show-history-autocomplete', (event, items, addressInputBounds) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            showHistoryAutocomplete(mainWindow, items, addressInputBounds);
+            return { success: true };
+        }
+        return { success: false, error: '主窗口不存在' };
+    } catch (error) {
+        console.error('显示历史记录自动匹配失败:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// IPC处理器：隐藏历史记录自动匹配
+ipcMain.handle('hide-history-autocomplete', (event) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            hideHistoryAutocomplete(mainWindow);
+            return { success: true };
+        }
+        return { success: false, error: '主窗口不存在' };
+    } catch (error) {
+        console.error('隐藏历史记录自动匹配失败:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// IPC处理器：处理历史记录自动匹配选择
+ipcMain.handle('history-autocomplete-selected', (event, selectedItem) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            // 发送选择结果到渲染进程
+            mainWindow.webContents.send('history-autocomplete-selected', selectedItem);
+            //匹配
+            hideHistoryAutocomplete(mainWindow);
+            return { success: true };
+        }
+        return { success: false, error: '主窗口不存在' };
+    } catch (error) {
+        console.error('处理历史记录自动匹配选择失败:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// IPC处理器：发送键盘导航指令到历史记录自动匹配
+ipcMain.handle('history-autocomplete-keyboard', (event, action) => {
+    try {
+        if (historyAutocompleteView && !historyAutocompleteView.webContents.isDestroyed()) {
+            historyAutocompleteView.webContents.send('history-autocomplete-keyboard', action);
+            return { success: true };
+        }
+        return { success: false, error: '历史记录自动匹配BrowserView不存在' };
+    } catch (error) {
+        console.error('发送键盘导航指令失败:', error);
+        return { success: false, error: error.message };
     }
 });
 
