@@ -10,6 +10,8 @@ const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
 
 let currentTabId = null;
+// 记录地址栏的上一个值，用于检测是输入还是删除
+let addressInputPreviousValue = '';
 
 function formatUrl(input) {
     if (!input) return DEFAULT_URL;
@@ -839,6 +841,7 @@ async function hideAutocomplete() {
         if (!result.success) {
             console.error('隐藏历史记录自动匹配失败:', result.error);
         } else {
+            addressInputPreviousValue=''//重置
             console.log('成功发送隐藏请求');
         }
     } catch (error) {
@@ -870,9 +873,10 @@ function throttledSearch(query) {
         clearTimeout(autocompleteSearchTimeout);
     }
     
-    console.log('设置搜索延时，查询:', query);
+    // console.log('设置搜索延时，查询:', query);
+   
     autocompleteSearchTimeout = setTimeout(() => {
-        searchHistory(query);
+         searchHistory(query);
     }, 300); // 300ms延迟
 }
 
@@ -905,6 +909,9 @@ async function handleAutocompleteNavigation(key) {
 //地址栏输入事件
 addressInput.addEventListener('input', (e) => {
     const query = e.target.value;
+    
+    // 记录上一个值
+    // addressInputPreviousValue = query;
     
     // 如果是内部协议或特殊页面，不显示自动匹配
     if (query.startsWith('dxbrowser://') || query.startsWith('file://')) {
@@ -966,11 +973,19 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
     console.log('接收到历史记录自动匹配默认选中:', selectedItem);
     const currentValue = addressInput.value;
     
-    console.log('接收到默认选中当前输入值:', currentValue);
+    console.log('接收到默认选中当前输入值:', currentValue,'上一个输入值:', addressInputPreviousValue);
+    
+    // 检查是否是删除操作
+    if (currentValue.length < addressInputPreviousValue.length) {
+        console.log('检测到删除操作，不自动写入地址栏');
+        addressInputPreviousValue=''
+        return;
+    }
+    
     if (currentValue) {
         
         // if (selectedItem.url.startsWith(currentValue)) {
-           
+            
             
             // 检查是否是主域名匹配
             try {
@@ -981,10 +996,12 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
                 // 检查用户输入是否匹配主域名的一部分
                 if (selectedItem.url.includes(currentValue)) {
 
+                     addressInputPreviousValue=selectedItem.url
+                     console.log("修改地址为：",addressInputPreviousValue)
                      addressInput.value = selectedItem.url;
                     // 找到主域名中与用户输入匹配的位置
                     const currentIndex = selectedItem.url.indexOf(currentValue);
-                    console.log('接收到默认选中:', currentIndex,currentValue);
+                    console.log('接收到默认选中1:', currentIndex,currentValue);
                     if (currentIndex !== -1) {
                         //选中从用户输入结束位置到主域名结束位置的部分
                         const selectionStart =currentIndex+currentValue.length; 
@@ -992,6 +1009,8 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
                         addressInput.setSelectionRange(selectionStart, selectionEnd);
                         return;
                     }
+                }else{
+                    addressInputPreviousValue=currentValue;
                 }
             } catch (e) {
                 // URL解析失败，使用默认行为
@@ -999,7 +1018,7 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
             }
             
             // 默认行为：选中未输入的部分
-            addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
+            // addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
         // }
     } else {
         // 首次显示，直接显示第一个匹配项
