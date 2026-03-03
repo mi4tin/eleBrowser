@@ -246,7 +246,10 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 lastActiveTabId = tabId;
 
                 // 加载并恢复划线信息
-                await loadAndRestoreUnderline(url, view.webContents);
+                 setTimeout(async () => {
+                await loadAndRestoreUnderline(url, view.webContents);    
+                }, 1000);//增加延迟加载，因为有些数据是异步加载，需要一定时间
+                
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
             }
