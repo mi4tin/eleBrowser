@@ -1699,14 +1699,14 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo,underlineNa
         underlineInfo.mode=underlineInfo.mode || 1
         underlineInfo.occurrenceIndex=underlineInfo.occurrenceIndex || 0
 
-        console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP,underlineNameIndex);
+        // console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP,underlineNameIndex);
 
         let hasUnderlineNameIndexP=!!underlineNameIndexP
         if(!hasUnderlineNameIndexP){
             underlineNameIndexP=underlineNameIndex;
         }
 
-        console.log('2恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP,underlineNameIndex);
+        // console.log('2恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP,underlineNameIndex);
         
         // 在BrowserView中执行JavaScript代码来恢复划线。内部添加划线的核心方法来源 ds(chat.deepseek.com):JS跨标签文本添加下划线方法
         var underlineCount= await contents.executeJavaScript(
@@ -1950,7 +1950,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo,underlineNa
         //如果没有传递underlineNameIndexP，说明是第一次恢复，需要增加underlineNameIndex
         if(!hasUnderlineNameIndexP){
             underlineNameIndex++
-            console.log('增加underlineNameIndex:',underlineInfo.text, underlineNameIndex);
+            // console.log('增加underlineNameIndex:',underlineInfo.text, underlineNameIndex);
         }
 
         return underlineCount;
