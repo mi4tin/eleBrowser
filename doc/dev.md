@@ -4,6 +4,8 @@
 +书签上云
 +划线上云
 
++文心搜索
+
 
 +直接写入输入框
 +ssl证书查询
@@ -11,7 +13,11 @@
 +复制图片
 
 
+==待优化==
++划线尽可能快：测试地址:https://chat.deepseek.com/a/chat/s/b4cf5a3e-6faa-4767-8f10-87c8a1d7cb62    https://baijiahao.baidu.com/s?id=1856832249302483630&wfr=spider&for=pc
+
 ==待实现==
++书签等搜索增加历史搜索词展示
 +增加标签标题显示设置
 +增加文心搜索
 
