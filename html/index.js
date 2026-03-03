@@ -984,26 +984,22 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
     
     if (currentValue) {
         
-        // if (selectedItem.url.startsWith(currentValue)) {
-            
-            
-            // 检查是否是主域名匹配
             try {
                 const urlObj = new URL(selectedItem.url);
                 const hostname = urlObj.hostname;
                 
                 console.log('接收到默认选中:', selectedItem.url.includes(currentValue),selectedItem.url);
-                // 检查用户输入是否匹配主域名的一部分
+                // 检查用户输入是否包含在选中的一部分
                 if (selectedItem.url.includes(currentValue)) {
 
                      addressInputPreviousValue=selectedItem.url
                      console.log("修改地址为：",addressInputPreviousValue)
                      addressInput.value = selectedItem.url;
-                    // 找到主域名中与用户输入匹配的位置
+                    // 找到选中地址与用户输入匹配的位置
                     const currentIndex = selectedItem.url.indexOf(currentValue);
                     console.log('接收到默认选中1:', currentIndex,currentValue);
                     if (currentIndex !== -1) {
-                        //选中从用户输入结束位置到主域名结束位置的部分
+                        //选中从用户输入结束位置到selectedItem.url结束位置的部分
                         const selectionStart =currentIndex+currentValue.length; 
                         const selectionEnd =selectedItem.url.length
                         addressInput.setSelectionRange(selectionStart, selectionEnd);
