@@ -965,10 +965,47 @@ ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
 ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) => {
     console.log('接收到历史记录自动匹配默认选中:', selectedItem);
     const currentValue = addressInput.value;
-    if (currentValue && selectedItem.url.startsWith(currentValue)) {
+    
+    console.log('接收到默认选中当前输入值:', currentValue);
+    if (currentValue) {
+        
+        // if (selectedItem.url.startsWith(currentValue)) {
+           
+            
+            // 检查是否是主域名匹配
+            try {
+                const urlObj = new URL(selectedItem.url);
+                const hostname = urlObj.hostname;
+                
+                console.log('接收到默认选中:', selectedItem.url.includes(currentValue),selectedItem.url);
+                // 检查用户输入是否匹配主域名的一部分
+                if (selectedItem.url.includes(currentValue)) {
+
+                     addressInput.value = selectedItem.url;
+                    // 找到主域名中与用户输入匹配的位置
+                    const currentIndex = selectedItem.url.indexOf(currentValue);
+                    console.log('接收到默认选中:', currentIndex,currentValue);
+                    if (currentIndex !== -1) {
+                        //选中从用户输入结束位置到主域名结束位置的部分
+                        const selectionStart =currentIndex+currentValue.length; 
+                        const selectionEnd =selectedItem.url.length
+                        addressInput.setSelectionRange(selectionStart, selectionEnd);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // URL解析失败，使用默认行为
+                console.log('URL解析失败:', e);
+            }
+            
+            // 默认行为：选中未输入的部分
+            addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
+        // }
+    } else {
+        // 首次显示，直接显示第一个匹配项
         addressInput.value = selectedItem.url;
-        // 选中未输入的部分
-        addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
+        // 将光标移动到输入框末尾
+        addressInput.setSelectionRange(selectedItem.url.length, selectedItem.url.length);
     }
 });
 
