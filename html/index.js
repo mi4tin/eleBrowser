@@ -1136,7 +1136,7 @@ tabsContainer.addEventListener('drop', (e) => {
         const targetTab = e.target.closest('.tab');
         if (targetTab && targetTab.dataset.bookmarks === 'true') {
             // 发送消息给书签管理页面，添加书签
-            ipcRenderer.send('add-bookmark-from-drag', url);
+            // ipcRenderer.send('add-bookmark-from-drag', url);
         } else {
             // 否则创建新标签
             createTab(url, url);

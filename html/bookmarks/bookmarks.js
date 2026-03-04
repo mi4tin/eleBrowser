@@ -174,10 +174,10 @@ async function init() {
     setupEventListeners();
     
     // 监听从主窗口发送的添加书签消息
-    ipcRenderer.on('add-bookmark-from-drag', (event, url) => {
-        console.log('收到从主窗口拖动的URL:', url);
-        addBookmarkFromDrag(url);
-    });
+    // ipcRenderer.on('add-bookmark-from-drag', (event, url) => {
+    //     console.log('收到从主窗口拖动的URL:', url);
+    //     addBookmarkFromDrag(url);
+    // });
 }
 
 // 设置事件监听
