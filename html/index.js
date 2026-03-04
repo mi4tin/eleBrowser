@@ -558,8 +558,9 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
 }
 
 async function activateTab(id) {
+    if (id === currentTabId) return;
+    
     currentTabId = id;
-
     // 切换 tab 样式
     document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.toggle('active', Number(tab.dataset.id) === id);
@@ -1115,6 +1116,14 @@ addressInput.addEventListener('dragstart', (e) => {
 tabsContainer.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    
+    // 检测是否拖动到了具体的标签上
+    const targetTab = e.target.closest('.tab');
+    if (targetTab) {
+        // 激活该标签
+        const tabId = Number(targetTab.dataset.id);
+        activateTab(tabId);
+    }
 });
 
 tabsContainer.addEventListener('drop', (e) => {
