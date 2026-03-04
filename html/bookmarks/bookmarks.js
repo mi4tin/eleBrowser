@@ -172,6 +172,12 @@ async function init() {
     renderTree();
     renderContent(currentFolder);
     setupEventListeners();
+    
+    // 监听从主窗口发送的添加书签消息
+    ipcRenderer.on('add-bookmark-from-drag', (event, url) => {
+        console.log('收到从主窗口拖动的URL:', url);
+        addBookmarkFromDrag(url);
+    });
 }
 
 // 设置事件监听
@@ -778,6 +784,58 @@ function closeModal() {
         currentModal.remove();
         currentModal = null;
     }
+}
+
+// 从主窗口拖动添加书签
+function addBookmarkFromDrag(url) {
+    if (!url) return;
+    
+    // 从URL中提取标题
+    let title = url;
+    try {
+        const urlObj = new URL(url);
+        title = urlObj.hostname;
+    } catch (e) {
+        // URL解析失败，使用原始URL作为标题
+    }
+    
+    // 添加到当前文件夹
+    currentFolder.bookmarks = currentFolder.bookmarks || [];
+    currentFolder.bookmarks.push({
+        title: title,
+        url: url,
+        favicon: '🔗'
+    });
+    
+    // 重新渲染内容
+    renderContent(currentFolder);
+    // 保存书签
+    saveBookmarks();
+    
+    // 显示添加成功提示
+    const notification = document.createElement('div');
+    notification.textContent = '书签添加成功';
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        z-index: 10000;
+        transition: opacity 0.3s ease;
+    `;
+    document.body.appendChild(notification);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
 }
 
 // 初始化

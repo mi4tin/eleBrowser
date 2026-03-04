@@ -1123,6 +1123,14 @@ tabsContainer.addEventListener('drop', (e) => {
     console.log(" 拖动结束:", url)
 
     if (url) {
-        createTab(url, url);
+        // 检查是否拖动到了书签管理标签
+        const targetTab = e.target.closest('.tab');
+        if (targetTab && targetTab.dataset.bookmarks === 'true') {
+            // 发送消息给书签管理页面，添加书签
+            ipcRenderer.send('add-bookmark-from-drag', url);
+        } else {
+            // 否则创建新标签
+            createTab(url, url);
+        }
     }
 });

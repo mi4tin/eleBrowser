@@ -1644,6 +1644,23 @@ ipcMain.on('open-url-in-new-tab', (event, url) => {
     }
 });
 
+// IPC 处理器：从主窗口拖动URL到书签管理标签
+ipcMain.on('add-bookmark-from-drag', (event, url) => {
+    console.log('收到从主窗口拖动的URL:', url);
+    // 查找书签管理的BrowserView并转发消息
+    browserViews.forEach((view, tabId) => {
+        try {
+            const viewUrl = view.webContents.getURL();
+            if (viewUrl.includes('bookmarks.html')) {
+                console.log('找到书签管理页面，发送添加书签消息');
+                view.webContents.send('add-bookmark-from-drag', url);
+            }
+        } catch (e) {
+            console.error('检查BrowserView URL失败:', e);
+        }
+    });
+});
+
 // 书签数据文件路径
 const fs = require('fs');
 const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
