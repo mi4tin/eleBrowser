@@ -1041,3 +1041,26 @@ window.addEventListener('resize', () => {
     const bounds = getAddressInputBounds();  // 获取新地址栏边界
     ipcRenderer.invoke('update-address-input-bounds', bounds);  // 更新到主进程
 });
+
+// 为地址栏添加拖动事件监听器
+addressInput.addEventListener('dragstart', (e) => {
+    const url = addressInput.value.trim();
+    if (url) {
+        e.dataTransfer.setData('text/plain', url);
+        e.effectAllowed = 'copy';
+    }
+});
+
+// 为标签栏添加放置事件监听器
+tabsContainer.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+});
+
+tabsContainer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const url = e.dataTransfer.getData('text/plain');
+    if (url) {
+        createTab(url, url);
+    }
+});

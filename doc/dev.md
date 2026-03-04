@@ -1,4 +1,7 @@
 ==待实现(主)==
++拖动网址加入书签
++拖动网址打开标签
++导入书签
 +账号中心
 +书签上云
 +划线上云
@@ -13,7 +16,6 @@
 
 
 ==待优化==
-+划线尽可能快：测试地址:https://chat.deepseek.com/a/chat/s/b4cf5a3e-6faa-4767-8f10-87c8a1d7cb62    https://baijiahao.baidu.com/s?id=1856832249302483630&wfr=spider&for=pc
 
 ==待实现==
 +书签等搜索增加历史搜索词展示
@@ -26,7 +28,6 @@
 +文件下载
 +http、socket5代理
 +移除webview相关（所有功能重构完执行）
-
 
 
 
@@ -53,3 +54,6 @@
 +快捷键，只针对本应用。目前使用菜单快捷键，在网页中点个链接，打开新页卡时，马上ctrl+f 无用
 +将webview改为BrowserView(经测试效果不太好，未采用)
 +相同内容划线重复加载问题
+
+==已优化==
++划线尽可能快：测试地址:https://chat.deepseek.com/a/chat/s/b4cf5a3e-6faa-4767-8f10-87c8a1d7cb62    https://baijiahao.baidu.com/s?id=1856832249302483630&wfr=spider&for=pc
