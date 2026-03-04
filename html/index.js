@@ -24,9 +24,11 @@ function formatUrl(input) {
     return 'https://' + trimmed;
 }
 
+let lastUrl = '';//事件等更新到地址栏的最新地址，而非手动输入的
 function updateAddressBar(url) {
     if (currentTabId == null) return;
-    addressInput.value = url || '';
+    lastUrl=url||'';
+    addressInput.value =lastUrl;
 }
 
 async function loadAddressForCurrentTab() {
@@ -1055,7 +1057,8 @@ addressInput.addEventListener('dragstart', (e) => {
     const url = addressInput.value.trim();
     var dragStr = e.dataTransfer.getData('text/plain')
     // console.log("开始拖动", dragStr)
-    if (url == dragStr) {
+    //判断是否拖动的完整有效地址
+    if (lastUrl == dragStr) {
         // e.dataTransfer.setData('text/plain', url);
         e.effectAllowed = 'copy';
 
