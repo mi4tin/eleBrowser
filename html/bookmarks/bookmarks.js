@@ -9,23 +9,23 @@ if (typeof window !== 'undefined' && window.electronAPI) {
     } catch (e) {
         console.error('无法加载 electron 模块或未提供 preload:', e);
         ipcRenderer = {
-            send: function(channel, data) {
+            send: function (channel, data) {
                 console.log('IPC send (模拟):', channel, data);
             },
-            once: function(channel, listener) {
+            once: function (channel, listener) {
                 if (channel === 'load-bookmarks-reply') {
                     setTimeout(() => listener(null, null), 0);
                 } else {
                     setTimeout(() => listener(null), 0);
                 }
             },
-            invoke: function(channel, ...args) {
+            invoke: function (channel, ...args) {
                 console.log('IPC invoke (模拟):', channel, args);
                 return Promise.resolve(null);
             },
-            on: function(channel, listener) {
+            on: function (channel, listener) {
                 console.log('IPC on (模拟):', channel);
-                return () => {};
+                return () => { };
             }
         };
     }
@@ -172,7 +172,7 @@ async function init() {
     renderTree();
     renderContent(currentFolder);
     setupEventListeners();
-    
+
     // 监听从主窗口发送的添加书签消息
     // ipcRenderer.on('add-bookmark-from-drag', (event, url) => {
     //     console.log('收到从主窗口拖动的URL:', url);
@@ -191,6 +191,165 @@ function setupEventListeners() {
             renderContent(currentFolder);
         }
     });
+
+    // 拖拽事件监听
+    setupDragEvents();
+}
+
+// 设置拖拽事件
+function setupDragEvents() {
+    // 侧边栏文件夹拖拽事件
+    sidebar.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const treeItem = e.target.closest('.tree-item');
+        if (treeItem) {
+
+            // document.querySelectorAll('.tree-item').forEach(item => {
+            //     item.style.backgroundColor = '';
+            // });
+            treeItem.style.backgroundColor = '#e8f4ff';
+
+
+            const folderId = treeItem.dataset.id;
+            if(folderId==lastDragFolderId){
+                // console.log("相同的文件夹")
+                return
+            }
+            clearTimeout(lastDragTimeOut)//清理上次计时器
+            lastDragFolderId=folderId
+            const res = findFolderById(bookmarksTree, folderId);
+
+            console.log("treeItem.dragover",folderId)
+            lastDragTimeOut=setTimeout(() => {
+                if (res && res.folder) {
+                    if(lastDragFolderId!=res.folder.id){
+                        console.log('文件夹已切换')
+                        return
+                    }
+                    selectFolder(res.folder);
+                    toggleFolder(folderId)
+                    // addBookmarkToFolder(res.folder, url);
+                }
+            }, 1500)
+
+        }
+    });
+
+    sidebar.addEventListener('dragleave', (e) => {
+        const treeItem = e.target.closest('.tree-item');
+        if (treeItem) {
+            treeItem.style.backgroundColor = '';
+        }
+    });
+
+    sidebar.addEventListener('drop', (e) => {
+        return
+        e.preventDefault();
+        
+        const url = e.dataTransfer.getData('text/plain');
+        if (!url) return;
+
+        const treeItem = e.target.closest('.tree-item');
+        if (treeItem) {
+            const folderId = treeItem.dataset.id;
+            const res = findFolderById(bookmarksTree, folderId);
+            if (res && res.folder) {
+                selectFolder(res.folder);
+                
+                // addBookmarkToFolder(res.folder, url);
+            }
+        }
+
+        document.querySelectorAll('.tree-item').forEach(item => {
+            item.style.backgroundColor = '';
+        });
+    });
+
+    let lastDragFolderId=''
+    let lastDragTimeOut=0;
+    // 内容区域文件夹卡片拖拽事件
+    contentGrid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const folderCard = e.target.closest('.folder-card');
+        if (folderCard) {
+            folderCard.style.backgroundColor = '#e8f4ff';
+
+            const folderId = folderCard.dataset.id;
+            if(folderId==lastDragFolderId){
+                // console.log("相同的文件夹")
+                return
+            }
+            clearTimeout(lastDragTimeOut)//清理上次计时器
+            lastDragFolderId=folderId
+            const res = findFolderById(bookmarksTree, folderId);
+
+            console.log("folderCard.dragover",folderId)
+            lastDragTimeOut=setTimeout(() => {
+                if (res && res.folder) {
+                    if(lastDragFolderId!=res.folder.id){
+                        console.log('文件夹已切换')
+                        return
+                    }
+                    selectFolder(res.folder);
+                    // addBookmarkToFolder(res.folder, url);
+                }
+            }, 1500)
+
+        }
+    });
+
+    contentGrid.addEventListener('dragleave', (e) => {
+        const folderCard = e.target.closest('.folder-card');
+        if (folderCard) {
+            folderCard.style.backgroundColor = '';
+        }
+    });
+
+    contentGrid.addEventListener('drop', (e) => {
+        return
+        e.preventDefault();
+        const url = e.dataTransfer.getData('text/plain');
+        if (!url) return;
+
+        const folderCard = e.target.closest('.folder-card');
+        if (folderCard) {
+            const folderId = folderCard.dataset.id;
+            const res = findFolderById(bookmarksTree, folderId);
+            if (res && res.folder) {
+                selectFolder(res.folder);
+                addBookmarkToFolder(res.folder, url);
+            }
+        }
+
+        document.querySelectorAll('.folder-card').forEach(card => {
+            card.style.backgroundColor = '';
+        });
+    });
+}
+
+// 添加书签到指定文件夹
+function addBookmarkToFolder(folder, url) {
+    if (!url) return;
+
+    let title = url;
+    try {
+        const urlObj = new URL(url);
+        title = urlObj.hostname;
+    } catch (e) {
+        // URL解析失败，使用原始URL作为标题
+    }
+
+    folder.bookmarks = folder.bookmarks || [];
+    folder.bookmarks.push({
+        title: title,
+        url: url,
+        favicon: '🔗'
+    });
+
+    renderContent(currentFolder);
+    saveBookmarks();
+
+    showNotification('书签添加成功');
 }
 
 // 渲染树形结构
@@ -203,7 +362,7 @@ function renderTree() {
 function renderTreeItem(item, level) {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedFolders.has(item.id);
-    
+
     const treeItem = document.createElement('div');
     treeItem.className = 'tree-item';
     if (currentFolder.id === item.id) {
@@ -262,7 +421,7 @@ function renderTreeItem(item, level) {
     }
 }
 
-// 切换文件夹展开/折叠
+// 切换树形文件夹展开/折叠
 function toggleFolder(folderId) {
     if (expandedFolders.has(folderId)) {
         expandedFolders.delete(folderId);
@@ -274,6 +433,8 @@ function toggleFolder(folderId) {
 
 // 选择文件夹
 function selectFolder(folder) {
+    console.trace("selectFolder")
+    console.log("selectFolder", folder)
     currentFolder = folder;
     renderTree();
     renderContent(folder);
@@ -283,9 +444,9 @@ function selectFolder(folder) {
 function renderContent(folder) {
     contentTitle.textContent = folder.name;
     contentPath.textContent = getFolderPath(folder);
-    
+
     contentGrid.innerHTML = '';
-    
+
     const hasSubFolders = folder.children && folder.children.length > 0;
     const hasBookmarks = folder.bookmarks && folder.bookmarks.length > 0;
 
@@ -321,7 +482,7 @@ function createFolderCard(folder) {
     const card = document.createElement('div');
     card.className = 'folder-card';
     card.dataset.id = folder.id;
-    
+
     const bookmarkCount = (folder.bookmarks && folder.bookmarks.length) || 0;
     const subFolderCount = (folder.children && folder.children.length) || 0;
     const totalCount = bookmarkCount + subFolderCount;
@@ -359,7 +520,7 @@ function createFolderCard(folder) {
 function createBookmarkCard(bookmark) {
     const card = document.createElement('div');
     card.className = 'bookmark-card';
-    
+
     card.innerHTML = `
         <div class="bookmark-favicon">${bookmark.favicon || '🔗'}</div>
         <div class="bookmark-info">
@@ -376,7 +537,7 @@ function createBookmarkCard(bookmark) {
         }
         e.preventDefault();
         e.stopPropagation();
-        
+
         let url = bookmark.url;
         if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
             url = 'https://' + url;
@@ -409,7 +570,7 @@ function createBookmarkCard(bookmark) {
 function getFolderPath(folder) {
     const path = [];
     let current = folder;
-    
+
     // 向上查找路径
     function findPath(node, targetId) {
         if (node.id === targetId) {
@@ -426,7 +587,7 @@ function getFolderPath(folder) {
         }
         return false;
     }
-    
+
     findPath(bookmarksTree, folder.id);
     return '/' + path.join('/');
 }
@@ -436,13 +597,13 @@ function searchBookmarks(query) {
     contentTitle.textContent = `搜索结果: "${query}"`;
     contentPath.textContent = '';
     contentGrid.innerHTML = '';
-    
+
     const results = [];
     function searchInFolder(folder) {
         // 搜索书签
         if (folder.bookmarks) {
             folder.bookmarks.forEach(bookmark => {
-                if (bookmark.title.toLowerCase().includes(query) || 
+                if (bookmark.title.toLowerCase().includes(query) ||
                     bookmark.url.toLowerCase().includes(query)) {
                     results.push(bookmark);
                 }
@@ -455,9 +616,9 @@ function searchBookmarks(query) {
             });
         }
     }
-    
+
     searchInFolder(bookmarksTree);
-    
+
     if (results.length === 0) {
         contentGrid.innerHTML = `
             <div class="empty-state" style="grid-column: 1 / -1;">
@@ -538,7 +699,7 @@ function renameFolder(id) {
 function deleteFolder(id) {
     if (id === 'root') return;
     const res = findFolderById(bookmarksTree, id);
-     console.log('删除文件夹11:', res);
+    console.log('删除文件夹11:', res);
     if (!res || !res.parent) return;
     if (confirm('确定要删除该文件夹及其内容吗？')) {
         console.log('删除文件夹:', res.folder);
@@ -563,12 +724,12 @@ function editBookmark(bookmark) {
             <input type="text" class="form-input" id="editBookmarkUrlInput" value="${escapeHtml(bookmark.url)}">
         </div>
     `;
-    
+
     showModal('修改书签', content, [
         {
             text: '取消',
             type: 'secondary',
-            callback: () => {}
+            callback: () => { }
         },
         {
             text: '保存',
@@ -602,11 +763,11 @@ function deleteBookmark(targetBookmark) {
         }
         return false;
     }
-    if (confirm('确定要删除该书签吗？')) {
-        removeFromFolder(bookmarksTree);
-        renderContent(currentFolder);
-        saveBookmarks();
-    }
+    // if (confirm('确定要删除该书签吗？')) {
+    removeFromFolder(bookmarksTree);
+    renderContent(currentFolder);
+    saveBookmarks();
+    // }
 }
 
 // 右键空白区域（右侧任意非卡片区域）：添加文件夹/书签
@@ -628,12 +789,12 @@ function addFolder(parentId) {
             <input type="text" class="form-input" id="folderNameInput" placeholder="请输入文件夹名称" autofocus>
         </div>
     `;
-    
+
     showModal('添加文件夹', content, [
         {
             text: '取消',
             type: 'secondary',
-            callback: () => {}
+            callback: () => { }
         },
         {
             text: '保存',
@@ -673,12 +834,12 @@ function addBookmark(parentId) {
             <input type="text" class="form-input" id="bookmarkUrlInput" placeholder="请输入书签链接">
         </div>
     `;
-    
+
     showModal('添加书签', content, [
         {
             text: '取消',
             type: 'secondary',
-            callback: () => {}
+            callback: () => { }
         },
         {
             text: '保存',
@@ -731,10 +892,10 @@ let currentModalCallback = null;
 function createModal(title, content, buttons) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
-    
+
     const modal = document.createElement('div');
     modal.className = 'modal';
-    
+
     // 头部
     const header = document.createElement('div');
     header.className = 'modal-header';
@@ -742,12 +903,12 @@ function createModal(title, content, buttons) {
     h3.className = 'modal-title';
     h3.textContent = title;
     header.appendChild(h3);
-    
+
     // 内容
     const body = document.createElement('div');
     body.className = 'modal-body';
     body.innerHTML = content;
-    
+
     // 底部按钮
     const footer = document.createElement('div');
     footer.className = 'modal-footer';
@@ -761,12 +922,12 @@ function createModal(title, content, buttons) {
         });
         footer.appendChild(button);
     });
-    
+
     modal.appendChild(header);
     modal.appendChild(body);
     modal.appendChild(footer);
     overlay.appendChild(modal);
-    
+
     return overlay;
 }
 
@@ -789,7 +950,7 @@ function closeModal() {
 // 从主窗口拖动添加书签
 function addBookmarkFromDrag(url) {
     if (!url) return;
-    
+
     // 从URL中提取标题
     let title = url;
     try {
@@ -798,7 +959,7 @@ function addBookmarkFromDrag(url) {
     } catch (e) {
         // URL解析失败，使用原始URL作为标题
     }
-    
+
     // 添加到当前文件夹
     currentFolder.bookmarks = currentFolder.bookmarks || [];
     currentFolder.bookmarks.push({
@@ -806,15 +967,19 @@ function addBookmarkFromDrag(url) {
         url: url,
         favicon: '🔗'
     });
-    
+
     // 重新渲染内容
     renderContent(currentFolder);
     // 保存书签
     saveBookmarks();
-    
-    // 显示添加成功提示
+
+    showNotification('书签添加成功');
+}
+
+// 显示通知
+function showNotification(message) {
     const notification = document.createElement('div');
-    notification.textContent = '书签添加成功';
+    notification.textContent = message;
     notification.style.cssText = `
         position: fixed;
         top: 20px;
@@ -828,7 +993,7 @@ function addBookmarkFromDrag(url) {
         transition: opacity 0.3s ease;
     `;
     document.body.appendChild(notification);
-    
+
     // 3秒后自动消失
     setTimeout(() => {
         notification.style.opacity = '0';
