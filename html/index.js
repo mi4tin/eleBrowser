@@ -1048,6 +1048,53 @@ addressInput.addEventListener('dragstart', (e) => {
     if (url) {
         e.dataTransfer.setData('text/plain', url);
         e.effectAllowed = 'copy';
+        
+        // 获取favicon和标题
+        const addressFaviconImg = document.getElementById('address-favicon').querySelector('img');
+        const faviconUrl = addressFaviconImg ? addressFaviconImg.src : '';
+        
+        // 创建一个临时元素用于拖动时的视觉效果
+        const dragImage = document.createElement('div');
+        dragImage.style.position = 'absolute';
+        dragImage.style.left = '-9999px';
+        dragImage.style.top = '-9999px';
+        dragImage.style.padding = '8px';
+        // dragImage.style.backgroundColor = '#fff';
+        // dragImage.style.border = '1px solid #ddd';
+        dragImage.style.borderRadius = '4px';
+        dragImage.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        dragImage.style.display = 'flex';
+        dragImage.style.alignItems = 'center';
+        dragImage.style.gap = '8px';
+        
+        // 添加favicon
+        if (faviconUrl) {
+            const favicon = document.createElement('img');
+            favicon.src = faviconUrl;
+            favicon.style.width = '16px';
+            favicon.style.height = '16px';
+            dragImage.appendChild(favicon);
+        }
+        
+        // 添加标题或URL
+        const title = document.createElement('span');
+        title.textContent = url.length > 30 ? url.substring(0, 30) + '...' : url;
+        title.style.fontSize = '12px';
+        title.style.maxWidth = '200px';
+        title.style.overflow = 'hidden';
+        title.style.textOverflow = 'ellipsis';
+        title.style.whiteSpace = 'nowrap';
+        dragImage.appendChild(title);
+        
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 10, 10);
+        
+        // 拖动结束后移除临时元素
+        setTimeout(() => {
+            if (dragImage.parentNode) {
+                dragImage.parentNode.removeChild(dragImage);
+            }
+        }, 0);
     }
 });
 
