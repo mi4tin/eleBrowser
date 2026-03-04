@@ -31,23 +31,23 @@ function updateAddressBar(url) {
 
 async function loadAddressForCurrentTab() {
     const inputValue = addressInput.value.trim();
-    
+
     // 检查是否是 dxbrowser://bookmarks/ 协议
     if (inputValue === 'dxbrowser://bookmarks/' || inputValue.startsWith('dxbrowser://bookmarks')) {
         await openBookmarksTab();
         return;
     }
-    
+
     // 检查是否是 dxbrowser://history/ 协议
     if (inputValue === 'dxbrowser://history/' || inputValue.startsWith('dxbrowser://history')) {
         await openHistoryTab();
         return;
     }
-    
+
     if (currentTabId == null) return;
-    
+
     const target = formatUrl(inputValue);
-    
+
     try {
         // 尝试使用 BrowserView 方式加载URL
         const success = await ipcRenderer.invoke('browser-view-load-url', currentTabId, target);
@@ -67,53 +67,53 @@ async function openBookmarksTab() {
         activateTab(tabId);
         return;
     }
-    
+
     try {
         // 使用主进程的 createBrowserView 创建书签管理器
         const bookmarksUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', bookmarksUrl);
         // console.log('创建书签管理器标签页成功，tabId:', tabId);
         console.trace('创建书签管理器标签页成功，tabId:', tabId);
-        
+
         // 创建 tab 按钮
         const tabEl = document.createElement('div');
         tabEl.className = 'tab active';
         tabEl.dataset.id = tabId;
         tabEl.dataset.bookmarks = 'true';
-        
+
         // 创建标签文本容器
         const textEl = document.createElement('span');
         textEl.className = 'tab-text';
         textEl.textContent = '书签管理';
         tabEl.appendChild(textEl);
-        
+
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
         tabEl.appendChild(closeEl);
-        
+
         // 临时移除加号按钮
         const addButton = document.getElementById('add-tab');
         if (addButton) {
             addButton.remove();
         }
-        
+
         tabsContainer.appendChild(tabEl);
-        
+
         // 重新添加加号按钮到末尾
         if (addButton) {
             tabsContainer.appendChild(addButton);
         }
-        
+
         // 点击切换标签
         let clickCount = 0;
         let clickTimer = null;
-        
+
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return;
-            
+
             clickCount++;
-            
+
             if (clickCount === 1) {
                 // 第一次点击，立即激活标签
                 activateTab(tabId);
@@ -128,23 +128,23 @@ async function openBookmarksTab() {
                 clickCount = 0;
             }
         });
-        
+
         // 关闭标签
         closeEl.addEventListener('click', (e) => {
             e.stopPropagation();
             closeTab(tabId);
         });
-        
+
         // 激活新建的标签
         currentTabId = tabId;
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
-        
+
         updateAddressBar('dxbrowser://bookmarks/');
     } catch (error) {
         console.error('创建书签管理器标签页失败:', error);
-        
+
     }
 }
 
@@ -156,52 +156,52 @@ async function openHistoryTab() {
         activateTab(tabId);
         return;
     }
-    
+
     try {
         // 使用主进程的 createBrowserView 创建历史记录管理器
         const historyUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/history/history.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', historyUrl);
         console.log('创建历史记录标签页成功，tabId:', tabId);
-        
+
         // 创建 tab 按钮
         const tabEl = document.createElement('div');
         tabEl.className = 'tab active';
         tabEl.dataset.id = tabId;
         tabEl.dataset.history = 'true';
-        
+
         // 创建标签文本容器
         const textEl = document.createElement('span');
         textEl.className = 'tab-text';
         textEl.textContent = '浏览历史';
         tabEl.appendChild(textEl);
-        
+
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
         tabEl.appendChild(closeEl);
-        
+
         // 临时移除加号按钮
         const addButton = document.getElementById('add-tab');
         if (addButton) {
             addButton.remove();
         }
-        
+
         tabsContainer.appendChild(tabEl);
-        
+
         // 重新添加加号按钮到末尾
         if (addButton) {
             tabsContainer.appendChild(addButton);
         }
-        
+
         // 点击切换标签
         let clickCount = 0;
         let clickTimer = null;
-        
+
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return;
-            
+
             clickCount++;
-            
+
             if (clickCount === 1) {
                 // 第一次点击，立即激活标签
                 activateTab(tabId);
@@ -216,19 +216,19 @@ async function openHistoryTab() {
                 clickCount = 0;
             }
         });
-        
+
         // 关闭标签
         closeEl.addEventListener('click', (e) => {
             e.stopPropagation();
             closeTab(tabId);
         });
-        
+
         // 激活新建的标签
         currentTabId = tabId;
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
-        
+
         updateAddressBar('dxbrowser://history/');
     } catch (error) {
         console.error('创建历史记录标签页失败:', error);
@@ -243,52 +243,52 @@ async function openUnderlineTab() {
         activateTab(tabId);
         return;
     }
-    
+
     try {
         // 使用主进程的 createBrowserView 创建划线记录管理器
         const underlineUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/underline/underline.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', underlineUrl);
         console.log('创建划线记录标签页成功，tabId:', tabId);
-        
+
         // 创建 tab 按钮
         const tabEl = document.createElement('div');
         tabEl.className = 'tab active';
         tabEl.dataset.id = tabId;
         tabEl.dataset.underline = 'true';
-        
+
         // 创建标签文本容器
         const textEl = document.createElement('span');
         textEl.className = 'tab-text';
         textEl.textContent = '划线记录';
         tabEl.appendChild(textEl);
-        
+
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
         tabEl.appendChild(closeEl);
-        
+
         // 临时移除加号按钮
         const addButton = document.getElementById('add-tab');
         if (addButton) {
             addButton.remove();
         }
-        
+
         tabsContainer.appendChild(tabEl);
-        
+
         // 重新添加加号按钮到末尾
         if (addButton) {
             tabsContainer.appendChild(addButton);
         }
-        
+
         // 点击切换标签
         let clickCount = 0;
         let clickTimer = null;
-        
+
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return;
-            
+
             clickCount++;
-            
+
             if (clickCount === 1) {
                 // 第一次点击，立即激活标签
                 activateTab(tabId);
@@ -303,19 +303,19 @@ async function openUnderlineTab() {
                 clickCount = 0;
             }
         });
-        
+
         // 关闭标签
         closeEl.addEventListener('click', (e) => {
             e.stopPropagation();
             closeTab(tabId);
         });
-        
+
         // 激活新建的标签
         currentTabId = tabId;
         document.querySelectorAll('.tab').forEach(tab => {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
-        
+
         updateAddressBar('dxbrowser://underline/');
     } catch (error) {
         console.error('创建划线记录标签页失败:', error);
@@ -329,7 +329,7 @@ async function closeOtherTabs(exceptTabId) {
     for (let i = 0; i < allTabs.length; i++) {
         const tab = allTabs[i];
         const tabId = Number(tab.dataset.id);
-        
+
         if (tabId !== exceptTabId) {
             await closeTab(tabId);
         }
@@ -340,7 +340,7 @@ async function closeOtherTabs(exceptTabId) {
 async function closeRightTabs(fromTabId) {
     const allTabs = document.querySelectorAll('.tab');
     let startIndex = -1;
-    
+
     // 找到起始标签的索引
     for (let i = 0; i < allTabs.length; i++) {
         if (Number(allTabs[i].dataset.id) === fromTabId) {
@@ -348,9 +348,9 @@ async function closeRightTabs(fromTabId) {
             break;
         }
     }
-    
+
     if (startIndex === -1) return;
-    
+
     // 关闭右侧的所有标签
     for (let i = allTabs.length - 1; i > startIndex; i--) {
         const tab = allTabs[i];
@@ -363,7 +363,7 @@ async function closeRightTabs(fromTabId) {
 async function closeLeftTabs(fromTabId) {
     const allTabs = document.querySelectorAll('.tab');
     let startIndex = -1;
-    
+
     // 找到起始标签的索引
     for (let i = 0; i < allTabs.length; i++) {
         if (Number(allTabs[i].dataset.id) === fromTabId) {
@@ -371,9 +371,9 @@ async function closeLeftTabs(fromTabId) {
             break;
         }
     }
-    
+
     if (startIndex === -1) return;
-    
+
     // 关闭左侧的所有标签
     for (let i = 0; i < startIndex; i++) {
         const tab = allTabs[i];
@@ -399,13 +399,13 @@ function recordHistory(title, url) {
     if (url.startsWith('dxbrowser://') || url.startsWith('file://')) {
         return;
     }
-    
+
     try {
         // 通过IPC发送消息给主进程，让主进程处理历史记录
         ipcRenderer.invoke('record-history', title, url);
     } catch (e) {
         console.error('记录历史失败:', e);
-        
+
         // 如果IPC调用失败，尝试使用本地存储
         try {
             const historyItem = {
@@ -416,27 +416,27 @@ function recordHistory(title, url) {
                 date: new Date().toLocaleDateString(),
                 time: new Date().toLocaleTimeString()
             };
-            
+
             let history = [];
             const stored = localStorage.getItem('browser_history');
             if (stored) {
                 history = JSON.parse(stored);
             }
-            
+
             // 检查是否已存在相同的URL（避免重复）
             const existingIndex = history.findIndex(item => item.url === url);
             if (existingIndex !== -1) {
                 history.splice(existingIndex, 1);
             }
-            
+
             // 将新记录添加到开头
             history.unshift(historyItem);
-            
+
             // 只保留最近的1000条记录
             if (history.length > 1000) {
                 history = history.slice(0, 1000);
             }
-            
+
             localStorage.setItem('browser_history', JSON.stringify(history));
         } catch (storageErr) {
             console.error('本地存储历史失败:', storageErr);
@@ -447,7 +447,7 @@ function recordHistory(title, url) {
 async function updateNavButtons() {
     let canGoBack = false;
     let canGoForward = false;
-    
+
     if (currentTabId != null) {
         // 使用BrowserView的导航状态
         try {
@@ -456,10 +456,10 @@ async function updateNavButtons() {
         } catch (error) {
             console.error('获取BrowserView导航状态失败:', error);
         }
-    }else{
+    } else {
         console.error('当前没有活动标签页');
     }
-    
+
     backBtn.disabled = !canGoBack;
     forwardBtn.disabled = !canGoForward;
     refreshBtn.disabled = currentTabId == null;
@@ -467,15 +467,23 @@ async function updateNavButtons() {
 
 async function createTab(url = DEFAULT_URL, title = '新标签页') {
     try {
+
+        try {
+            new URL(url);
+        } catch (error) {
+            console.log('不是url:' + url);
+            url = "https://www.baidu.com/s?wd=" + encodeURIComponent(url);
+        }
+
         // 调用主进程的 createBrowserView 方法
         const tabId = await ipcRenderer.invoke('create-browser-view', url);
         console.log('创建BrowserView标签页成功，tabId:', tabId);
-        
+
         // 创建 tab 按钮
         const tabEl = document.createElement('div');
         tabEl.className = 'tab';
         tabEl.dataset.id = tabId;
-        
+
         // 创建标签favicon容器
         const faviconEl = document.createElement('span');
         faviconEl.className = 'tab-favicon';
@@ -487,7 +495,7 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         textEl.className = 'tab-text';
         textEl.textContent = title;
         tabEl.appendChild(textEl);
-        
+
         const closeEl = document.createElement('span');
         closeEl.className = 'close';
         closeEl.textContent = '×';
@@ -498,9 +506,9 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
             // 临时移除加号按钮
             addButton.remove();
         }
-        
+
         tabsContainer.appendChild(tabEl);
-        
+
         // 重新添加加号按钮到末尾
         if (addButton) {
             tabsContainer.appendChild(addButton);
@@ -509,12 +517,12 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         // 点击切换标签
         let clickCount = 0;
         let clickTimer = null;
-        
+
         tabEl.addEventListener('click', (e) => {
             if (e.target === closeEl) return; // 关闭按钮单独处理
-            
+
             clickCount++;
-            
+
             if (clickCount === 1) {
                 // 第一次点击，立即激活标签
                 activateTab(tabId);
@@ -540,7 +548,7 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         activateTab(tabId);
         updateAddressBar(url);
         await updateNavButtons();
-        
+
         return tabId;
     } catch (error) {
         console.error('创建标签页失败:', error);
@@ -558,20 +566,20 @@ async function activateTab(id) {
     // 通知主进程激活对应的 BrowserView
     try {
         await ipcRenderer.invoke('activate-browser-view', id);
-        
+
         // 获取当前标签页的URL并更新地址栏
         const url = await ipcRenderer.invoke('browser-view-get-url', id);
         updateAddressBar(url);
     } catch (error) {
         console.error('激活标签页失败:', error);
     }
-    
+
     await updateNavButtons();
 }
 
 async function closeTab(id) {
     const tabEl = document.querySelector('.tab[data-id="' + id + '"]');
-        
+
     // 保存加号按钮引用
     const addButton = document.getElementById('add-tab');
     if (addButton) {
@@ -594,7 +602,7 @@ async function closeTab(id) {
     if (addButton) {
         document.getElementById('tabs').appendChild(addButton);
     }
-        
+
     // 如果关的是当前标签，自动激活一个相邻的
     if (currentTabId === id) {
         const remainingTabs = document.querySelectorAll('.tab');
@@ -614,7 +622,7 @@ addTabBtn.addEventListener('click', () => {
 
 backBtn.addEventListener('click', async () => {
     if (currentTabId == null) return;
-    
+
     try {
         // 尝试使用 BrowserView 方式
         const success = await ipcRenderer.invoke('browser-view-go-back', currentTabId);
@@ -628,7 +636,7 @@ backBtn.addEventListener('click', async () => {
 
 forwardBtn.addEventListener('click', async () => {
     if (currentTabId == null) return;
-    
+
     try {
         // 尝试使用 BrowserView 方式
         const success = await ipcRenderer.invoke('browser-view-go-forward', currentTabId);
@@ -642,7 +650,7 @@ forwardBtn.addEventListener('click', async () => {
 
 refreshBtn.addEventListener('click', async () => {
     if (currentTabId == null) return;
-    
+
     try {
         // 尝试使用 BrowserView 方式
         const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
@@ -745,15 +753,15 @@ ipcRenderer.on('open-bookmarks-tab', () => {
 });
 
 // 修改createTab函数以添加搜索监听器
-(function() {
+(function () {
     const originalCreateTab = window.createTab || createTab;
-    
+
     // 重新定义createTab函数
-    window.createTab = function(url = DEFAULT_URL, title = '新标签页') {
+    window.createTab = function (url = DEFAULT_URL, title = '新标签页') {
         console.log('创建标签页:', url, title);
         // 调用原始函数创建标签页
         const result = originalCreateTab.apply(this, arguments);
-        
+
         return result;
     };
 })();
@@ -820,7 +828,7 @@ async function showAutocomplete(items) {
         await hideAutocomplete();
         return;
     }
-    
+
     try {
         addressInputBounds = getAddressInputBounds();
         const result = await ipcRenderer.invoke('show-history-autocomplete', items, addressInputBounds);
@@ -841,7 +849,7 @@ async function hideAutocomplete() {
         if (!result.success) {
             console.error('隐藏历史记录自动匹配失败:', result.error);
         } else {
-            addressInputPreviousValue=''//重置
+            addressInputPreviousValue = ''//重置
             console.log('成功发送隐藏请求');
         }
     } catch (error) {
@@ -855,7 +863,7 @@ async function searchHistory(query) {
         await hideAutocomplete();
         return;
     }
-    
+
     console.log('开始搜索历史记录，查询:', query);
     try {
         const results = await ipcRenderer.invoke('search-history', query.trim());
@@ -872,11 +880,11 @@ function throttledSearch(query) {
     if (autocompleteSearchTimeout) {
         clearTimeout(autocompleteSearchTimeout);
     }
-    
+
     // console.log('设置搜索延时，查询:', query);
-   
+
     autocompleteSearchTimeout = setTimeout(() => {
-         searchHistory(query);
+        searchHistory(query);
     }, 300); // 300ms延迟
 }
 
@@ -900,7 +908,7 @@ async function handleAutocompleteNavigation(key) {
     } catch (error) {
         console.error('处理自动匹配导航失败:', error);
     }
-    
+
     return false;
 }
 
@@ -909,16 +917,16 @@ async function handleAutocompleteNavigation(key) {
 //地址栏输入事件
 addressInput.addEventListener('input', (e) => {
     const query = e.target.value;
-    
+
     // 记录上一个值
     // addressInputPreviousValue = query;
-    
+
     // 如果是内部协议或特殊页面，不显示自动匹配
     if (query.startsWith('dxbrowser://') || query.startsWith('file://')) {
         hideAutocomplete();
         return;
     }
-    
+
     console.log('地址栏输入:', query);
     throttledSearch(query);
 });
@@ -931,7 +939,7 @@ addressInput.addEventListener('keydown', async (e) => {
         e.stopPropagation();
         return;
     }
-    
+
     //普回车键处理
     if (e.key === 'Enter') {
         loadAddressForCurrentTab();
@@ -972,49 +980,49 @@ ipcRenderer.on('history-autocomplete-selected', (event, selectedItem) => {
 ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) => {
     console.log('接收到历史记录自动匹配默认选中:', selectedItem);
     const currentValue = addressInput.value;
-    
-    console.log('接收到默认选中当前输入值:', currentValue,'上一个输入值:', addressInputPreviousValue);
-    
+
+    console.log('接收到默认选中当前输入值:', currentValue, '上一个输入值:', addressInputPreviousValue);
+
     // 检查是否是删除操作
     if (currentValue.length < addressInputPreviousValue.length) {
         console.log('检测到删除操作，不自动写入地址栏');
-        addressInputPreviousValue=''
+        addressInputPreviousValue = ''
         return;
     }
-    
-    if (currentValue) {
-        
-            try {
-                const urlObj = new URL(selectedItem.url);
-                const hostname = urlObj.hostname;
-                
-                console.log('接收到默认选中:', hostname.includes(currentValue),hostname,selectedItem.url);
-                // 检查主域名是否包含在选中的一部分
-                if (hostname.includes(currentValue)) {
 
-                     addressInputPreviousValue=selectedItem.url
-                     console.log("修改地址为：",addressInputPreviousValue)
-                     addressInput.value = selectedItem.url;
-                    // 找到选中地址与用户输入匹配的位置
-                    const currentIndex = selectedItem.url.indexOf(currentValue);
-                    console.log('接收到默认选中1:', currentIndex,currentValue);
-                    if (currentIndex !== -1) {
-                        //选中从用户输入结束位置到selectedItem.url结束位置的部分
-                        const selectionStart =currentIndex+currentValue.length; 
-                        const selectionEnd =selectedItem.url.length
-                        addressInput.setSelectionRange(selectionStart, selectionEnd);
-                        return;
-                    }
-                }else{
-                    addressInputPreviousValue=currentValue;
+    if (currentValue) {
+
+        try {
+            const urlObj = new URL(selectedItem.url);
+            const hostname = urlObj.hostname;
+
+            console.log('接收到默认选中:', hostname.includes(currentValue), hostname, selectedItem.url);
+            // 检查主域名是否包含在选中的一部分
+            if (hostname.includes(currentValue)) {
+
+                addressInputPreviousValue = selectedItem.url
+                console.log("修改地址为：", addressInputPreviousValue)
+                addressInput.value = selectedItem.url;
+                // 找到选中地址与用户输入匹配的位置
+                const currentIndex = selectedItem.url.indexOf(currentValue);
+                console.log('接收到默认选中1:', currentIndex, currentValue);
+                if (currentIndex !== -1) {
+                    //选中从用户输入结束位置到selectedItem.url结束位置的部分
+                    const selectionStart = currentIndex + currentValue.length;
+                    const selectionEnd = selectedItem.url.length
+                    addressInput.setSelectionRange(selectionStart, selectionEnd);
+                    return;
                 }
-            } catch (e) {
-                // URL解析失败，使用默认行为
-                console.log('URL解析失败:', e);
+            } else {
+                addressInputPreviousValue = currentValue;
             }
-            
-            // 默认行为：选中未输入的部分
-            // addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
+        } catch (e) {
+            // URL解析失败，使用默认行为
+            console.log('URL解析失败:', e);
+        }
+
+        // 默认行为：选中未输入的部分
+        // addressInput.setSelectionRange(currentValue.length, selectedItem.url.length);
         // }
     } else {
         // 首次显示，直接显示第一个匹配项
@@ -1030,7 +1038,7 @@ ipcRenderer.on('history-autocomplete-navigated', (event, selectedItem) => {
     addressInput.value = selectedItem.url;
 
     console.log('自动匹配导航选择结果:', selectedItem.url);
-    
+
     // 将光标移动到输入框末尾
     addressInput.setSelectionRange(selectedItem.url.length, selectedItem.url.length);
 });
@@ -1045,56 +1053,58 @@ window.addEventListener('resize', () => {
 // 为地址栏添加拖动事件监听器
 addressInput.addEventListener('dragstart', (e) => {
     const url = addressInput.value.trim();
-    if (url) {
-        e.dataTransfer.setData('text/plain', url);
+    var dragStr = e.dataTransfer.getData('text/plain')
+    // console.log("开始拖动", dragStr)
+    if (url == dragStr) {
+        // e.dataTransfer.setData('text/plain', url);
         e.effectAllowed = 'copy';
-        
+
         // 获取favicon和标题
         const addressFaviconImg = document.getElementById('address-favicon').querySelector('img');
         const faviconUrl = addressFaviconImg ? addressFaviconImg.src : '';
-        
-        // 创建一个临时元素用于拖动时的视觉效果
-        const dragImage = document.createElement('div');
-        dragImage.style.position = 'absolute';
-        dragImage.style.left = '-9999px';
-        dragImage.style.top = '-9999px';
-        dragImage.style.padding = '8px';
-        // dragImage.style.backgroundColor = '#fff';
-        // dragImage.style.border = '1px solid #ddd';
-        dragImage.style.borderRadius = '4px';
-        dragImage.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        dragImage.style.display = 'flex';
-        dragImage.style.alignItems = 'center';
-        dragImage.style.gap = '8px';
-        
-        // 添加favicon
-        if (faviconUrl) {
+        const titleStr = document.querySelector('.tab[data-id="' + currentTabId + '"]').querySelector('.tab-text').textContent;
+
+        // 只有当favicon存在且不为空时，说明页面已加载完成，才显示拖动效果
+        if (faviconUrl && faviconUrl !== '') {
+            // 创建一个临时元素用于拖动时的视觉效果
+            const dragImage = document.createElement('div');
+            dragImage.style.position = 'absolute';
+            dragImage.style.left = '-9999px';
+            dragImage.style.top = '-9999px';
+            dragImage.style.padding = '8px';
+            dragImage.style.borderRadius = '4px';
+            dragImage.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            dragImage.style.display = 'flex';
+            dragImage.style.alignItems = 'center';
+            dragImage.style.gap = '8px';
+
+            // 添加favicon
             const favicon = document.createElement('img');
             favicon.src = faviconUrl;
             favicon.style.width = '16px';
             favicon.style.height = '16px';
             dragImage.appendChild(favicon);
+
+            // 添加标题或URL
+            const title = document.createElement('span');
+            title.textContent = titleStr.length > 30 ? titleStr.substring(0, 30) + '...' : titleStr;
+            title.style.fontSize = '12px';
+            title.style.maxWidth = '200px';
+            title.style.overflow = 'hidden';
+            title.style.textOverflow = 'ellipsis';
+            title.style.whiteSpace = 'nowrap';
+            dragImage.appendChild(title);
+
+            document.body.appendChild(dragImage);
+            e.dataTransfer.setDragImage(dragImage, 10, 10);
+
+            // 拖动结束后移除临时元素
+            setTimeout(() => {
+                if (dragImage.parentNode) {
+                    dragImage.parentNode.removeChild(dragImage);
+                }
+            }, 0);
         }
-        
-        // 添加标题或URL
-        const title = document.createElement('span');
-        title.textContent = url.length > 30 ? url.substring(0, 30) + '...' : url;
-        title.style.fontSize = '12px';
-        title.style.maxWidth = '200px';
-        title.style.overflow = 'hidden';
-        title.style.textOverflow = 'ellipsis';
-        title.style.whiteSpace = 'nowrap';
-        dragImage.appendChild(title);
-        
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 10, 10);
-        
-        // 拖动结束后移除临时元素
-        setTimeout(() => {
-            if (dragImage.parentNode) {
-                dragImage.parentNode.removeChild(dragImage);
-            }
-        }, 0);
     }
 });
 
@@ -1107,6 +1117,8 @@ tabsContainer.addEventListener('dragover', (e) => {
 tabsContainer.addEventListener('drop', (e) => {
     e.preventDefault();
     const url = e.dataTransfer.getData('text/plain');
+    console.log(" 拖动结束:", url)
+
     if (url) {
         createTab(url, url);
     }
