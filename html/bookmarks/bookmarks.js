@@ -287,10 +287,11 @@ function setupDragEvents() {
             lastDragTimeOut=setTimeout(() => {
                 if (res && res.folder) {
                     if(lastDragFolderId!=res.folder.id){
-                        console.log('文件夹已切换')
+                        console.log('文件夹已切换2')
                         return
                     }
                     selectFolder(res.folder);
+                    toggleFolder(folderId)
                     // addBookmarkToFolder(res.folder, url);
                 }
             }, 1500)
