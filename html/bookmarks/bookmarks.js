@@ -153,6 +153,7 @@ function saveBookmarks() {
 // 初始化书签数据
 let bookmarksTree;
 
+const body = document.querySelector('body');
 const sidebar = document.getElementById('sidebar');
 const content = document.getElementById('content');
 const contentTitle = document.getElementById('contentTitle');
@@ -198,9 +199,17 @@ function setupEventListeners() {
 
 // 设置拖拽事件
 function setupDragEvents() {
+    //清理计数器，防止延迟前的拖拽事件
+    body.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        clearTimeout(lastDragTimeOut)//清理上次计时器
+        // console.log('body.dragover')
+    })
+
     // 侧边栏文件夹拖拽事件
     sidebar.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.stopPropagation(); //防止冒泡到父级事件上
         const treeItem = e.target.closest('.tree-item');
         if (treeItem) {
 
@@ -233,6 +242,7 @@ function setupDragEvents() {
             }, 1500)
 
         }
+        
     });
 
     sidebar.addEventListener('dragleave', (e) => {
@@ -270,6 +280,7 @@ function setupDragEvents() {
     // 内容区域文件夹卡片拖拽事件
     contentGrid.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.stopPropagation(); 
         const folderCard = e.target.closest('.folder-card');
         if (folderCard) {
             folderCard.style.backgroundColor = '#e8f4ff';
