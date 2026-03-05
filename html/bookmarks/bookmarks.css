@@ -231,13 +231,13 @@ body {
 }
 
 .drag-over-top {
-    border-top: 2px solid #4b8bff !important;
-    margin-top: 10px;
+    border-top: 1px solid #4b8bff !important;
+    /* margin-top: 10px; */
 }
 
 .drag-over-bottom {
-    border-bottom: 2px solid #4b8bff !important;
-    margin-bottom: 10px;
+    border-bottom: 1px solid #4b8bff !important;
+    /* margin-bottom: 10px; */
 }
 
 .folder-card:hover,

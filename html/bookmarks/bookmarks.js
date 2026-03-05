@@ -287,14 +287,47 @@ function setupDragEvents() {
             el.classList.remove('drag-over-top', 'drag-over-bottom');
         });
 
-        // 检查是否拖拽到了书签或文件夹卡片
+        // 获取所有卡片
+        const allCards = Array.from(contentGrid.querySelectorAll('.folder-card, .bookmark-card'));
+        if (allCards.length === 0) return;
+
+        const mouseY = e.clientY;
+        const zoneRatio = 1 / 6;
+        
+        // 检查是否在第一个卡片上方
+        const firstCard = allCards[0];
+        const firstCardRect = firstCard.getBoundingClientRect();
+        if (mouseY < firstCardRect.top) {
+            firstCard.classList.add('drag-over-top');
+            return;
+        }
+
+        // 检查是否在两个卡片之间
+        for (let i = 0; i < allCards.length - 1; i++) {
+            const currentCard = allCards[i];
+            const nextCard = allCards[i + 1];
+            const currentRect = currentCard.getBoundingClientRect();
+            const nextRect = nextCard.getBoundingClientRect();
+            
+            const currentZone = currentRect.height * zoneRatio;
+            const nextZone = nextRect.height * zoneRatio;
+            
+            // 在当前卡片下方1/6区域 且 在下一个卡片上方1/6区域
+            if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
+                nextCard.classList.add('drag-over-top');
+                console.log("两个卡片之间")
+                return;
+            }
+        }
+
+        // 检查是否拖拽到了书签或文件夹卡片内部
         const card = e.target.closest('.folder-card, .bookmark-card');
         if (card) {
             // 显示插入位置的横线 - 只在上下1/6区域内显示
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
             const zone = rect.height / 6;
-            console.log("contentGrid.dragover",y,zone)
+            console.log("contentGrid.dragover", y, zone)
 
             // 处理文件夹导航
             if (card.classList.contains('folder-card')) {
@@ -334,13 +367,13 @@ function setupDragEvents() {
                         }, 1500)
                     }
                 }
-            }else{
-                //标签处理
-                if (y <  rect.height / 6) {
+            } else {
+                // 书签处理
+                if (y < rect.height / 6) {
                     card.classList.add('drag-over-top');
                 } else if (y > rect.height - zone) {
                     card.classList.add('drag-over-bottom');
-                } 
+                }
             }
         }
     });
@@ -365,13 +398,46 @@ function setupDragEvents() {
         const url = e.dataTransfer.getData('text/plain');
         if (!url) return;
 
+        const mouseY = e.clientY;
+        const allCards = Array.from(contentGrid.querySelectorAll('.folder-card, .bookmark-card'));
+        const zoneRatio = 1 / 6;
+
+        // 检查是否在第一个卡片上方释放
+        if (allCards.length > 0) {
+            const firstCard = allCards[0];
+            const firstCardRect = firstCard.getBoundingClientRect();
+            if (mouseY < firstCardRect.top) {
+                insertBookmarkAtPosition(url, firstCard, true);
+                clearDragStyles();
+                return;
+            }
+        }
+
+        // 检查是否在两个卡片之间释放
+        for (let i = 0; i < allCards.length - 1; i++) {
+            const currentCard = allCards[i];
+            const nextCard = allCards[i + 1];
+            const currentRect = currentCard.getBoundingClientRect();
+            const nextRect = nextCard.getBoundingClientRect();
+
+            const currentZone = currentRect.height * zoneRatio;
+            const nextZone = nextRect.height * zoneRatio;
+
+            if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
+                insertBookmarkAtPosition(url, nextCard, true);
+                clearDragStyles();
+                return;
+            }
+        }
+
         // 找到被拖拽到的卡片
         const card = e.target.closest('.folder-card, .bookmark-card');
         if (card) {
             // 确定插入位置
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
-            const isTop = y < rect.height / 2;
+            const zone = rect.height / 6;
+            const isTop = y < zone;
 
             // 插入书签
             insertBookmarkAtPosition(url, card, isTop);
@@ -380,6 +446,10 @@ function setupDragEvents() {
             addBookmarkToFolder(currentFolder, url);
         }
 
+        clearDragStyles();
+    });
+
+    function clearDragStyles() {
         // 移除所有拖拽样式
         document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
             el.classList.remove('drag-over-top', 'drag-over-bottom');
@@ -389,7 +459,7 @@ function setupDragEvents() {
         document.querySelectorAll('.folder-card').forEach(card => {
             card.style.backgroundColor = '';
         });
-    });
+    }
 }
 
 // 在指定位置插入书签

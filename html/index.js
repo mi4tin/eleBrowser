@@ -1,6 +1,6 @@
 const { ipcRenderer } = require('electron');
 
-const DEFAULT_URL = "https://www.baidu.com"//'https://wx.mail.qq.com/';
+const DEFAULT_URL = "file:///F:/DEV/Code/gitee.com/eleBrowser/html/bookmarks/bookmarks.html"//https://www.baidu.com"//'https://wx.mail.qq.com/';
 const tabsContainer = document.getElementById('tabs');
 const addTabBtn = document.getElementById('add-tab');
 const addressInput = document.getElementById('address-input');
