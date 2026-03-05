@@ -220,18 +220,18 @@ function setupDragEvents() {
 
 
             const folderId = treeItem.dataset.id;
-            if(folderId==lastDragFolderId){
+            if (folderId == lastDragFolderId) {
                 // console.log("相同的文件夹")
                 return
             }
             clearTimeout(lastDragTimeOut)//清理上次计时器
-            lastDragFolderId=folderId
+            lastDragFolderId = folderId
             const res = findFolderById(bookmarksTree, folderId);
 
-            console.log("treeItem.dragover",folderId)
-            lastDragTimeOut=setTimeout(() => {
+            console.log("treeItem.dragover", folderId)
+            lastDragTimeOut = setTimeout(() => {
                 if (res && res.folder) {
-                    if(lastDragFolderId!=res.folder.id){
+                    if (lastDragFolderId != res.folder.id) {
                         console.log('文件夹已切换')
                         return
                     }
@@ -242,7 +242,7 @@ function setupDragEvents() {
             }, 1500)
 
         }
-        
+
     });
 
     sidebar.addEventListener('dragleave', (e) => {
@@ -255,7 +255,7 @@ function setupDragEvents() {
     sidebar.addEventListener('drop', (e) => {
         return
         e.preventDefault();
-        
+
         const url = e.dataTransfer.getData('text/plain');
         if (!url) return;
 
@@ -265,7 +265,7 @@ function setupDragEvents() {
             const res = findFolderById(bookmarksTree, folderId);
             if (res && res.folder) {
                 selectFolder(res.folder);
-                
+
                 // addBookmarkToFolder(res.folder, url);
             }
         }
@@ -275,57 +275,71 @@ function setupDragEvents() {
         });
     });
 
-    let lastDragFolderId=''
-    let lastDragTimeOut=0;
+    let lastDragFolderId = ''
+    let lastDragTimeOut = 0;
     // 内容区域拖拽事件 - 合并文件夹导航和插入功能
     contentGrid.addEventListener('dragover', (e) => {
         e.preventDefault();
-        e.stopPropagation(); 
-        
+        e.stopPropagation();
+
         // 移除所有之前的拖拽样式
         document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
             el.classList.remove('drag-over-top', 'drag-over-bottom');
         });
-        
+
         // 检查是否拖拽到了书签或文件夹卡片
         const card = e.target.closest('.folder-card, .bookmark-card');
         if (card) {
-            // 处理文件夹导航
-            if (card.classList.contains('folder-card')) {
-                card.style.backgroundColor = '#e8f4ff';
-
-                const folderId = card.dataset.id;
-                if(folderId==lastDragFolderId){
-                    // console.log("相同的文件夹")
-                } else {
-                    clearTimeout(lastDragTimeOut)//清理上次计时器
-                    lastDragFolderId=folderId
-                    const res = findFolderById(bookmarksTree, folderId);
-
-                    console.log("folderCard.dragover",folderId)
-                    lastDragTimeOut=setTimeout(() => {
-                        if (res && res.folder) {
-                            if(lastDragFolderId!=res.folder.id){
-                                console.log('文件夹已切换2')
-                                return
-                            }
-                            selectFolder(res.folder);
-                            toggleFolder(folderId)
-                            // addBookmarkToFolder(res.folder, url);
-                        }
-                    }, 1500)
-                }
-            }
-            
-            // 显示插入位置的横线
+            // 显示插入位置的横线 - 只在上下1/6区域内显示
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
-            
-            // 根据鼠标位置决定是在上方还是下方显示横线
-            if (y < rect.height / 2) {
-                card.classList.add('drag-over-top');
-            } else {
-                card.classList.add('drag-over-bottom');
+            const zone = rect.height / 6;
+
+            // 处理文件夹导航
+            if (card.classList.contains('folder-card')) {
+                // 根据鼠标位置决定是在上方还是下方显示横线
+                if (y < zone) {
+                    clearTimeout(lastDragTimeOut)//清理上次计时器
+                    lastDragFolderId = ''//重置
+                    console.log("文件夹上")
+                    card.classList.add('drag-over-top');
+                } else if (y > rect.height - zone) {
+                    clearTimeout(lastDragTimeOut)//清理上次计时器
+                    lastDragFolderId = ''//重置
+                    console.log("文件夹下")
+                    card.classList.add('drag-over-bottom');
+                } else {
+                    card.style.backgroundColor = '#e8f4ff';
+
+                    const folderId = card.dataset.id;
+                    if (folderId == lastDragFolderId) {
+                        console.log("相同的文件夹")
+                    } else {
+                        clearTimeout(lastDragTimeOut)//清理上次计时器
+                        lastDragFolderId = folderId
+                        const res = findFolderById(bookmarksTree, folderId);
+
+                        console.log("folderCard.dragover", folderId)
+                        lastDragTimeOut = setTimeout(() => {
+                            if (res && res.folder) {
+                                if (lastDragFolderId != res.folder.id) {
+                                    console.log('文件夹已切换2')
+                                    return
+                                }
+                                selectFolder(res.folder);
+                                toggleFolder(folderId)
+                                // addBookmarkToFolder(res.folder, url);
+                            }
+                        }, 1500)
+                    }
+                }
+            }else{
+                //标签处理
+                if (y <  rect.height / 6) {
+                    card.classList.add('drag-over-top');
+                } else if (y > rect.height - zone) {
+                    card.classList.add('drag-over-bottom');
+                } 
             }
         }
     });
@@ -335,21 +349,21 @@ function setupDragEvents() {
         document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
             el.classList.remove('drag-over-top', 'drag-over-bottom');
         });
-        
+
         // 移除文件夹的背景色
         const folderCard = e.target.closest('.folder-card');
         if (folderCard) {
             folderCard.style.backgroundColor = '';
         }
     });
-    
+
     contentGrid.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         const url = e.dataTransfer.getData('text/plain');
         if (!url) return;
-        
+
         // 找到被拖拽到的卡片
         const card = e.target.closest('.folder-card, .bookmark-card');
         if (card) {
@@ -357,19 +371,19 @@ function setupDragEvents() {
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
             const isTop = y < rect.height / 2;
-            
+
             // 插入书签
             insertBookmarkAtPosition(url, card, isTop);
         } else {
             // 如果拖拽到空白区域，直接添加到当前文件夹
             addBookmarkToFolder(currentFolder, url);
         }
-        
+
         // 移除所有拖拽样式
         document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
             el.classList.remove('drag-over-top', 'drag-over-bottom');
         });
-        
+
         // 移除文件夹的背景色
         document.querySelectorAll('.folder-card').forEach(card => {
             card.style.backgroundColor = '';
@@ -387,13 +401,13 @@ function insertBookmarkAtPosition(url, card, isTop) {
     } catch (e) {
         // URL解析失败，使用原始URL作为标题
     }
-    
+
     const newBookmark = {
         title: title,
         url: url,
         favicon: '🔗'
     };
-    
+
     // 确定卡片类型和位置
     if (card.classList.contains('folder-card')) {
         // 文件夹卡片
@@ -402,10 +416,10 @@ function insertBookmarkAtPosition(url, card, isTop) {
         if (folderRes && folderRes.parent) {
             const parent = folderRes.parent;
             const folderIndex = parent.children.findIndex(child => child.id === folderId);
-            
+
             // 确保parent有bookmarks数组
             parent.bookmarks = parent.bookmarks || [];
-            
+
             // 计算插入位置：考虑文件夹在children中的位置和已有的bookmarks
             // 先计算在当前文件夹中，文件夹卡片前面有多少个书签
             let bookmarkInsertIndex = 0;
@@ -418,7 +432,7 @@ function insertBookmarkAtPosition(url, card, isTop) {
                     }
                 }
             }
-            
+
             if (isTop) {
                 // 插入到文件夹上方
                 parent.bookmarks.splice(bookmarkInsertIndex, 0, newBookmark);
@@ -434,7 +448,7 @@ function insertBookmarkAtPosition(url, card, isTop) {
         // 找到当前文件夹中的所有书签元素
         const bookmarkElements = Array.from(contentGrid.querySelectorAll('.bookmark-card'));
         const cardIndex = bookmarkElements.indexOf(card);
-        
+
         if (cardIndex !== -1) {
             currentFolder.bookmarks = currentFolder.bookmarks || [];
             if (isTop) {
@@ -446,12 +460,12 @@ function insertBookmarkAtPosition(url, card, isTop) {
             }
         }
     }
-    
+
     // 重新渲染内容
     renderContent(currentFolder);
     // 保存书签
     saveBookmarks();
-    
+
     showNotification('书签添加成功');
 }
 
