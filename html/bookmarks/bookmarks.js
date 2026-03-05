@@ -254,25 +254,6 @@ function setupDragEvents() {
 
     sidebar.addEventListener('drop', (e) => {
         return
-        e.preventDefault();
-
-        const url = e.dataTransfer.getData('text/plain');
-        if (!url) return;
-
-        const treeItem = e.target.closest('.tree-item');
-        if (treeItem) {
-            const folderId = treeItem.dataset.id;
-            const res = findFolderById(bookmarksTree, folderId);
-            if (res && res.folder) {
-                selectFolder(res.folder);
-
-                // addBookmarkToFolder(res.folder, url);
-            }
-        }
-
-        document.querySelectorAll('.tree-item').forEach(item => {
-            item.style.backgroundColor = '';
-        });
     });
 
     function resetDrag(){
@@ -410,39 +391,11 @@ function setupDragEvents() {
         const mouseY = e.clientY;
         const allCards = Array.from(contentGrid.querySelectorAll('.folder-card, .bookmark-card'));
         const zoneRatio = 1 / 6;
-
-        // 检查是否在第一个卡片上方释放
-        // if (allCards.length > 0) {
-        //     const firstCard = allCards[0];
-        //     const firstCardRect = firstCard.getBoundingClientRect();
-        //     if (mouseY < firstCardRect.top) {
-        //         insertBookmarkAtPosition(url, firstCard, true);
-        //         clearDragStyles();
-        //         console.log("在第一个卡片上方释放")
-        //         return;
-        //     }
-        // }
-
-        // 检查是否在两个卡片之间释放
-        // for (let i = 0; i < allCards.length - 1; i++) {
-        //     const currentCard = allCards[i];
-        //     const nextCard = allCards[i + 1];
-        //     const currentRect = currentCard.getBoundingClientRect();
-        //     const nextRect = nextCard.getBoundingClientRect();
-
-        //     const currentZone = currentRect.height * zoneRatio;
-        //     const nextZone = nextRect.height * zoneRatio;
-
-        //     if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
-        //         insertBookmarkAtPosition(url, nextCard, true);
-        //         clearDragStyles();
-        //         return;
-        //     }
-        // }
-
+        
         // 找到被拖拽到的卡片
         const card = e.target.closest('.folder-card, .bookmark-card');
         if (card) {
+            console.log("contentGrid.drop", card)  
             // 确定插入位置
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
