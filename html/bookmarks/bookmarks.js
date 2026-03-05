@@ -442,57 +442,30 @@ function insertBookmarkAtPosition(url, card, isTop) {
         favicon: '🔗'
     };
 
-    // 确定卡片类型和位置
-    if (card.classList.contains('folder-card')) {
-        // 文件夹卡片
-        const folderId = card.dataset.id;
-        const folderRes = findFolderById(bookmarksTree, folderId);
-        if (folderRes && folderRes.parent) {
-            const parent = folderRes.parent;
-            const folderIndex = parent.children.findIndex(child => child.id === folderId);
+    // 确保当前文件夹有bookmarks数组
+    currentFolder.bookmarks = currentFolder.bookmarks || [];
 
-            // 确保parent有bookmarks数组
-            parent.bookmarks = parent.bookmarks || [];
+    // 获取contentGrid中所有子元素（文件夹卡片和书签卡片）
+    const allCards = Array.from(contentGrid.children);
+    const targetIndex = allCards.indexOf(card);
 
-            // 计算插入位置：考虑文件夹在children中的位置和已有的bookmarks
-            // 先计算在当前文件夹中，文件夹卡片前面有多少个书签
-            let bookmarkInsertIndex = 0;
-            if (folderIndex > 0) {
-                // 计算前面所有文件夹的书签数量
-                for (let i = 0; i < folderIndex; i++) {
-                    const prevItem = parent.children[i];
-                    if (prevItem.bookmarks) {
-                        bookmarkInsertIndex += prevItem.bookmarks.length;
-                    }
-                }
-            }
+    if (targetIndex === -1) {
+        // 如果找不到目标卡片，添加到末尾
+        currentFolder.bookmarks.push(newBookmark);
+    } else {
+        // 计算在bookmarks数组中的插入位置
+        // 需要统计目标卡片前面有多少个书签卡片
+        let bookmarkInsertIndex = 0;
+        const endIndex = isTop ? targetIndex : targetIndex + 1;
 
-            if (isTop) {
-                // 插入到文件夹上方
-                parent.bookmarks.splice(bookmarkInsertIndex, 0, newBookmark);
-            } else {
-                // 插入到文件夹下方
-                // 计算文件夹本身的书签数量
-                const folderBookmarkCount = folderRes.folder.bookmarks ? folderRes.folder.bookmarks.length : 0;
-                parent.bookmarks.splice(bookmarkInsertIndex + folderBookmarkCount, 0, newBookmark);
+        for (let i = 0; i < endIndex; i++) {
+            if (allCards[i].classList.contains('bookmark-card')) {
+                bookmarkInsertIndex++;
             }
         }
-    } else if (card.classList.contains('bookmark-card')) {
-        // 书签卡片
-        // 找到当前文件夹中的所有书签元素
-        const bookmarkElements = Array.from(contentGrid.querySelectorAll('.bookmark-card'));
-        const cardIndex = bookmarkElements.indexOf(card);
 
-        if (cardIndex !== -1) {
-            currentFolder.bookmarks = currentFolder.bookmarks || [];
-            if (isTop) {
-                // 插入到书签上方
-                currentFolder.bookmarks.splice(cardIndex, 0, newBookmark);
-            } else {
-                // 插入到书签下方
-                currentFolder.bookmarks.splice(cardIndex + 1, 0, newBookmark);
-            }
-        }
+        // 在计算出的位置插入新书签
+        currentFolder.bookmarks.splice(bookmarkInsertIndex, 0, newBookmark);
     }
 
     // 重新渲染内容
