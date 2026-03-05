@@ -294,6 +294,7 @@ function setupDragEvents() {
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
             const zone = rect.height / 6;
+            console.log("contentGrid.dragover",y,zone)
 
             // 处理文件夹导航
             if (card.classList.contains('folder-card')) {
