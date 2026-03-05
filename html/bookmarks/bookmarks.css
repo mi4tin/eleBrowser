@@ -218,8 +218,7 @@ body {
     gap: 12px;
 }
 
-.folder-card,
-.bookmark-card {
+.folder-card, .bookmark-card {
     display: flex;
     align-items: center;
     padding: 12px 14px;
@@ -228,6 +227,17 @@ body {
     border-radius: 8px;
     transition: box-shadow 0.2s, transform 0.1s, border-color 0.2s;
     cursor: pointer;
+    position: relative;
+}
+
+.drag-over-top {
+    border-top: 2px solid #4b8bff !important;
+    margin-top: 10px;
+}
+
+.drag-over-bottom {
+    border-bottom: 2px solid #4b8bff !important;
+    margin-bottom: 10px;
 }
 
 .folder-card:hover,
