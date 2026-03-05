@@ -275,6 +275,11 @@ function setupDragEvents() {
         });
     });
 
+    function resetDrag(){
+        lastDragFolderId = ''
+        clearTimeout(lastDragTimeOut)//清理上次计时器
+    }
+
     let lastDragFolderId = ''
     let lastDragTimeOut = 0;
     // 内容区域拖拽事件 - 合并文件夹导航和插入功能
@@ -295,30 +300,34 @@ function setupDragEvents() {
         const zoneRatio = 1 / 6;
         
         // 检查是否在第一个卡片上方
-        const firstCard = allCards[0];
-        const firstCardRect = firstCard.getBoundingClientRect();
-        if (mouseY < firstCardRect.top) {
-            firstCard.classList.add('drag-over-top');
-            return;
-        }
+        // const firstCard = allCards[0];
+        // const firstCardRect = firstCard.getBoundingClientRect();
+        // if (mouseY < firstCardRect.top) {
+        //     firstCard.classList.add('drag-over-top');
+        //     resetDrag()
+
+        //     console.log("在第一个卡片上方")
+
+        //     return;
+        // }
 
         // 检查是否在两个卡片之间
-        for (let i = 0; i < allCards.length - 1; i++) {
-            const currentCard = allCards[i];
-            const nextCard = allCards[i + 1];
-            const currentRect = currentCard.getBoundingClientRect();
-            const nextRect = nextCard.getBoundingClientRect();
+        // for (let i = 0; i < allCards.length - 1; i++) {
+        //     const currentCard = allCards[i];
+        //     const nextCard = allCards[i + 1];
+        //     const currentRect = currentCard.getBoundingClientRect();
+        //     const nextRect = nextCard.getBoundingClientRect();
             
-            const currentZone = currentRect.height * zoneRatio;
-            const nextZone = nextRect.height * zoneRatio;
+        //     const currentZone = currentRect.height * zoneRatio;
+        //     const nextZone = nextRect.height * zoneRatio;
             
-            // 在当前卡片下方1/6区域 且 在下一个卡片上方1/6区域
-            if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
-                nextCard.classList.add('drag-over-top');
-                console.log("两个卡片之间")
-                return;
-            }
-        }
+        //     // 在当前卡片下方1/6区域 且 在下一个卡片上方1/6区域
+        //     if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
+        //         nextCard.classList.add('drag-over-top');
+        //         console.log("两个卡片之间")
+        //         return;
+        //     }
+        // }
 
         // 检查是否拖拽到了书签或文件夹卡片内部
         const card = e.target.closest('.folder-card, .bookmark-card');
@@ -403,32 +412,33 @@ function setupDragEvents() {
         const zoneRatio = 1 / 6;
 
         // 检查是否在第一个卡片上方释放
-        if (allCards.length > 0) {
-            const firstCard = allCards[0];
-            const firstCardRect = firstCard.getBoundingClientRect();
-            if (mouseY < firstCardRect.top) {
-                insertBookmarkAtPosition(url, firstCard, true);
-                clearDragStyles();
-                return;
-            }
-        }
+        // if (allCards.length > 0) {
+        //     const firstCard = allCards[0];
+        //     const firstCardRect = firstCard.getBoundingClientRect();
+        //     if (mouseY < firstCardRect.top) {
+        //         insertBookmarkAtPosition(url, firstCard, true);
+        //         clearDragStyles();
+        //         console.log("在第一个卡片上方释放")
+        //         return;
+        //     }
+        // }
 
         // 检查是否在两个卡片之间释放
-        for (let i = 0; i < allCards.length - 1; i++) {
-            const currentCard = allCards[i];
-            const nextCard = allCards[i + 1];
-            const currentRect = currentCard.getBoundingClientRect();
-            const nextRect = nextCard.getBoundingClientRect();
+        // for (let i = 0; i < allCards.length - 1; i++) {
+        //     const currentCard = allCards[i];
+        //     const nextCard = allCards[i + 1];
+        //     const currentRect = currentCard.getBoundingClientRect();
+        //     const nextRect = nextCard.getBoundingClientRect();
 
-            const currentZone = currentRect.height * zoneRatio;
-            const nextZone = nextRect.height * zoneRatio;
+        //     const currentZone = currentRect.height * zoneRatio;
+        //     const nextZone = nextRect.height * zoneRatio;
 
-            if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
-                insertBookmarkAtPosition(url, nextCard, true);
-                clearDragStyles();
-                return;
-            }
-        }
+        //     if (mouseY > currentRect.bottom - currentZone && mouseY < nextRect.top + nextZone) {
+        //         insertBookmarkAtPosition(url, nextCard, true);
+        //         clearDragStyles();
+        //         return;
+        //     }
+        // }
 
         // 找到被拖拽到的卡片
         const card = e.target.closest('.folder-card, .bookmark-card');

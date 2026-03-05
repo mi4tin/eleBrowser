@@ -215,7 +215,6 @@ body {
 .content-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
 }
 
 .folder-card, .bookmark-card {
@@ -223,28 +222,35 @@ body {
     align-items: center;
     padding: 12px 14px;
     background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    /* border: 1px solid #e0e0e0; */
+    /* border-radius: 8px; */
     transition: box-shadow 0.2s, transform 0.1s, border-color 0.2s;
     cursor: pointer;
     position: relative;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.content-grid > .folder-card:last-child,
+.content-grid > .bookmark-card:last-child {
+    border-bottom: none;
 }
 
 .drag-over-top {
-    border-top: 1px solid #4b8bff !important;
+    border-top: 2px solid #4b8bff !important;
     /* margin-top: 10px; */
 }
 
 .drag-over-bottom {
-    border-bottom: 1px solid #4b8bff !important;
+    border-bottom: 2px solid #4b8bff !important;
     /* margin-bottom: 10px; */
 }
 
 .folder-card:hover,
 .bookmark-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
-    border-color: #4b8bff;
+    background: #f7f5f5;
+    /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px); */
+    /* border-color: #4b8bff; */
 }
 
 .folder-card-icon {
