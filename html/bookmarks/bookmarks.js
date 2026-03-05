@@ -37,52 +37,51 @@ const defaultBookmarksTree = {
     id: 'root',
     name: '书签',
     type: 'folder',
-    children: [
+    items: [
         {
             id: 'life',
             name: '生活',
             type: 'folder',
-            children: [
+            items: [
                 {
                     id: 'life-food',
                     name: '美食',
                     type: 'folder',
-                    children: [],
-                    bookmarks: []
+                    items: []
                 },
                 {
                     id: 'life-shopping',
                     name: '购物',
                     type: 'folder',
-                    children: [],
-                    bookmarks: [
+                    items: [
                         {
+                            type: 'bookmark',
                             title: '淘宝',
                             url: 'https://www.taobao.com',
                             favicon: '🛒'
                         }
                     ]
                 }
-            ],
-            bookmarks: []
+            ]
         },
         {
             id: 'world-news',
             name: '世界消息',
             type: 'folder',
-            children: [
+            items: [
                 {
                     id: 'bloomberg',
                     name: '彭博社',
                     type: 'folder',
-                    children: [],
-                    bookmarks: [
+                    items: [
                         {
+                            type: 'bookmark',
                             title: '特朗普: 将于明年4月访华',
                             url: 'https://baijiahao.baidu.com/s?id=123456789',
                             favicon: '🔵'
                         },
                         {
+                            type: 'bookmark',
                             title: '彭博社放风救市,地产股集体反弹!但底层数据藏着大信号...',
                             url: 'https://mp.weixin.qq.com/s/abcdefgh',
                             favicon: '🟢'
@@ -93,19 +92,17 @@ const defaultBookmarksTree = {
                     id: 'reuters',
                     name: '路透社',
                     type: 'folder',
-                    children: [],
-                    bookmarks: []
+                    items: []
                 }
-            ],
-            bookmarks: []
+            ]
         },
         {
             id: 'weather',
             name: '天气/气象',
             type: 'folder',
-            children: [],
-            bookmarks: [
+            items: [
                 {
+                    type: 'bookmark',
                     title: '中国天气网',
                     url: 'https://www.weather.com.cn',
                     favicon: '☁️'
@@ -116,18 +113,15 @@ const defaultBookmarksTree = {
             id: 'travel',
             name: '出行工具',
             type: 'folder',
-            children: [],
-            bookmarks: []
+            items: []
         },
         {
             id: 'hygiene',
             name: '家庭卫生',
             type: 'folder',
-            children: [],
-            bookmarks: []
+            items: []
         }
-    ],
-    bookmarks: []
+    ]
 };
 
 // 从本地文件加载书签数据
@@ -437,13 +431,14 @@ function insertBookmarkAtPosition(url, card, isTop) {
     }
 
     const newBookmark = {
+        type: 'bookmark',
         title: title,
         url: url,
         favicon: '🔗'
     };
 
-    // 确保当前文件夹有bookmarks数组
-    currentFolder.bookmarks = currentFolder.bookmarks || [];
+    // 确保当前文件夹有items数组
+    currentFolder.items = currentFolder.items || [];
 
     // 获取contentGrid中所有子元素（文件夹卡片和书签卡片）
     const allCards = Array.from(contentGrid.children);
@@ -451,21 +446,11 @@ function insertBookmarkAtPosition(url, card, isTop) {
 
     if (targetIndex === -1) {
         // 如果找不到目标卡片，添加到末尾
-        currentFolder.bookmarks.push(newBookmark);
+        currentFolder.items.push(newBookmark);
     } else {
-        // 计算在bookmarks数组中的插入位置
-        // 需要统计目标卡片前面有多少个书签卡片
-        let bookmarkInsertIndex = 0;
-        const endIndex = isTop ? targetIndex : targetIndex + 1;
-
-        for (let i = 0; i < endIndex; i++) {
-            if (allCards[i].classList.contains('bookmark-card')) {
-                bookmarkInsertIndex++;
-            }
-        }
-
-        // 在计算出的位置插入新书签
-        currentFolder.bookmarks.splice(bookmarkInsertIndex, 0, newBookmark);
+        // 直接在目标位置插入
+        const insertIndex = isTop ? targetIndex : targetIndex + 1;
+        currentFolder.items.splice(insertIndex, 0, newBookmark);
     }
 
     // 重新渲染内容
@@ -488,8 +473,9 @@ function addBookmarkToFolder(folder, url) {
         // URL解析失败，使用原始URL作为标题
     }
 
-    folder.bookmarks = folder.bookmarks || [];
-    folder.bookmarks.push({
+    folder.items = folder.items || [];
+    folder.items.push({
+        type: 'bookmark',
         title: title,
         url: url,
         favicon: '🔗'
@@ -497,7 +483,6 @@ function addBookmarkToFolder(folder, url) {
 
     renderContent(currentFolder);
     saveBookmarks();
-
     showNotification('书签添加成功');
 }
 
@@ -509,7 +494,9 @@ function renderTree() {
 
 // 递归渲染树形项
 function renderTreeItem(item, level) {
-    const hasChildren = item.children && item.children.length > 0;
+    // 只显示文件夹在树形结构中
+    const childFolders = item.items ? item.items.filter(child => child.type === 'folder') : [];
+    const hasChildren = childFolders.length > 0;
     const isExpanded = expandedFolders.has(item.id);
 
     const treeItem = document.createElement('div');
@@ -564,7 +551,7 @@ function renderTreeItem(item, level) {
     // 递归渲染子项
     if (hasChildren && isExpanded) {
         const childrenContainer = treeItem.querySelector('.tree-children');
-        item.children.forEach(child => {
+        childFolders.forEach(child => {
             renderTreeItem(child, level + 1);
         });
     }
@@ -596,10 +583,9 @@ function renderContent(folder) {
 
     contentGrid.innerHTML = '';
 
-    const hasSubFolders = folder.children && folder.children.length > 0;
-    const hasBookmarks = folder.bookmarks && folder.bookmarks.length > 0;
+    const hasItems = folder.items && folder.items.length > 0;
 
-    if (!hasSubFolders && !hasBookmarks) {
+    if (!hasItems) {
         contentGrid.innerHTML = `
             <div class="empty-state" style="grid-column: 1 / -1;">
                 <div class="empty-state-icon">📂</div>
@@ -609,21 +595,16 @@ function renderContent(folder) {
         return;
     }
 
-    // 渲染子文件夹
-    if (hasSubFolders) {
-        folder.children.forEach(subFolder => {
-            const folderCard = createFolderCard(subFolder);
+    // 渲染所有项目（文件夹和书签）
+    folder.items.forEach(item => {
+        if (item.type === 'folder') {
+            const folderCard = createFolderCard(item);
             contentGrid.appendChild(folderCard);
-        });
-    }
-
-    // 渲染书签
-    if (hasBookmarks) {
-        folder.bookmarks.forEach(bookmark => {
-            const bookmarkCard = createBookmarkCard(bookmark);
+        } else if (item.type === 'bookmark') {
+            const bookmarkCard = createBookmarkCard(item);
             contentGrid.appendChild(bookmarkCard);
-        });
-    }
+        }
+    });
 }
 
 // 创建文件夹卡片
@@ -632,9 +613,9 @@ function createFolderCard(folder) {
     card.className = 'folder-card';
     card.dataset.id = folder.id;
 
-    const bookmarkCount = (folder.bookmarks && folder.bookmarks.length) || 0;
-    const subFolderCount = (folder.children && folder.children.length) || 0;
-    const totalCount = bookmarkCount + subFolderCount;
+    // 计算文件夹中的项目数量
+    const items = folder.items || [];
+    const totalCount = items.length;
 
     card.innerHTML = `
         <div class="folder-card-icon">📁</div>
@@ -749,19 +730,19 @@ function searchBookmarks(query) {
 
     const results = [];
     function searchInFolder(folder) {
-        // 搜索书签
-        if (folder.bookmarks) {
-            folder.bookmarks.forEach(bookmark => {
-                if (bookmark.title.toLowerCase().includes(query) ||
-                    bookmark.url.toLowerCase().includes(query)) {
-                    results.push(bookmark);
+        // 搜索项目
+        if (folder.items) {
+            folder.items.forEach(item => {
+                if (item.type === 'bookmark') {
+                    // 搜索书签
+                    if (item.title.toLowerCase().includes(query) ||
+                        item.url.toLowerCase().includes(query)) {
+                        results.push(item);
+                    }
+                } else if (item.type === 'folder') {
+                    // 递归搜索子文件夹
+                    searchInFolder(item);
                 }
-            });
-        }
-        // 递归搜索子文件夹
-        if (folder.children) {
-            folder.children.forEach(child => {
-                searchInFolder(child);
             });
         }
     }
@@ -852,7 +833,7 @@ function deleteFolder(id) {
     if (!res || !res.parent) return;
     if (confirm('确定要删除该文件夹及其内容吗？')) {
         console.log('删除文件夹:', res.folder);
-        res.parent.children = res.parent.children.filter(child => child.id !== id);
+        res.parent.items = res.parent.items.filter(item => item.id !== id);
         if (currentFolder.id === id) {
             currentFolder = res.parent;
         }
@@ -900,15 +881,17 @@ function editBookmark(bookmark) {
 
 function deleteBookmark(targetBookmark) {
     function removeFromFolder(folder) {
-        if (folder.bookmarks) {
-            const before = folder.bookmarks.length;
-            folder.bookmarks = folder.bookmarks.filter(b => b !== targetBookmark);
-            if (before !== folder.bookmarks.length) return true;
-        }
-        if (folder.children) {
-            for (const child of folder.children) {
-                if (removeFromFolder(child)) return true;
-            }
+        if (folder.items) {
+            const before = folder.items.length;
+            folder.items = folder.items.filter(item => {
+                if (item.type === 'bookmark' && item === targetBookmark) {
+                    return false;
+                } else if (item.type === 'folder' && removeFromFolder(item)) {
+                    return false;
+                }
+                return true;
+            });
+            if (before !== folder.items.length) return true;
         }
         return false;
     }
@@ -955,13 +938,12 @@ function addFolder(parentId) {
                 const res = findFolderById(bookmarksTree, parentId);
                 if (!res) return;
                 const newId = parentId + '-' + Math.random().toString(36).slice(2, 8);
-                res.folder.children = res.folder.children || [];
-                res.folder.children.push({
+                res.folder.items = res.folder.items || [];
+                res.folder.items.push({
                     id: newId,
                     name: name,
                     type: 'folder',
-                    children: [],
-                    bookmarks: []
+                    items: []
                 });
                 expandedFolders.add(parentId);
                 renderTree();
@@ -1001,8 +983,9 @@ function addBookmark(parentId) {
                 if (!title || !url) return;
                 const res = findFolderById(bookmarksTree, parentId);
                 if (!res) return;
-                res.folder.bookmarks = res.folder.bookmarks || [];
-                res.folder.bookmarks.push({
+                res.folder.items = res.folder.items || [];
+                res.folder.items.push({
+                    type: 'bookmark',
                     title: title,
                     url: url,
                     favicon: '🔗'
@@ -1017,10 +1000,12 @@ function addBookmark(parentId) {
 // 辅助函数：通过ID查找文件夹
 function findFolderById(folder, id, parent = null) {
     if (folder.id === id) return { folder, parent };
-    if (folder.children) {
-        for (const child of folder.children) {
-            const res = findFolderById(child, id, folder);
-            if (res) return res;
+    if (folder.items) {
+        for (const item of folder.items) {
+            if (item.type === 'folder') {
+                const res = findFolderById(item, id, folder);
+                if (res) return res;
+            }
         }
     }
     return null;
@@ -1110,8 +1095,9 @@ function addBookmarkFromDrag(url) {
     }
 
     // 添加到当前文件夹
-    currentFolder.bookmarks = currentFolder.bookmarks || [];
-    currentFolder.bookmarks.push({
+    currentFolder.items = currentFolder.items || [];
+    currentFolder.items.push({
+        type: 'bookmark',
         title: title,
         url: url,
         favicon: '🔗'
