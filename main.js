@@ -991,12 +991,18 @@ app.whenReady().then(() => {
         return errorMessages[error] || error || '未知错误';
     }
 
+    // 存储证书错误信息，用于继续访问功能
+    const certificateErrors = new Map();
+
     // SSL证书错误处理 - 显示安全警告页面
     app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
         console.log('SSL证书错误:', url, error);
         
         // 阻止默认行为
         event.preventDefault();
+        
+        // 存储证书错误信息，用于继续访问功能
+        certificateErrors.set(webContents.id, { url, error, certificate });
         
         // 获取主机名和错误消息
         const hostname = new URL(url).hostname;
@@ -1010,6 +1016,44 @@ app.whenReady().then(() => {
         
         // 不信任证书
         callback(false);
+    });
+
+    // 处理用户选择继续访问的请求
+    ipcMain.on('ssl-continue-access', (event, url) => {
+        const webContents = event.sender;
+        const webContentsId = webContents.id;
+        
+        console.log('用户选择继续访问:', url, 'webContentsId:', webContentsId);
+        
+        // 检查是否有存储的证书错误信息
+        if (certificateErrors.has(webContentsId)) {
+            const errorInfo = certificateErrors.get(webContentsId);
+            
+            // 清除存储的错误信息
+            certificateErrors.delete(webContentsId);
+            
+            // 重新加载原始URL，这次忽略证书错误
+            webContents.session.setCertificateVerifyProc((request, callback) => {
+                // 对于这个特定的URL，忽略证书错误
+                if (request.url === url) {
+                    console.log('忽略证书错误，继续访问:', url);
+                    callback(0); // 0表示信任证书
+                } else {
+                    callback(-2); // -2表示使用默认验证
+                }
+            });
+            
+            // 重新加载URL
+            webContents.loadURL(url);
+            
+            // 重新加载后恢复默认的证书验证
+            setTimeout(() => {
+                webContents.session.setCertificateVerifyProc(null);
+            }, 1000);
+        } else {
+            console.log('未找到证书错误信息，直接重定向到:', url);
+            webContents.loadURL(url);
+        }
     });
 
     // 在应用内注册空协议处理器，避免抛给系统

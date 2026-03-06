@@ -18,7 +18,7 @@
             background: white;
             border-radius: 16px;
             padding: 48px;
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             box-shadow: 0 4px 24px rgba(0,0,0,0.08);
             text-align: center;
@@ -79,10 +79,44 @@
             font-size: 13px;
             margin: 4px 0;
         }
+        .advanced-details {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+            display: none;
+        }
+        .advanced-details h4 {
+            color: #495057;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .advanced-details p {
+            color: #6c757d;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        .clock-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+        .clock-info p {
+            color: #0066cc;
+            font-size: 12px;
+            margin: 0;
+        }
         .buttons {
             display: flex;
             gap: 12px;
             justify-content: center;
+            flex-wrap: wrap;
         }
         button {
             padding: 10px 24px;
@@ -92,6 +126,7 @@
             cursor: pointer;
             border: none;
             transition: all 0.2s;
+            min-width: 120px;
         }
         .btn-back {
             background: #f5f5f5;
@@ -99,6 +134,14 @@
         }
         .btn-back:hover {
             background: #e8e8e8;
+        }
+        .btn-advanced {
+            background: #e6f7ff;
+            color: #1890ff;
+            border: 1px solid #91d5ff;
+        }
+        .btn-advanced:hover {
+            background: #bae7ff;
         }
         .btn-danger {
             background: #ff4d4f;
@@ -109,6 +152,26 @@
         }
         .btn-danger:active {
             background: #cf1322;
+        }
+        .btn-continue {
+            background: #52c41a;
+            color: white;
+            display: none;
+        }
+        .btn-continue:hover {
+            background: #73d13d;
+        }
+        .btn-continue:active {
+            background: #389e0d;
+        }
+        .advanced-visible .advanced-details {
+            display: block;
+        }
+        .advanced-visible .btn-advanced {
+            display: none;
+        }
+        .advanced-visible .btn-continue {
+            display: inline-block;
         }
     </style>
 </head>
@@ -126,9 +189,21 @@
             <h3>证书错误详情</h3>
             <p id="error-message">证书已过期或尚未生效</p>
         </div>
+        
+        <div class="advanced-details" id="advanced-details">
+            <h4>此网站的安全证书存在问题</h4>
+            <p id="detailed-error">此服务器无法证明其所在网域是 example.com；其安全证书已在 82 天前过期。</p>
+            <p>出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。</p>
+            <div class="clock-info">
+                <p>计算机的时钟目前已设为 <span id="current-date">2026年3月6日星期五</span>，请问是否正确？如果不正确，请更正系统的时钟，然后刷新此页面。</p>
+            </div>
+        </div>
+        
         <div class="buttons">
             <button class="btn-back" onclick="history.back()">返回</button>
-            <button class="btn-danger" onclick="location.href='about:blank'">关闭页面</button>
+            <button class="btn-advanced" onclick="showAdvancedDetails()">高级</button>
+            <button class="btn-continue" onclick="continueToSite()">继续访问</button>
+            <button class="btn-danger" onclick="closePage()">关闭页面</button>
         </div>
     </div>
 
@@ -143,6 +218,37 @@
         document.getElementById('hostname').textContent = hostname;
         document.getElementById('url-display').textContent = url;
         document.getElementById('error-message').textContent = getCertificateErrorMessage(error);
+        
+        // 更新详细错误信息
+        const detailedError = generateDetailedError(hostname, error);
+        document.getElementById('detailed-error').textContent = detailedError;
+        
+        // 更新当前日期
+        const currentDate = new Date();
+        const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+        document.getElementById('current-date').textContent = currentDate.toLocaleDateString('zh-CN', options);
+
+        // 显示高级详情
+        function showAdvancedDetails() {
+            document.body.classList.add('advanced-visible');
+        }
+
+        // 继续访问网站
+        function continueToSite() {
+            // 通过Electron的IPC通信告诉主进程继续访问
+            if (window.require && window.require('electron')) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.send('ssl-continue-access', url);
+            } else {
+                // 如果无法使用IPC，尝试直接重定向
+                window.location.href = url;
+            }
+        }
+
+        // 关闭页面
+        function closePage() {
+            window.location.href = 'about:blank';
+        }
 
         // 错误消息映射函数
         function getCertificateErrorMessage(error) {
@@ -167,6 +273,20 @@
                 'net::ERR_CERT_KNOWN_INTERCEPTION_BLOCKED': '证书被已知拦截器阻止'
             };
             return errorMessages[error] || error || '未知错误';
+        }
+
+        // 生成详细错误描述
+        function generateDetailedError(hostname, error) {
+            const errorDetails = {
+                'net::ERR_CERT_DATE_INVALID': `此服务器无法证明其所在网域是 ${hostname}；其安全证书已在 82 天前过期。`,
+                'net::ERR_CERT_COMMON_NAME_INVALID': `此服务器提供的安全证书与 ${hostname} 的域名不匹配。`,
+                'net::ERR_CERT_AUTHORITY_INVALID': `此服务器提供的安全证书颁发机构不可信。`,
+                'net::ERR_CERT_REVOKED': `此服务器提供的安全证书已被颁发机构吊销。`,
+                'net::ERR_CERT_INVALID': `此服务器提供的安全证书格式无效。`,
+                'net::ERR_SSL_PROTOCOL_ERROR': `与 ${hostname} 的SSL协议通信发生错误。`
+            };
+            
+            return errorDetails[error] || `此服务器 ${hostname} 存在安全证书问题：${getCertificateErrorMessage(error)}。`;
         }
     </script>
 </body>
