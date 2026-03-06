@@ -18,8 +18,9 @@ function isCustomProtocol(url) {
         const parsedUrl = new URL(url);
         return parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'file:';
     } catch (e) {
-        // 如果 URL 解析失败，检查是否以常见协议开头
-        return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://');
+        console.error("isCustomProtocol err=>",e)
+        // 如果 URL 解析失败，可能是相对路径，返回 false（不是自定义协议）
+        return false;
     }
 }
 
@@ -964,6 +965,53 @@ app.on('web-contents-created', (event, contents) => {
 
 app.whenReady().then(() => {
     app.setAppUserModelId('com.elebrowser.app');
+
+    // SSL证书错误消息映射
+    function getCertificateErrorMessage(error) {
+        const errorMessages = {
+            'net::ERR_CERT_DATE_INVALID': '证书已过期或尚未生效',
+            'net::ERR_CERT_COMMON_NAME_INVALID': '证书域名不匹配',
+            'net::ERR_CERT_AUTHORITY_INVALID': '证书颁发机构不可信',
+            'net::ERR_CERT_REVOKED': '证书已被吊销',
+            'net::ERR_CERT_INVALID': '证书无效',
+            'net::ERR_SSL_PROTOCOL_ERROR': 'SSL协议错误',
+            'net::ERR_CONNECTION_CLOSED': '连接已关闭',
+            'net::ERR_CONNECTION_RESET': '连接被重置',
+            'net::ERR_CONNECTION_REFUSED': '连接被拒绝',
+            'net::ERR_NAME_NOT_RESOLVED': '无法解析域名',
+            'net::ERR_INTERNET_DISCONNECTED': '网络已断开',
+            'net::ERR_NETWORK_IO_SUSPENDED': '网络IO已暂停',
+            'net::ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN': 'SSL固定密钥不在证书链中',
+            'net::ERR_SSL_CLIENT_AUTH_CERT_NEEDED': '需要客户端证书',
+            'net::ERR_TUNNEL_CONNECTION_FAILED': '隧道连接失败',
+            'net::ERR_CERT_WEAK_SIGNATURE_ALGORITHM': '证书签名算法太弱',
+            'net::ERR_CERT_SYMantec_LEGACY': '证书由Symantec颁发（已不被信任）',
+            'net::ERR_CERT_KNOWN_INTERCEPTION_BLOCKED': '证书被已知拦截器阻止'
+        };
+        return errorMessages[error] || error || '未知错误';
+    }
+
+    // SSL证书错误处理 - 显示安全警告页面
+    app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+        console.log('SSL证书错误:', url, error);
+        
+        // 阻止默认行为
+        event.preventDefault();
+        
+        // 获取主机名和错误消息
+        const hostname = new URL(url).hostname;
+        const errorMessage = getCertificateErrorMessage(error);
+        
+        // 构建SSL警告页面的URL，通过查询参数传递信息
+        const sslWarningUrl = `file://${__dirname.replace(/\\/g, '/')}/html/ssl-warning.html?hostname=${encodeURIComponent(hostname)}&url=${encodeURIComponent(url)}&error=${encodeURIComponent(error)}`;
+        
+        // 加载安全警告页面
+        webContents.loadURL(sslWarningUrl);
+        
+        // 不信任证书
+        callback(false);
+    });
+
     // 在应用内注册空协议处理器，避免抛给系统
     const customProtocols = ['bytedance', 'douyin', 'snssdk'];
     customProtocols.forEach((scheme) => {
