@@ -993,10 +993,20 @@ app.whenReady().then(() => {
 
     // 存储证书错误信息，用于继续访问功能
     const certificateErrors = new Map();
+    // 标记正在继续访问的URL，避免循环触发证书错误
+    const continuingAccessUrls = new Set();
 
     // SSL证书错误处理 - 显示安全警告页面
     app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
         console.log('SSL证书错误:', url, error);
+        
+        // 检查是否正在继续访问这个URL
+        if (continuingAccessUrls.has(url)) {
+            console.log('正在继续访问，忽略证书错误:', url);
+            event.preventDefault();
+            callback(true); // 信任证书
+            return;
+        }
         
         // 阻止默认行为
         event.preventDefault();
@@ -1025,6 +1035,9 @@ app.whenReady().then(() => {
         
         console.log('用户选择继续访问:', url, 'webContentsId:', webContentsId);
         
+        // 标记这个URL正在继续访问
+        continuingAccessUrls.add(url);
+        
         // 检查是否有存储的证书错误信息
         if (certificateErrors.has(webContentsId)) {
             const errorInfo = certificateErrors.get(webContentsId);
@@ -1032,7 +1045,7 @@ app.whenReady().then(() => {
             // 清除存储的错误信息
             certificateErrors.delete(webContentsId);
             
-            // 重新加载原始URL，这次忽略证书错误
+            // 设置会话级别的证书验证策略，忽略这个URL的证书错误
             webContents.session.setCertificateVerifyProc((request, callback) => {
                 // 对于这个特定的URL，忽略证书错误
                 if (request.url === url) {
@@ -1049,10 +1062,17 @@ app.whenReady().then(() => {
             // 重新加载后恢复默认的证书验证
             setTimeout(() => {
                 webContents.session.setCertificateVerifyProc(null);
-            }, 1000);
+                continuingAccessUrls.delete(url);
+                console.log('恢复默认证书验证，清除继续访问标记:', url);
+            }, 3000); // 延长到3秒确保页面加载完成
         } else {
             console.log('未找到证书错误信息，直接重定向到:', url);
             webContents.loadURL(url);
+            
+            // 清除标记
+            setTimeout(() => {
+                continuingAccessUrls.delete(url);
+            }, 3000);
         }
     });
 

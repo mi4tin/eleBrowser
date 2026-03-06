@@ -235,12 +235,12 @@
 
         // 继续访问网站
         function continueToSite() {
-            // 通过Electron的IPC通信告诉主进程继续访问
-            if (window.require && window.require('electron')) {
-                const { ipcRenderer } = window.require('electron');
-                ipcRenderer.send('ssl-continue-access', url);
+            // 通过Electron的API告诉主进程继续访问
+            if (window.electronAPI) {
+                window.electronAPI.send('ssl-continue-access', url);
             } else {
-                // 如果无法使用IPC，尝试直接重定向
+                // 如果无法使用Electron API，尝试直接重定向
+                console.log('无法使用Electron API，尝试直接重定向到:', url);
                 window.location.href = url;
             }
         }
