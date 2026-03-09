@@ -610,7 +610,7 @@ app.on('web-contents-created', (event, contents) => {
     });
     
     // 修改 User-Agent 为标准 Chrome 浏览器，避免服务器拒绝请求（如返回400错误）
-    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';
+    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';//'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 QuarkPC/6.4.6.749'//
     contents.session.webRequest.onBeforeSendHeaders((details, callback) => {
         const requestHeaders = details.requestHeaders || {};
         requestHeaders['User-Agent'] = customUserAgent;
@@ -628,7 +628,7 @@ app.on('web-contents-created', (event, contents) => {
         delete requestHeaders['sec-ch-ua-platform'];
         delete requestHeaders['sec-ch-ua-full-version-list'];
 
-        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="12", "Chromium";v="142"';
+        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="12", "Chromium";v="142"'//'"Not?A_Brand";v="99", "Chromium";v="130"'//;
         requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
         requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
         callback({ requestHeaders });
