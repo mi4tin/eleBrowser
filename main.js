@@ -610,12 +610,21 @@ app.on('web-contents-created', (event, contents) => {
     });
     
     // 修改 User-Agent 为标准 Chrome 浏览器，避免服务器拒绝请求（如返回400错误）
-    // 使用 Chrome 129 的 User-Agent，与主流浏览器保持一致
-    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
     contents.session.webRequest.onBeforeSendHeaders((details, callback) => {
         const requestHeaders = details.requestHeaders || {};
-        // 替换 User-Agent，保持其他请求头不变
         requestHeaders['User-Agent'] = customUserAgent;
+        requestHeaders['Cache-Control'] = 'max-age=0';
+
+        // 先删除 Chromium/Electron 自动设置的小写 Client Hints 头，避免大小写不同导致重复发送
+        delete requestHeaders['sec-ch-ua'];
+        delete requestHeaders['sec-ch-ua-mobile'];
+        delete requestHeaders['sec-ch-ua-platform'];
+        delete requestHeaders['sec-ch-ua-full-version-list'];
+
+        requestHeaders['Sec-Ch-Ua'] = '"Google Chrome";v="134", "Chromium";v="134", "Not:A-Brand";v="24"';
+        requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
+        requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
         callback({ requestHeaders });
     });
     
@@ -1528,6 +1537,22 @@ function reloadBrowserViewIgnoringCache(tabId) {
     }
     return false;
 }
+
+/**
+ * 清除浏览缓存（HTTP 缓存与 Cache API 等）
+ * 使用 Electron session.defaultSession.clearCache()，不影响 Cookie/本地存储
+ */
+ipcMain.handle('clear-browser-cache', async () => {
+    try {
+        await session.defaultSession.clearCache();
+        console.log('清除浏览缓存成功');
+        console.error('清除浏览缓存成功');
+        return { ok: true };
+    } catch (e) {
+        console.error('清除浏览缓存失败:', e);
+        return { ok: false, error: (e && e.message) || String(e) };
+    }
+});
 
 /**
  * 加载指定URL
@@ -2652,6 +2677,17 @@ const template = [
                             mainWindow.restore();
                         }
                         mainWindow.focus();
+                    }
+                }
+            },
+            {
+                label: '清除浏览缓存',
+                click: async () => {
+                    try {
+                        await session.defaultSession.clearCache();
+                        console.log('清除浏览缓存成功');
+                    } catch (e) {
+                        console.error('清除浏览缓存失败:', e);
                     }
                 }
             },
