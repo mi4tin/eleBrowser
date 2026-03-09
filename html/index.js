@@ -13,6 +13,17 @@ let currentTabId = null;
 // 记录地址栏的上一个值，用于检测是输入还是删除
 let addressInputPreviousValue = '';
 
+/** 判断输入是否像要直接访问的地址（域名/URL），如是则回车应直接加载而非走自动补全 */
+function looksLikeDirectUrl(input) {
+    const trimmed = (input || '').trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith('dxbrowser://')) return true;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return true;
+    // 无协议但包含点且无空格，视为域名（如 123.huahu.cool）
+    if (/^[^/\s]+\./.test(trimmed) && !/\s/.test(trimmed)) return true;
+    return false;
+}
+
 function formatUrl(input) {
     if (!input) return DEFAULT_URL;
     const trimmed = input.trim();
@@ -936,6 +947,14 @@ addressInput.addEventListener('input', (e) => {
 
 //地址栏键盘事件
 addressInput.addEventListener('keydown', async (e) => {
+    // 回车时：若当前输入像直接访问的 URL/域名，则直接加载该地址，不交给自动补全（避免 123.huahu.cool 被补全成 123.baidu.com）
+    if (e.key === 'Enter' && looksLikeDirectUrl(addressInput.value)) {
+        e.preventDefault();
+        e.stopPropagation();
+        await hideAutocomplete();
+        loadAddressForCurrentTab();
+        return;
+    }
     //处理自动匹配导航
     if (await handleAutocompleteNavigation(e.key)) {
         e.preventDefault();
