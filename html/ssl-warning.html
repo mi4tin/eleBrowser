@@ -220,9 +220,6 @@
         document.getElementById('url-display').textContent = url;
         document.getElementById('error-message').textContent = getCertificateErrorMessage(error);
         
-        // 根据错误类型动态渲染高级详情（标题、详情、原因、时钟提示、额外说明）
-        renderAdvancedDetails(hostname, error);
-        
         // 更新当前日期（用于证书日期类错误的时钟提示）
         const currentDate = new Date();
         const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
@@ -439,6 +436,9 @@
                 set(elExtra, '', 'none');
             }
         }
+
+        // 根据错误类型动态渲染高级详情（标题、详情、原因、时钟提示、额外说明）
+        renderAdvancedDetails(hostname, error);
     </script>
 </body>
 </html>
