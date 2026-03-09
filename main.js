@@ -1194,6 +1194,10 @@ function newWindow() {
     setupProtocolBlocking(myWindow.webContents);
     
     myWindow.loadFile('html/index.html');
+    
+    //测试专用
+    // myWindow.loadURL('https://console.cucloud.cn/login?returnUrl=https%3A%2F%2Fconsole.cucloud.cn%2Fconsole%2Fcuig%2FsubscribePlan%2Fcreate');
+    // return
 
     // 监听窗口大小改变，调整BrowserView尺寸
     myWindow.on('resize', () => {
