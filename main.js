@@ -993,16 +993,22 @@ app.whenReady().then(() => {
 
     // 存储证书错误信息，用于继续访问功能
     const certificateErrors = new Map();
-    // 标记正在继续访问的URL，避免循环触发证书错误
-    const continuingAccessUrls = new Set();
+    // 用户选择「继续访问」后放行的主机名（按站点维度，会话内持久），避免 301 跳转后或同站 AJAX 再次报错
+    const sessionAllowedCertHostnames = new Set();
 
     // SSL证书错误处理 - 显示安全警告页面
     app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
         console.log('SSL证书错误:', url, error);
         
-        // 检查是否正在继续访问这个URL
-        if (continuingAccessUrls.has(url)) {
-            console.log('正在继续访问，忽略证书错误:', url);
+        let hostname;
+        try {
+            hostname = new URL(url).hostname;
+        } catch (e) {
+            hostname = '';
+        }
+        // 若该主机名已被用户选择继续访问（含同站 AJAX、重定向后回源请求），直接信任
+        if (hostname && sessionAllowedCertHostnames.has(hostname)) {
+            console.log('已放行该站点证书，忽略证书错误:', hostname);
             event.preventDefault();
             callback(true); // 信任证书
             return;
@@ -1015,7 +1021,6 @@ app.whenReady().then(() => {
         certificateErrors.set(webContents.id, { url, error, certificate });
         
         // 获取主机名和错误消息
-        const hostname = new URL(url).hostname;
         const errorMessage = getCertificateErrorMessage(error);
         
         // 构建SSL警告页面的URL，通过查询参数传递信息
@@ -1028,52 +1033,29 @@ app.whenReady().then(() => {
         callback(false);
     });
 
-    // 处理用户选择继续访问的请求
+    // 处理用户选择继续访问的请求（不设置 setCertificateVerifyProc，仅用 certificate-error + 白名单，避免影响其他域名如 huahu.cool 的默认校验）
     ipcMain.on('ssl-continue-access', (event, url) => {
         const webContents = event.sender;
         const webContentsId = webContents.id;
         
         console.log('用户选择继续访问:', url, 'webContentsId:', webContentsId);
         
-        // 标记这个URL正在继续访问
-        continuingAccessUrls.add(url);
-        
-        // 检查是否有存储的证书错误信息
-        if (certificateErrors.has(webContentsId)) {
-            const errorInfo = certificateErrors.get(webContentsId);
-            
-            // 清除存储的错误信息
-            certificateErrors.delete(webContentsId);
-            
-            // 设置会话级别的证书验证策略，忽略这个URL的证书错误
-            webContents.session.setCertificateVerifyProc((request, callback) => {
-                // 对于这个特定的URL，忽略证书错误
-                if (request.url === url) {
-                    console.log('忽略证书错误，继续访问:', url);
-                    callback(0); // 0表示信任证书
-                } else {
-                    callback(-2); // -2表示使用默认验证
-                }
-            });
-            
-            // 重新加载URL
-            webContents.loadURL(url);
-            
-            // 重新加载后恢复默认的证书验证
-            setTimeout(() => {
-                webContents.session.setCertificateVerifyProc(null);
-                continuingAccessUrls.delete(url);
-                console.log('恢复默认证书验证，清除继续访问标记:', url);
-            }, 3000); // 延长到3秒确保页面加载完成
-        } else {
-            console.log('未找到证书错误信息，直接重定向到:', url);
-            webContents.loadURL(url);
-            
-            // 清除标记
-            setTimeout(() => {
-                continuingAccessUrls.delete(url);
-            }, 3000);
+        let hostname;
+        try {
+            hostname = new URL(url).hostname;
+        } catch (e) {
+            hostname = '';
         }
+        if (hostname) {
+            sessionAllowedCertHostnames.add(hostname);
+        }
+        
+        if (certificateErrors.has(webContentsId)) {
+            certificateErrors.delete(webContentsId);
+        }
+        
+        // 仅依赖 certificate-error：下次请求该 host 时会命中 sessionAllowedCertHostnames 并 callback(true)；其它域名（如 huahu.cool）不受影响，走系统默认验证
+        webContents.loadURL(url);
     });
 
     // 在应用内注册空协议处理器，避免抛给系统
