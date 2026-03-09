@@ -12,6 +12,8 @@ const refreshBtn = document.getElementById('nav-refresh');
 let currentTabId = null;
 // 记录地址栏的上一个值，用于检测是输入还是删除
 let addressInputPreviousValue = '';
+// 各标签页加载状态，用于刷新按钮在「刷新/停止」间切换
+let tabLoadingState = {};
 
 /** 判断输入是否像要直接访问的地址（域名/URL），如是则回车应直接加载而非走自动补全 */
 function looksLikeDirectUrl(input) {
@@ -476,6 +478,14 @@ async function updateNavButtons() {
     backBtn.disabled = !canGoBack;
     forwardBtn.disabled = !canGoForward;
     refreshBtn.disabled = currentTabId == null;
+    updateRefreshButton();
+}
+
+function updateRefreshButton() {
+    const loading = !!tabLoadingState[currentTabId];
+    refreshBtn.textContent = loading ? '⏹' : '⟳';
+    refreshBtn.title = loading ? '停止' : '刷新';
+    refreshBtn.dataset.loading = loading ? 'true' : 'false';
 }
 
 async function createTab(url = DEFAULT_URL, title = '新标签页') {
@@ -666,13 +676,16 @@ refreshBtn.addEventListener('click', async () => {
     if (currentTabId == null) return;
 
     try {
-        // 尝试使用 BrowserView 方式
-        const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
-        if (!success) {
-            console.error('BrowserView 刷新操作失败');
+        const loading = refreshBtn.dataset.loading === 'true';
+        if (loading) {
+            const success = await ipcRenderer.invoke('browser-view-stop-loading', currentTabId);
+            if (!success) console.error('BrowserView 停止加载失败');
+        } else {
+            const success = await ipcRenderer.invoke('browser-view-reload', currentTabId);
+            if (!success) console.error('BrowserView 刷新操作失败');
         }
     } catch (error) {
-        console.error('刷新操作失败:', error);
+        console.error(refreshBtn.dataset.loading === 'true' ? '停止加载失败:' : '刷新操作失败:', error);
     }
 });
 
@@ -729,6 +742,12 @@ ipcRenderer.on('browser-view-updated', async (_event, data) => {
     } catch (e) {
         console.error('处理 browser-view-updated 失败:', e);
     }
+});
+
+// 主进程通知当前标签页加载状态（用于刷新/停止按钮切换）
+ipcRenderer.on('browser-view-loading-state', (_event, data) => {
+    tabLoadingState[data.tabId] = data.loading;
+    if (currentTabId === data.tabId) updateRefreshButton();
 });
 
 // 主进程通知 favicon 更新

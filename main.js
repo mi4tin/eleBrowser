@@ -227,6 +227,16 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
 
+        view.webContents.on('did-start-loading', () => {
+            try {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: true });
+                }
+            } catch (err) {
+                console.error('发送 browser-view-loading-state 失败:', err);
+            }
+        });
+
         view.webContents.on('did-finish-load', () => {
             try {
                 console.log("@@@did-finish-load")
@@ -240,6 +250,9 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         // 监听did-stop-loading事件，处理同一标签页内的导航,每次加载页面都会执行
         view.webContents.on('did-stop-loading', async () => {
             try {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: false });
+                }
                 const url = view.webContents.getURL();
 
                 console.log("@@@did-stop-loading",url)
@@ -1474,6 +1487,18 @@ ipcMain.handle('browser-view-go-forward', (event, tabId) => {
  */
 ipcMain.handle('browser-view-reload', (event, tabId) => {
     return reloadBrowserView(tabId);
+});
+
+/**
+ * 停止当前加载
+ */
+ipcMain.handle('browser-view-stop-loading', (event, tabId) => {
+    const view = browserViews.get(tabId);
+    if (view) {
+        view.webContents.stop();
+        return true;
+    }
+    return false;
 });
 
 function reloadBrowserView(tabId) {
