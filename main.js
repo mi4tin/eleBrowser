@@ -1034,9 +1034,9 @@ app.whenReady().then(() => {
     // 用户选择「继续访问」后放行的主机名（按站点维度，会话内持久），避免 301 跳转后或同站 AJAX 再次报错
     const sessionAllowedCertHostnames = new Set();
 
-    // SSL证书错误处理 - 显示安全警告页面
-    app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-        console.log('SSL证书错误:', url, error);
+    // SSL证书错误处理 - 仅当地址栏对应页面（主框架）报错时显示安全警告页面
+    app.on('certificate-error', (event, webContents, url, error, certificate, callback, isMainFrame) => {
+        console.log('SSL证书错误:', url, error, 'isMainFrame:', isMainFrame);
         
         let hostname;
         try {
@@ -1049,6 +1049,13 @@ app.whenReady().then(() => {
             console.log('已放行该站点证书，忽略证书错误:', hostname);
             event.preventDefault();
             callback(true); // 信任证书
+            return;
+        }
+        
+        // 仅当主框架（地址栏里的页面）出现证书错误时才跳转 ssl-warning；子资源/iframe 报错只拒绝，不跳转
+        if (isMainFrame === false) {
+            event.preventDefault();
+            callback(false);
             return;
         }
         
