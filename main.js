@@ -1551,8 +1551,8 @@ function reloadBrowserViewIgnoringCache(tabId) {
 ipcMain.handle('clear-browser-cache', async () => {
     try {
         await session.defaultSession.clearCache();
-        console.log('清除浏览缓存成功');
-        console.error('清除浏览缓存成功');
+        await session.defaultSession.clearStorageData({ storages: ['cookies'] });
+        console.log('清除浏览缓存和Cookie成功');
         return { ok: true };
     } catch (e) {
         console.error('清除浏览缓存失败:', e);
@@ -2691,7 +2691,8 @@ const template = [
                 click: async () => {
                     try {
                         await session.defaultSession.clearCache();
-                        console.log('清除浏览缓存成功');
+                        await session.defaultSession.clearStorageData({ storages: ['cookies'] });
+                        console.log('清除浏览缓存成功2');
                     } catch (e) {
                         console.error('清除浏览缓存失败:', e);
                     }
