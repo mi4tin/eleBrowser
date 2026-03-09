@@ -615,6 +615,12 @@ app.on('web-contents-created', (event, contents) => {
         const requestHeaders = details.requestHeaders || {};
         requestHeaders['User-Agent'] = customUserAgent;
         requestHeaders['Cache-Control'] = 'max-age=0';
+        
+
+        // requestHeaders['Cookie'] = 'Pj1FZATFdwCwO=60xKueamtlSRkhGbWSWeJbhyz4OVdc88Dngn7Aekkj7YjcmLr7N_GvWHHXfyratUUeXcSG0_h9EjZZgwAdcG9ZQa; enable_Pj1FZATFdwCw=true; Pj1FZATFdwCwP=0FJMDfr5kmWK8Y5aazvGxPfQ0vQZUHi8jkdVhN0NBeFb5Wr0rb_5eB.OnunoeVLe0Ilq1u3sJpf8cbj41of3ZDjb3jMpnOrYCWnAVV81FeFDr7gGsMn3tWmsKwg8HSBHA0WPWxv71q71v9M4WCN95SleL1SansDDuaAwcVi1Q_1FKPj3OlXwCGynp5WDwa2HsyihWFKLRn74OKC3nAUPVM4yVMgwL7PtrOjsZ4CuF8v.IFydc7p1RH6sffMfbPa.9y4ChKlU32nf9OJO3L4U3I3bzWBnpVyZIGYF2qruKDJb7PTdX7vEbnn7pSRn_oaaOobeu5Ur1s9hVcXHWwyi3eVj4EFPpTd0TPsoFfVgdL2LOvKwhrFzxZUy6deqOB4D7.bpmznELjJ21usQWXqTXjKY3uDGvDzcZbbmnG58rRgL';
+
+        // 添加 Accept-Language 头，解决某些服务器返回400错误的问题
+        requestHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9';
 
         // 先删除 Chromium/Electron 自动设置的小写 Client Hints 头，避免大小写不同导致重复发送
         delete requestHeaders['sec-ch-ua'];
