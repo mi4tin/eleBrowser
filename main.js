@@ -609,6 +609,16 @@ app.on('web-contents-created', (event, contents) => {
         callback({ responseHeaders });
     });
     
+    // 修改 User-Agent 为标准 Chrome 浏览器，避免服务器拒绝请求（如返回400错误）
+    // 使用 Chrome 129 的 User-Agent，与主流浏览器保持一致
+    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+    contents.session.webRequest.onBeforeSendHeaders((details, callback) => {
+        const requestHeaders = details.requestHeaders || {};
+        // 替换 User-Agent，保持其他请求头不变
+        requestHeaders['User-Agent'] = customUserAgent;
+        callback({ requestHeaders });
+    });
+    
     // 允许 webview 加载本地资源（Electron 内部资源）
     contents.session.webRequest.onBeforeRequest({ urls: ['file://*'] }, (details, callback) => {
         // 对于 xmtls.wasm 文件请求，返回一个空的 wasm 文件而不是取消请求
