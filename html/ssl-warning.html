@@ -191,12 +191,13 @@
         </div>
         
         <div class="advanced-details" id="advanced-details">
-            <h4>此网站的安全证书存在问题</h4>
-            <p id="detailed-error">此服务器无法证明其所在网域是 example.com；其安全证书已在 82 天前过期。</p>
-            <p>出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。</p>
-            <div class="clock-info">
+            <h4 id="advanced-title">此网站的安全证书存在问题</h4>
+            <p id="detailed-error"></p>
+            <p id="advanced-reason" class="advanced-reason"></p>
+            <div class="clock-info" id="clock-info">
                 <p>计算机的时钟目前已设为 <span id="current-date">2026年3月6日星期五</span>，请问是否正确？如果不正确，请更正系统的时钟，然后刷新此页面。</p>
             </div>
+            <p id="advanced-extra" class="advanced-extra"></p>
         </div>
         
         <div class="buttons">
@@ -219,11 +220,10 @@
         document.getElementById('url-display').textContent = url;
         document.getElementById('error-message').textContent = getCertificateErrorMessage(error);
         
-        // 更新详细错误信息
-        const detailedError = generateDetailedError(hostname, error);
-        document.getElementById('detailed-error').textContent = detailedError;
+        // 根据错误类型动态渲染高级详情（标题、详情、原因、时钟提示、额外说明）
+        renderAdvancedDetails(hostname, error);
         
-        // 更新当前日期
+        // 更新当前日期（用于证书日期类错误的时钟提示）
         const currentDate = new Date();
         const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
         document.getElementById('current-date').textContent = currentDate.toLocaleDateString('zh-CN', options);
@@ -275,18 +275,169 @@
             return errorMessages[error] || error || '未知错误';
         }
 
-        // 生成详细错误描述
+        // 生成详细错误描述（简短版，用于兼容）
         function generateDetailedError(hostname, error) {
-            const errorDetails = {
-                'net::ERR_CERT_DATE_INVALID': `此服务器无法证明其所在网域是 ${hostname}；其安全证书已在 82 天前过期。`,
-                'net::ERR_CERT_COMMON_NAME_INVALID': `此服务器提供的安全证书与 ${hostname} 的域名不匹配。`,
-                'net::ERR_CERT_AUTHORITY_INVALID': `此服务器提供的安全证书颁发机构不可信。`,
-                'net::ERR_CERT_REVOKED': `此服务器提供的安全证书已被颁发机构吊销。`,
-                'net::ERR_CERT_INVALID': `此服务器提供的安全证书格式无效。`,
-                'net::ERR_SSL_PROTOCOL_ERROR': `与 ${hostname} 的SSL协议通信发生错误。`
+            const c = advancedDetailsConfig[error];
+            return c ? c.detail : `此服务器 ${hostname} 存在安全证书问题：${getCertificateErrorMessage(error)}。`;
+        }
+
+        // 按错误类型配置：标题、详情、原因说明、是否显示时钟提示、额外说明
+        const advancedDetailsConfig = {
+            'net::ERR_CERT_DATE_INVALID': {
+                title: '证书日期无效',
+                detail: `此服务器无法证明其所在网域是 ${hostname}；其安全证书已过期或尚未生效。`,
+                reason: '出现此问题的原因可能是：服务器证书已过期或未到生效时间，或您的计算机时钟不正确。',
+                showClock: true,
+                extra: '建议先核对本机日期与时间；若正确，则需网站管理员续期或更换证书。'
+            },
+            'net::ERR_CERT_COMMON_NAME_INVALID': {
+                title: '证书域名不匹配',
+                detail: `此服务器提供的安全证书所声明的域名与您访问的 ${hostname} 不一致。`,
+                reason: '可能原因：该站点使用了为其他域名签发的证书，或存在中间人篡改/劫持。',
+                showClock: false,
+                extra: '请确认地址栏中的域名是否正确；若为合法站点，需管理员为当前域名重新申请证书。'
+            },
+            'net::ERR_CERT_AUTHORITY_INVALID': {
+                title: '证书颁发机构不可信',
+                detail: `此服务器使用的安全证书不是由受信任的证书颁发机构（CA）签发的。`,
+                reason: '常见于自签名证书或企业内部 CA 未加入本机信任列表。',
+                showClock: false,
+                extra: '若为自建或内网站点，可尝试将对应根证书加入系统信任；否则存在安全风险。'
+            },
+            'net::ERR_CERT_REVOKED': {
+                title: '证书已被吊销',
+                detail: `此服务器为 ${hostname} 提供的安全证书已被颁发机构吊销，不再视为有效。`,
+                reason: '证书可能因私钥泄露、域名变更或违规等原因被 CA 撤销。',
+                showClock: false,
+                extra: '请勿在此站点输入敏感信息；网站需重新申请并部署新证书。'
+            },
+            'net::ERR_CERT_INVALID': {
+                title: '证书无效',
+                detail: `此服务器为 ${hostname} 提供的安全证书格式或内容无效，无法通过验证。`,
+                reason: '可能由证书损坏、被篡改或不符合规范导致。',
+                showClock: false,
+                extra: ''
+            },
+            'net::ERR_SSL_PROTOCOL_ERROR': {
+                title: 'SSL/TLS 协议错误',
+                detail: `与 ${hostname} 建立安全连接时发生协议层面的错误。`,
+                reason: '可能原因：服务器 SSL/TLS 配置错误、版本不兼容或连接被中断。',
+                showClock: false,
+                extra: '建议稍后重试；若持续出现，需服务器端检查 HTTPS 配置。'
+            },
+            'net::ERR_CONNECTION_CLOSED': {
+                title: '连接已关闭',
+                detail: `与 ${hostname} 的安全连接在完成前被关闭。`,
+                reason: '可能由服务器主动断开、网络不稳定或防火墙/代理干预导致。',
+                showClock: false,
+                extra: ''
+            },
+            'net::ERR_CONNECTION_RESET': {
+                title: '连接被重置',
+                detail: `与 ${hostname} 的连接在传输过程中被重置。`,
+                reason: '常见于网络中断、服务器重启或安全设备拦截。',
+                showClock: false,
+                extra: ''
+            },
+            'net::ERR_CONNECTION_REFUSED': {
+                title: '连接被拒绝',
+                detail: `无法连接到 ${hostname}，对方未接受连接。`,
+                reason: '可能原因：服务未启动、端口未开放或防火墙阻止。',
+                showClock: false,
+                extra: ''
+            },
+            'net::ERR_NAME_NOT_RESOLVED': {
+                title: '无法解析域名',
+                detail: `无法解析 ${hostname} 的域名，无法确定服务器地址。`,
+                reason: '可能原因：域名拼写错误、DNS 故障或本地网络无法访问 DNS。',
+                showClock: false,
+                extra: '请检查网址是否正确，并确认网络与 DNS 设置正常。'
+            },
+            'net::ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN': {
+                title: '证书与固定公钥不匹配',
+                detail: '服务器返回的证书链中不包含应用所固定的公钥。',
+                reason: '通常用于防范中间人攻击；证书或服务器配置可能已变更。',
+                showClock: false,
+                extra: ''
+            },
+            'net::ERR_CERT_WEAK_SIGNATURE_ALGORITHM': {
+                title: '证书签名算法过弱',
+                detail: `此服务器为 ${hostname} 使用的证书采用了不再受信任的弱签名算法。`,
+                reason: '为安全考虑，现代浏览器已禁用部分旧算法（如 SHA-1）。',
+                showClock: false,
+                extra: '需网站管理员使用更强算法重新签发证书。'
+            },
+            'net::ERR_CERT_KNOWN_INTERCEPTION_BLOCKED': {
+                title: '检测到证书拦截',
+                detail: '当前连接使用的证书被识别为已知的拦截/代理证书，已被阻止。',
+                reason: '部分企业代理或安全软件会替换证书以检查流量，可能触发此提示。',
+                showClock: false,
+                extra: '若处于企业或学校网络，请联系管理员；否则可能存在中间人风险。'
+            },
+            'net::ERR_INTERNET_DISCONNECTED': {
+                title: '网络已断开',
+                detail: '当前无法访问互联网，请检查网络连接。',
+                reason: '可能原因：未连接 WiFi/有线网络、飞行模式已开启或运营商网络故障。',
+                showClock: false,
+                extra: '请检查本机网络设置与路由器连接后重试。'
+            },
+            'net::ERR_NETWORK_IO_SUSPENDED': {
+                title: '网络 IO 已暂停',
+                detail: '系统已暂停网络访问（例如省电或休眠恢复中），导致请求无法完成。',
+                reason: '常见于设备休眠唤醒后或系统节电策略限制网络时。',
+                showClock: false,
+                extra: '请稍后重试或检查系统电源与网络策略。'
+            },
+            'net::ERR_SSL_CLIENT_AUTH_CERT_NEEDED': {
+                title: '需要客户端证书',
+                detail: `服务器 ${hostname} 要求提供客户端证书以完成身份验证。`,
+                reason: '该站点启用了双向 TLS 认证，需在系统或浏览器中安装并选择有效客户端证书。',
+                showClock: false,
+                extra: '若为内网或企业站点，请向管理员申请并安装客户端证书。'
+            },
+            'net::ERR_TUNNEL_CONNECTION_FAILED': {
+                title: '隧道连接失败',
+                detail: '建立 HTTPS 代理隧道时失败，无法通过代理访问目标服务器。',
+                reason: '可能原因：代理服务器不可用、代理拒绝连接或代理的 SSL 校验失败。',
+                showClock: false,
+                extra: '请检查代理设置与代理服务状态。'
+            },
+            'net::ERR_CERT_SYMantec_LEGACY': {
+                title: 'Symantec 旧证书不受信任',
+                detail: `此服务器为 ${hostname} 使用的证书由 Symantec 旧根签发，已被主流信任库移除。`,
+                reason: '因历史合规问题，由 Symantec 旧根签发的证书不再被信任。',
+                showClock: false,
+                extra: '需网站管理员向其他 CA 重新申请并部署证书。'
+            }
+        };
+
+        function renderAdvancedDetails(hostname, error) {
+            const elTitle = document.getElementById('advanced-title');
+            const elDetail = document.getElementById('detailed-error');
+            const elReason = document.getElementById('advanced-reason');
+            const elClock = document.getElementById('clock-info');
+            const elExtra = document.getElementById('advanced-extra');
+            const set = (el, content, display) => {
+                if (el) {
+                    if (content !== undefined) el.textContent = content;
+                    if (display !== undefined) el.style.display = display;
+                }
             };
-            
-            return errorDetails[error] || `此服务器 ${hostname} 存在安全证书问题：${getCertificateErrorMessage(error)}。`;
+
+            const c = advancedDetailsConfig[error];
+            if (c) {
+                set(elTitle, c.title);
+                set(elDetail, c.detail);
+                set(elReason, c.reason || '', c.reason ? '' : 'none');
+                set(elClock, undefined, c.showClock ? '' : 'none');
+                set(elExtra, c.extra || '', c.extra ? '' : 'none');
+            } else {
+                set(elTitle, '此网站的安全证书存在问题');
+                set(elDetail, `此服务器 ${hostname} 存在安全证书问题：${getCertificateErrorMessage(error)}。`);
+                set(elReason, '出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。', '');
+                set(elClock, undefined, 'none');
+                set(elExtra, '', 'none');
+            }
         }
     </script>
 </body>
