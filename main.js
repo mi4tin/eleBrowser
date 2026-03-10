@@ -1,14 +1,14 @@
-const { app , BrowserWindow, BrowserView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
+const { app , BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 
-// BrowserView管理器 -存储所有BrowserView实例
-const browserViews = new Map(); // Map<tabId, BrowserView>
+// WebContentsView 管理器 - 存储所有标签页 WebContentsView 实例
+const browserViews = new Map(); // Map<tabId, WebContentsView>
 let tabIdCounter = 0; //标签页ID计数器
 // 当前激活的 tabId
 let lastActiveTabId = null;
-// 搜索面板 BrowserView
+// 搜索面板 WebContentsView
 let searchPanelView = null;
-//记录自动匹配 BrowserView
+// 历史记录自动匹配 WebContentsView
 let historyAutocompleteView = null;
 
 // 辅助函数：检查是否为自定义协议
@@ -24,36 +24,36 @@ function isCustomProtocol(url) {
     }
 }
 
-// BrowserView管理函数
+// WebContentsView 管理函数
 
 const viewY = 82;
 
 /**
- * 创建新的BrowserView
+ * 创建新的 WebContentsView（标签页）
  * @param {BrowserWindow} window -
  * @param {string} url -要的URL
  * @returns {number} tabId - 新创建的标签页ID
  */
-// 创建历史记录自动匹配的BrowserView
+// 创建历史记录自动匹配的 WebContentsView
 function createHistoryAutocompleteView(window) {
     if (historyAutocompleteView) {
         // 如果已经存在，先销毁
         try {
             if (window && !window.isDestroyed()) {
-                window.removeBrowserView(historyAutocompleteView);
+                window.contentView.removeChildView(historyAutocompleteView);
             }
             if (historyAutocompleteView.webContents && !historyAutocompleteView.webContents.isDestroyed()) {
                 historyAutocompleteView.webContents.destroy();
             }
         } catch (e) {
-            console.error('销毁历史记录自动匹配BrowserView失败:', e);
+            console.error('销毁历史记录自动匹配 WebContentsView 失败:', e);
         }
         historyAutocompleteView = null;
     }
     
     try {
-        // 创建BrowserView实例
-        historyAutocompleteView = new BrowserView({
+        // 创建 WebContentsView 实例
+        historyAutocompleteView = new WebContentsView({
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
@@ -61,22 +61,25 @@ function createHistoryAutocompleteView(window) {
             }
         });
         
-        // 设置BrowserView到窗口
-        window.addBrowserView(historyAutocompleteView);
+        // 透明背景（WebContentsView 默认白底）
+        historyAutocompleteView.setBackgroundColor('#00000000');
+        
+        // 设置 WebContentsView 到窗口
+        window.contentView.addChildView(historyAutocompleteView);
         
         // 加载自动匹配页面
         const autocompleteUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/history-autocomplete.html';
         historyAutocompleteView.webContents.loadURL(autocompleteUrl);
         
-        console.log('历史记录自动匹配BrowserView创建成功');
+        console.log('历史记录自动匹配 WebContentsView 创建成功');
         return historyAutocompleteView;
     } catch (error) {
-        console.error('创建历史记录自动匹配BrowserView失败:', error);
+        console.error('创建历史记录自动匹配 WebContentsView 失败:', error);
         return null;
     }
 }
 
-//显示历史记录自动匹配BrowserView
+// 显示历史记录自动匹配 WebContentsView
 function showHistoryAutocomplete(window, items, addressInputBounds) {
     if (!historyAutocompleteView) {
         createHistoryAutocompleteView(window);
@@ -85,8 +88,8 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
     if (!historyAutocompleteView) return;
     
     try {
-        // 确保BrowserView被添加到窗口中
-        window.addBrowserView(historyAutocompleteView);
+        // 确保 WebContentsView 被添加到窗口中
+        window.contentView.addChildView(historyAutocompleteView);
         
         //计算位置和尺寸
         const contentBounds = window.getContentBounds();
@@ -104,13 +107,13 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
             height: maxHeight
         });
         
-        // 发送匹配结果到BrowserView
+        // 发送匹配结果到 WebContentsView
         if (!historyAutocompleteView.webContents.isDestroyed()) {
-            console.log('发送历史记录自动匹配数据到BrowserView');
+            console.log('发送历史记录自动匹配数据到 WebContentsView');
             historyAutocompleteView.webContents.send('update-history-autocomplete', items);
         }
 
-        console.log('显示历史记录自动匹配BrowserView.items[0]:', JSON.stringify(items[0]));
+        console.log('显示历史记录自动匹配 WebContentsView.items[0]:', JSON.stringify(items[0]));
         
         console.log(`显示历史记录自动匹配，项目数: ${items.length}, 位置: (${x}, ${y}),尺: ${width}x${maxHeight}`);
     } catch (error) {
@@ -118,21 +121,21 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
     }
 }
 
-//隐藏历史记录自动匹配BrowserView
+// 隐藏历史记录自动匹配 WebContentsView
 function hideHistoryAutocomplete(window) {
     if (!historyAutocompleteView) return;
     
     try {
         if (window && !window.isDestroyed()) {
-            window.removeBrowserView(historyAutocompleteView);
+            window.contentView.removeChildView(historyAutocompleteView);
         }
-        console.log('隐藏历史记录自动匹配BrowserView');
+        console.log('隐藏历史记录自动匹配 WebContentsView');
     } catch (error) {
-        console.error('隐藏历史记录自动匹配BrowserView失败:', error);
+        console.error('隐藏历史记录自动匹配 WebContentsView 失败:', error);
     }
 }
 
-//销历史记录自动匹配BrowserView
+// 销毁历史记录自动匹配 WebContentsView
 function destroyHistoryAutocompleteView() {
     if (!historyAutocompleteView) return;
     
@@ -141,14 +144,14 @@ function destroyHistoryAutocompleteView() {
             historyAutocompleteView.webContents.destroy();
         }
         historyAutocompleteView = null;
-        console.log('销毁历史记录自动匹配BrowserView');
+        console.log('销毁历史记录自动匹配 WebContentsView');
     } catch (error) {
-        console.error('销毁历史记录自动匹配BrowserView失败:', error);
+        console.error('销毁历史记录自动匹配 WebContentsView 失败:', error);
     }
 }
 
 /**
- * 创建新的BrowserView
+ * 创建新的 WebContentsView（标签页）
  * @param {BrowserWindow} window -
  * @param {string} url -的URL
  * @returns {number} tabId - 新创建的标签页ID
@@ -156,8 +159,8 @@ function destroyHistoryAutocompleteView() {
 function createBrowserView(window, url = 'https://www.baidu.com') {
     const tabId = ++tabIdCounter;
     
-    // 创建BrowserView实例
-    const view = new BrowserView({
+    // 创建 WebContentsView 实例
+    const view = new WebContentsView({
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -168,13 +171,13 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         }
     });
     
-    // 存储BrowserView实例
+    // 存储 WebContentsView 实例
     browserViews.set(tabId, view);
     
-    // 设置BrowserView到窗口
-    window.addBrowserView(view);
+    // 设置 WebContentsView 到窗口
+    window.contentView.addChildView(view);
     
-    // 设置BrowserView的尺寸和位置
+    // 设置 WebContentsView 的尺寸和位置
     const contentBounds = window.getContentBounds();
     view.setBounds({
         x: 0,
@@ -189,12 +192,12 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     try {
         setupProtocolBlocking(view.webContents);
     } catch (e) {
-        console.error('设置 BrowserView 协议拦截失败:', e);
+        console.error('设置 WebContentsView 协议拦截失败:', e);
     }
 
     var viewData={}
 
-    // 转发 BrowserView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
+    // 转发 WebContentsView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
     try {
         const sendUpdate = (data) => {
             try {
@@ -283,42 +286,42 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
     } catch (e) {
-        console.error('注册 BrowserView 事件监听失败:', e);
+        console.error('注册 WebContentsView 事件监听失败:', e);
     }
     
-    console.log(`创建BrowserView，tabId: ${tabId}, URL: ${url}`);
+    console.log(`创建 WebContentsView，tabId: ${tabId}, URL: ${url}`);
     
     return tabId;
 }
 
 /**
- * 激活指定的BrowserView
+ * 激活指定的 WebContentsView（标签页）
  * @param {BrowserWindow} window - 父窗口
  * @param {number} tabId - 要激活的标签页ID
  */
 function activateBrowserView(window, tabId) {
     const view = browserViews.get(tabId);
     if (!view) {
-        console.error(`未找到tabId为${tabId}的BrowserView`);
+        console.error(`未找到tabId为${tabId}的 WebContentsView`);
         return;
     }
     
-    // 隐藏所有BrowserView
+    // 隐藏所有标签页视图（从 contentView 移除）
     browserViews.forEach(v => {
-        window.removeBrowserView(v);
+        window.contentView.removeChildView(v);
     });
     
-    // 显示指定的BrowserView
-    window.addBrowserView(view);
+    // 显示指定的 WebContentsView
+    window.contentView.addChildView(view);
     lastActiveTabId = tabId;
     
-    console.log(`激活BrowserView，tabId: ${tabId}`);
+    console.log(`激活 WebContentsView，tabId: ${tabId}`);
 
     // 如果存在搜索面板，将其重新添加以保证在最上层并重新定位
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
-            try { window.removeBrowserView(searchPanelView); } catch (e) {}
-            window.addBrowserView(searchPanelView);
+            try { window.contentView.removeChildView(searchPanelView); } catch (e) {}
+            window.contentView.addChildView(searchPanelView);
             // 重新定位
             const contentBounds = window.getContentBounds();
             searchPanelView.setBounds({
@@ -334,31 +337,31 @@ function activateBrowserView(window, tabId) {
 }
 
 /**
- * 关闭指定的BrowserView
+ * 关闭指定的 WebContentsView（标签页）
  * @param {BrowserWindow} window - 父窗口
  * @param {number} tabId - 要关闭的标签页ID
  */
 function closeBrowserView(window, tabId) {
     const view = browserViews.get(tabId);
     if (!view) {
-        console.error(`未找到tabId为${tabId}的BrowserView`);
+        console.error(`未找到tabId为${tabId}的 WebContentsView`);
         return;
     }
     
-    // 从窗口移除BrowserView
-    window.removeBrowserView(view);
+    // 从窗口移除 WebContentsView
+    window.contentView.removeChildView(view);
     
-    // 销毁BrowserView
+    // 销毁 webContents
     view.webContents.destroy();
     
     // 从存储中删除
     browserViews.delete(tabId);
     
-    console.log(`关闭BrowserView，tabId: ${tabId}`);
+    console.log(`关闭 WebContentsView，tabId: ${tabId}`);
 }
 
 /**
- * 调整所有BrowserView的尺寸（当窗口大小改变时调用）
+ * 调整所有标签页 WebContentsView 的尺寸（当窗口大小改变时调用）
  * @param {BrowserWindow} window - 父窗口
  */
 function resizeBrowserViews(window) {
@@ -391,7 +394,7 @@ const panelWidth = 488;
 const panelHeight = 58;
 const panelY = 0 ;
 const panelPadding = 53;
-// 创建并显示搜索面板（BrowserView）
+// 创建并显示搜索面板（WebContentsView）
 function createSearchPanel(window) {
     if (!window) return null;
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
@@ -399,7 +402,7 @@ function createSearchPanel(window) {
         return searchPanelView;
     }
 
-    const panel = new BrowserView({
+    const panel = new WebContentsView({
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -407,12 +410,12 @@ function createSearchPanel(window) {
         }
     });
 
-    console.log('创建搜索面板 BrowserView');
+    console.log('创建搜索面板 WebContentsView');
 
     searchPanelView = panel;
-    window.addBrowserView(panel);
+    window.contentView.addChildView(panel);
 
-    // 初始位置与尺寸
+    // 初始位置与尺寸（resize 时由 resizeBrowserViews 更新）
     const contentBounds = window.getContentBounds();
    
     panel.setBounds({
@@ -421,7 +424,6 @@ function createSearchPanel(window) {
         width: panelWidth,
         height: panelHeight
     });
-    panel.setAutoResize({ width: false, height: false });
 
     // 加载本地搜索面板页面
     const panelUrl = 'file://' + path.join(__dirname, 'html', 'search-panel.html').replace(/\\/g, '/');
@@ -459,7 +461,7 @@ function destroySearchPanel(window) {
         if (targetView && targetView.webContents && !targetView.webContents.isDestroyed()) {
             try { targetView.webContents.stopFindInPage('clearSelection'); } catch (e) {}
         }
-        if (window && !window.isDestroyed()) window.removeBrowserView(searchPanelView);
+        if (window && !window.isDestroyed()) window.contentView.removeChildView(searchPanelView);
         
         // 正确销毁搜索面板的webContents
         if (searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
@@ -718,9 +720,10 @@ app.on('web-contents-created', (event, contents) => {
                                 }
 
                                 const url = contents.getURL();
-                                console.log('调用 openDevTools，URL:', url,url.endsWith('search-panel.html'));
+                                console.log('调用 openDevTools，URL:',type, url,url.endsWith('search-panel.html'));
                                 
-                                if (type !== 'browserView'||url.endsWith('search-panel.html')) {
+                                if (type !== 'window'||url.endsWith('search-panel.html')) {
+                                    console.log('打开开发者工具123, type:');
                                     contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
                                 }else{
                                     contents.openDevTools();
