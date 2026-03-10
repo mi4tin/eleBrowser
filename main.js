@@ -2,7 +2,7 @@ const { app , BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, 
 const path = require('path');
 
 // 与 Chrome 一致的 User-Agent，避免部分站点（如云控制台登录页）因检测到 Electron 而返回空白或限制内容
-const CUSTOM_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+const CUSTOM_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36';
 
 // WebContentsView 管理器 - 存储所有标签页 WebContentsView 实例
 const browserViews = new Map(); // Map<tabId, WebContentsView>
@@ -171,7 +171,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             preload: path.join(__dirname, 'preload-browserview.js'),
             // 禁用外部协议处理，防止系统弹窗
             disableDialogs: false,
-             disableBlinkFeatures: 'Autofill'
+            //  disableBlinkFeatures: 'Autofill'
         }
     });
     // 透明背景（WebContentsView 默认白底）
@@ -1029,7 +1029,7 @@ app.whenReady().then(() => {
         delete requestHeaders['sec-ch-ua-mobile'];
         delete requestHeaders['sec-ch-ua-platform'];
         delete requestHeaders['sec-ch-ua-full-version-list'];
-        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="99", "Chromium";v="130"';
+        requestHeaders['Sec-Ch-Ua'] = '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"';
         requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
         requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
         requestHeaders['Sec-Fetch-Dest'] = 'document';
