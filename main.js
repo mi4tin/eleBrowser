@@ -198,6 +198,17 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         console.error('设置 WebContentsView 协议拦截失败:', e);
     }
 
+    // 打印该标签页加载的资源链接（仅当前 view 的请求）
+    const wcId = view.webContents.id;
+    view.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+        return
+        if (details.webContentsId === wcId) {
+            const type = details.resourceType || 'other';
+            console.log(`[资源加载] tabId=${tabId} type=${type} url=${details.url}`);
+        }
+        callback({});
+    });
+
     var viewData={}
 
     // 转发 WebContentsView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
