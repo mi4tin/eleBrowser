@@ -201,11 +201,10 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     // 打印该标签页加载的资源链接（仅当前 view 的请求）
     const wcId = view.webContents.id;
     view.webContents.session.webRequest.onBeforeRequest((details, callback) => {
-        return
-        if (details.webContentsId === wcId) {
-            const type = details.resourceType || 'other';
-            console.log(`[资源加载] tabId=${tabId} type=${type} url=${details.url}`);
-        }
+        // if (details.webContentsId === wcId) {
+        //     const type = details.resourceType || 'other';
+        //     console.log(`[资源加载] tabId=${tabId} type=${type} url=${details.url}`);
+        // }
         callback({});
     });
 
