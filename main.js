@@ -1,6 +1,9 @@
 const { app , BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 
+// 与 Chrome 一致的 User-Agent，避免部分站点（如云控制台登录页）因检测到 Electron 而返回空白或限制内容
+const CUSTOM_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+
 // WebContentsView 管理器 - 存储所有标签页 WebContentsView 实例
 const browserViews = new Map(); // Map<tabId, WebContentsView>
 let tabIdCounter = 0; //标签页ID计数器
@@ -176,6 +179,9 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     // 存储 WebContentsView 实例
     browserViews.set(tabId, view);
     
+    // 显式设置 Chrome 风格 User-Agent，避免云控制台等站点返回空白页（Chrome 可打开、Electron 空白时多为 UA/环境检测）
+    view.webContents.setUserAgent(CUSTOM_USER_AGENT);
+
     // 设置 WebContentsView 到窗口
     window.contentView.addChildView(view);
     
@@ -262,7 +268,17 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 console.error('加载并恢复划线信息失败:', e);
             }
         });
-        
+
+        // 主框架或子资源加载失败时打印，便于排查空白页（如云控制台登录页）
+        view.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+            if (isMainFrame) {
+                console.warn(`[WebContentsView tabId=${tabId}] 主框架加载失败: ${errorCode} ${errorDescription} ${validatedURL}`);
+            }
+        });
+        view.webContents.on('console-message', (_event, level, message) => {
+            if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
+        });
+
         // 监听did-stop-loading事件，处理同一标签页内的导航,每次加载页面都会执行
         view.webContents.on('did-stop-loading', async () => {
             try {
@@ -719,7 +735,7 @@ app.on('web-contents-created', (event, contents) => {
                                     console.log('打开开发者工具123, type:');
                                     contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
                                 }else{
-                                    contents.openDevTools();
+                                    contents.openDevTools();//会默认选择上次使用的模式
                                     // contents.openDevTools({ mode: 'detach' });
                                 }
                                 
@@ -1001,8 +1017,7 @@ app.whenReady().then(() => {
     app.setAppUserModelId('com.elebrowser.app');
 
     // 在 session 级别设置 User-Agent，使主文档和所有子资源请求均生效（避免 onBeforeSendHeaders 对部分子资源不生效）
-    const customUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 QuarkPC/6.5.0.748"//'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';
-    session.defaultSession.setUserAgent(customUserAgent);
+    session.defaultSession.setUserAgent(CUSTOM_USER_AGENT);
 
     // 全局请求头：仅注册一次，对所有 webContents 的请求（含子资源）统一生效
     session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
