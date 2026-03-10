@@ -627,31 +627,8 @@ app.on('web-contents-created', (event, contents) => {
         callback({ responseHeaders });
     });
     
-    // 修改 User-Agent 为标准 Chrome 浏览器，避免服务器拒绝请求（如返回400错误）
-    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';//'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 QuarkPC/6.4.6.749'//
-    contents.session.webRequest.onBeforeSendHeaders((details, callback) => {
-        const requestHeaders = details.requestHeaders || {};
-        requestHeaders['User-Agent'] = customUserAgent;
-        requestHeaders['Cache-Control'] = 'max-age=0';
-        
+    // User-Agent 与请求头已在 app.whenReady 中通过 session.defaultSession.setUserAgent 与 onBeforeSendHeaders 统一设置，对所有请求（含子资源）生效
 
-        // requestHeaders['Cookie'] = 'Pj1FZATFdwCwO=60xKueamtlSRkhGbWSWeJbhyz4OVdc88Dngn7Aekkj7YjcmLr7N_GvWHHXfyratUUeXcSG0_h9EjZZgwAdcG9ZQa; enable_Pj1FZATFdwCw=true; Pj1FZATFdwCwP=0FJMDfr5kmWK8Y5aazvGxPfQ0vQZUHi8jkdVhN0NBeFb5Wr0rb_5eB.OnunoeVLe0Ilq1u3sJpf8cbj41of3ZDjb3jMpnOrYCWnAVV81FeFDr7gGsMn3tWmsKwg8HSBHA0WPWxv71q71v9M4WCN95SleL1SansDDuaAwcVi1Q_1FKPj3OlXwCGynp5WDwa2HsyihWFKLRn74OKC3nAUPVM4yVMgwL7PtrOjsZ4CuF8v.IFydc7p1RH6sffMfbPa.9y4ChKlU32nf9OJO3L4U3I3bzWBnpVyZIGYF2qruKDJb7PTdX7vEbnn7pSRn_oaaOobeu5Ur1s9hVcXHWwyi3eVj4EFPpTd0TPsoFfVgdL2LOvKwhrFzxZUy6deqOB4D7.bpmznELjJ21usQWXqTXjKY3uDGvDzcZbbmnG58rRgL';
-
-        // 添加 Accept-Language 头，解决某些服务器返回400错误的问题
-        requestHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9';
-
-        // 先删除 Chromium/Electron 自动设置的小写 Client Hints 头，避免大小写不同导致重复发送
-        delete requestHeaders['sec-ch-ua'];
-        delete requestHeaders['sec-ch-ua-mobile'];
-        delete requestHeaders['sec-ch-ua-platform'];
-        delete requestHeaders['sec-ch-ua-full-version-list'];
-
-        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="12", "Chromium";v="142"'//'"Not?A_Brand";v="99", "Chromium";v="130"'//;
-        requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
-        requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
-        callback({ requestHeaders });
-    });
-    
     // 允许 webview 加载本地资源（Electron 内部资源）
     contents.session.webRequest.onBeforeRequest({ urls: ['file://*'] }, (details, callback) => {
         // 对于 xmtls.wasm 文件请求，返回一个空的 wasm 文件而不是取消请求
@@ -1022,6 +999,25 @@ app.on('web-contents-created', (event, contents) => {
 
 app.whenReady().then(() => {
     app.setAppUserModelId('com.elebrowser.app');
+
+    // 在 session 级别设置 User-Agent，使主文档和所有子资源请求均生效（避免 onBeforeSendHeaders 对部分子资源不生效）
+    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';
+    session.defaultSession.setUserAgent(customUserAgent);
+
+    // 全局请求头：仅注册一次，对所有 webContents 的请求（含子资源）统一生效
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+        const requestHeaders = details.requestHeaders || {};
+        requestHeaders['Cache-Control'] = 'max-age=0';
+        // requestHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9';
+        delete requestHeaders['sec-ch-ua'];
+        delete requestHeaders['sec-ch-ua-mobile'];
+        delete requestHeaders['sec-ch-ua-platform'];
+        delete requestHeaders['sec-ch-ua-full-version-list'];
+        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="12", "Chromium";v="142"';
+        requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
+        requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
+        callback({ requestHeaders });
+    });
 
     // SSL证书错误消息映射
     function getCertificateErrorMessage(error) {
