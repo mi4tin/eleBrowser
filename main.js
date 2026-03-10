@@ -170,7 +170,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             // 指定 preload 脚本以暴露受限的 ipc API
             preload: path.join(__dirname, 'preload-browserview.js'),
             // 禁用外部协议处理，防止系统弹窗
-            disableDialogs: false
+            disableDialogs: false,
+             disableBlinkFeatures: 'Autofill'
         }
     });
     // 透明背景（WebContentsView 默认白底）
@@ -730,7 +731,8 @@ app.on('web-contents-created', (event, contents) => {
 
                                 const url = contents.getURL();
                                 console.log('调用 openDevTools，URL:',type, url,url.endsWith('search-panel.html'));
-                                
+                                // 注意：打开 DevTools 时控制台可能出现 "Autofill.enable" / "Autofill.setAddresses" wasn't found 的 CDP 错误，
+                                // 这是 Electron 内嵌 Chromium 未实现 Autofill 协议导致的已知问题，不影响功能，可忽略。
                                 if (type !== 'window'||url.endsWith('search-panel.html')) {
                                     console.log('打开开发者工具123, type:');
                                     contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
@@ -1023,14 +1025,18 @@ app.whenReady().then(() => {
     session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
         const requestHeaders = details.requestHeaders || {};
         requestHeaders['Cache-Control'] = 'max-age=0';
-        // requestHeaders['Accept-Language'] = 'zh-CN,zh;q=0.9';
         delete requestHeaders['sec-ch-ua'];
         delete requestHeaders['sec-ch-ua-mobile'];
         delete requestHeaders['sec-ch-ua-platform'];
         delete requestHeaders['sec-ch-ua-full-version-list'];
-        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="99", "Chromium";v="130"'//'"Not?A_Brand";v="12", "Chromium";v="142"';
+        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="99", "Chromium";v="130"';
         requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
         requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
+        requestHeaders['Sec-Fetch-Dest'] = 'document';
+        requestHeaders['Sec-Fetch-Mode'] = 'navigate';
+        requestHeaders['Sec-Fetch-Site'] = 'none';
+        requestHeaders['Sec-Fetch-User'] = '?1';
+        requestHeaders['Accept-Encoding'] = 'gzip, deflate, br';
         callback({ requestHeaders });
     });
 
@@ -1208,8 +1214,8 @@ function newWindow() {
             nodeIntegration: true,
             contextIsolation: false,
             webviewTag: true,
-            // 禁用外部协议处理，防止系统弹窗
-            disableDialogs: false
+            disableDialogs: false,
+            disableBlinkFeatures: 'Autofill'
         }
     });
 
