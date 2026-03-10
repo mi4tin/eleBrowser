@@ -170,6 +170,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             disableDialogs: false
         }
     });
+    // 透明背景（WebContentsView 默认白底）
+    // view.setBackgroundColor('#00000000');
     
     // 存储 WebContentsView 实例
     browserViews.set(tabId, view);
@@ -179,6 +181,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     
     // 设置 WebContentsView 的尺寸和位置
     const contentBounds = window.getContentBounds();
+
     view.setBounds({
         x: 0,
         y: viewY, // toolbar高度
@@ -390,7 +393,7 @@ function resizeBrowserViews(window) {
     
 }
 
-const panelWidth = 488;
+const panelWidth = 444;
 const panelHeight = 58;
 const panelY = 0 ;
 const panelPadding = 53;
@@ -409,6 +412,9 @@ function createSearchPanel(window) {
             preload: path.join(__dirname, 'preload-search-panel.js')
         }
     });
+
+    // 透明背景（WebContentsView 默认白底）
+    panel.setBackgroundColor('#00000000');
 
     console.log('创建搜索面板 WebContentsView');
 
