@@ -1001,7 +1001,7 @@ app.whenReady().then(() => {
     app.setAppUserModelId('com.elebrowser.app');
 
     // 在 session 级别设置 User-Agent，使主文档和所有子资源请求均生效（避免 onBeforeSendHeaders 对部分子资源不生效）
-    const customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';
+    const customUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 QuarkPC/6.5.0.748"//'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.177 Safari/537.36';
     session.defaultSession.setUserAgent(customUserAgent);
 
     // 全局请求头：仅注册一次，对所有 webContents 的请求（含子资源）统一生效
@@ -1013,7 +1013,7 @@ app.whenReady().then(() => {
         delete requestHeaders['sec-ch-ua-mobile'];
         delete requestHeaders['sec-ch-ua-platform'];
         delete requestHeaders['sec-ch-ua-full-version-list'];
-        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="12", "Chromium";v="142"';
+        requestHeaders['Sec-Ch-Ua'] = '"Not?A_Brand";v="99", "Chromium";v="130"'//'"Not?A_Brand";v="12", "Chromium";v="142"';
         requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
         requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
         callback({ requestHeaders });
