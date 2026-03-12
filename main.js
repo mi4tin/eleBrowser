@@ -1,6 +1,16 @@
 const { app , BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 
+/** 获取 preload 脚本的绝对路径（开发与打包均可用；打包且 asarUnpack 时指向 app.asar.unpacked 内文件） */
+function getPreloadPath(filename) {
+    if (!app.isPackaged) {
+        return path.join(__dirname, filename);
+    }
+    // 打包后 __dirname 为 .../resources/app.asar，preload 解包在 app.asar.unpacked 下
+    const resourcesDir = path.dirname(__dirname);
+    return path.join(resourcesDir, 'app.asar.unpacked', filename);
+}
+
 // 与 Chrome 一致的 User-Agent，避免部分站点（如云控制台登录页）因检测到 Electron 而返回空白或限制内容
 const CUSTOM_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36';
 
@@ -60,7 +70,7 @@ function createHistoryAutocompleteView(window) {
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
-                preload: path.join(__dirname, 'preload-history-autocomplete.js')
+                preload: getPreloadPath('preload-history-autocomplete.js')
             }
         });
         
@@ -168,7 +178,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             nodeIntegration: false,
             contextIsolation: true,
             // 指定 preload 脚本以暴露受限的 ipc API
-            preload: path.join(__dirname, 'preload-browserview.js'),
+            preload: getPreloadPath('preload-browserview.js'),
             // 禁用外部协议处理，防止系统弹窗
             disableDialogs: false,
             //  disableBlinkFeatures: 'Autofill'
@@ -436,7 +446,7 @@ function createSearchPanel(window) {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload-search-panel.js')
+            preload: getPreloadPath('preload-search-panel.js')
         }
     });
 
