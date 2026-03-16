@@ -312,6 +312,11 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             try {
                 console.log("@@@did-finish-load")
                 lastActiveTabId = tabId;
+                const title = v.webContents.getTitle();
+                if (title) {
+                    viewData["title"] = title;
+                    sendUpdate(viewData);
+                }
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
             }
@@ -335,6 +340,12 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
 
                 console.log("@@@did-stop-loading",url)
                 lastActiveTabId = tabId;
+
+                const title = v.webContents.getTitle();
+                if (title) {
+                    viewData["title"] = title;
+                    sendUpdate(viewData);
+                }
 
                  setTimeout(async () => {
                 await loadAndRestoreUnderline(url, v.webContents);    
