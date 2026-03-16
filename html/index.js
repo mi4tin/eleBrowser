@@ -500,6 +500,7 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
 
         // 调用主进程的 createBrowserView 方法
         const tabId = await ipcRenderer.invoke('create-browser-view', url);
+        addressInput.value = url;
         console.log('创建BrowserView标签页成功，tabId:', tabId);
 
         // 创建 tab 按钮
