@@ -691,6 +691,7 @@ refreshBtn.addEventListener('click', async () => {
 
 addressInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
+        console.log("11keydown", e.key);
         loadAddressForCurrentTab();
     }
 });
@@ -966,6 +967,7 @@ addressInput.addEventListener('input', (e) => {
 
 //地址栏键盘事件
 addressInput.addEventListener('keydown', async (e) => {
+    console.log("12keydown", e.key);
     // 回车时：若当前输入像直接访问的 URL/域名，则直接加载该地址，不交给自动补全（避免 123.huahu.cool 被补全成 123.baidu.com）
     if (e.key === 'Enter' && looksLikeDirectUrl(addressInput.value)) {
         e.preventDefault();

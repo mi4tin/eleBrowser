@@ -789,7 +789,7 @@ app.on('web-contents-created', (event, contents) => {
                                 console.log('调用 openDevTools，URL:',type, url,url.endsWith('search-panel.html'));
                                 // 注意：打开 DevTools 时控制台可能出现 "Autofill.enable" / "Autofill.setAddresses" wasn't found 的 CDP 错误，
                                 // 这是 Electron 内嵌 Chromium 未实现 Autofill 协议导致的已知问题，不影响功能，可忽略。
-                                if (type !== 'window'||url.endsWith('search-panel.html')) {
+                                if (url.startsWith('file://')) {
                                     console.log('打开开发者工具123, type:');
                                     contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
                                 }else{
