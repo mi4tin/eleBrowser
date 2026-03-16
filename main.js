@@ -228,39 +228,77 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     var viewData={}
 
     // 转发 WebContentsView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
-    try {
-        const sendUpdate = (data) => {
-            try {
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('browser-view-updated', Object.assign({ tabId }, data));
+    const sendUpdate = (data) => {
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('browser-view-updated', Object.assign({ tabId }, data));
+            }
+        } catch (err) {
+            console.error('发送 browser-view-updated 失败:', err);
+        }
+    };
+
+    function setupViewListeners(v) {
+        v.webContents.on('did-navigate', (_event, navigationUrl, httpResponseCode) => {
+            if(navigationUrl){
+                viewData["url"]=navigationUrl;
+                sendUpdate(viewData);
+            }
+            if (httpResponseCode >= 400 || httpResponseCode <= 0) {
+                console.log(`[ERROR269] url=${navigationUrl} status=${httpResponseCode}, retrying with contextIsolation=false`);
+                if (!v._retriedWithoutContextIsolation) {
+                    v._retriedWithoutContextIsolation = true;
+                    const retryUrl = navigationUrl;
+                    setTimeout(() => {
+                        try {
+                            const newView = new WebContentsView({
+                                webPreferences: {
+                                    nodeIntegration: false,
+                                    contextIsolation: false,
+                                    preload: getPreloadPath('preload-browserview.js'),
+                                    disableDialogs: false,
+                                }
+                            });
+                            newView._retriedWithoutContextIsolation = true;
+                            newView.webContents.setUserAgent(CUSTOM_USER_AGENT);
+                            window.contentView.removeChildView(v);
+                            window.contentView.addChildView(newView);
+                            const contentBounds = window.getContentBounds();
+                            newView.setBounds({
+                                x: 0,
+                                y: viewY,
+                                width: contentBounds.width,
+                                height: contentBounds.height - viewY
+                            });
+                            browserViews.set(tabId, newView);
+                            try { setupProtocolBlocking(newView.webContents); } catch (e) {}
+                            setupViewListeners(newView);
+                            try { v.webContents.destroy(); } catch (_) {}
+                            newView.webContents.loadURL(retryUrl);
+                            console.log(`[RETRY] tabId=${tabId} reloaded with contextIsolation=false: ${retryUrl}`);
+                        } catch (err) {
+                            console.error(`[RETRY] tabId=${tabId} failed:`, err);
+                        }
+                    }, 0);
                 }
-            } catch (err) {
-                console.error('发送 browser-view-updated 失败:', err);
             }
-        };
+        });
 
-        view.webContents.on('did-navigate', (_event, navigationUrl) => {
+        v.webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
             if(navigationUrl){
                 viewData["url"]=navigationUrl;
                 sendUpdate(viewData);
             }
         });
 
-        view.webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
-            if(navigationUrl){
-                viewData["url"]=navigationUrl;
-                sendUpdate(viewData);
-            }
-        });
-
-        view.webContents.on('page-title-updated', (_event, title) => {
+        v.webContents.on('page-title-updated', (_event, title) => {
             if(title){
                 viewData["title"]=title;
                 sendUpdate(viewData);
             }
         });
 
-        view.webContents.on('did-start-loading', () => {
+        v.webContents.on('did-start-loading', () => {
             try {
                 if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: true });
@@ -270,52 +308,45 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
 
-        view.webContents.on('did-finish-load', () => {
+        v.webContents.on('did-finish-load', () => {
             try {
                 console.log("@@@did-finish-load")
-                // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
             }
         });
 
-        // 主框架或子资源加载失败时打印，便于排查空白页（如云控制台登录页）
-        view.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        v.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
             if (isMainFrame) {
                 console.warn(`[WebContentsView tabId=${tabId}] 主框架加载失败: ${errorCode} ${errorDescription} ${validatedURL}`);
             }
         });
-        view.webContents.on('console-message', (_event, level, message) => {
+        v.webContents.on('console-message', (_event, level, message) => {
             if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
         });
 
-        // 监听did-stop-loading事件，处理同一标签页内的导航,每次加载页面都会执行
-        view.webContents.on('did-stop-loading', async () => {
+        v.webContents.on('did-stop-loading', async () => {
             try {
                 if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: false });
                 }
-                const url = view.webContents.getURL();
+                const url = v.webContents.getURL();
 
                 console.log("@@@did-stop-loading",url)
-                // 记录最近激活的 tabId
                 lastActiveTabId = tabId;
 
-                // 加载并恢复划线信息
                  setTimeout(async () => {
-                await loadAndRestoreUnderline(url, view.webContents);    
-                }, 0);//增加延迟加载，因为有些数据是异步加载，需要一定时间
+                await loadAndRestoreUnderline(url, v.webContents);    
+                }, 0);
                 
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
             }
         });
 
-        // 监听页面favicon更新事件
-        view.webContents.on('page-favicon-updated', (_event, favicons) => {
+        v.webContents.on('page-favicon-updated', (_event, favicons) => {
             if(favicons && favicons.length > 0){
-                // 发送favicon更新事件到渲染进程
                 try {
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.send('browser-view-favicon-updated', { tabId, favicon: favicons[0] });
@@ -325,6 +356,10 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 }
             }
         });
+    }
+
+    try {
+        setupViewListeners(view);
     } catch (e) {
         console.error('注册 WebContentsView 事件监听失败:', e);
     }
