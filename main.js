@@ -69,7 +69,7 @@ function createHistoryAutocompleteView(window) {
         historyAutocompleteView = new WebContentsView({
             webPreferences: {
                 nodeIntegration: false,
-                contextIsolation: true,
+                contextIsolation: true,//contextIsolation为false时，preload脚本不能加载
                 preload: getPreloadPath('preload-history-autocomplete.js')
             }
         });
@@ -254,8 +254,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                             const newView = new WebContentsView({
                                 webPreferences: {
                                     nodeIntegration: false,
-                                    contextIsolation: false,
-                                    preload: getPreloadPath('preload-browserview.js'),
+                                    contextIsolation: false,//contextIsolation为false时，preload脚本不能加载
+                                    // preload: getPreloadPath('preload-browserview.js'),
                                     disableDialogs: false,
                                 }
                             });
