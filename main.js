@@ -83,6 +83,13 @@ function createHistoryAutocompleteView(window) {
         // 加载自动匹配页面
         const autocompleteUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/history-autocomplete.html';
         historyAutocompleteView.webContents.loadURL(autocompleteUrl);
+
+        // loadURL 是异步的，页面加载完成时可能抢走焦点，需要还给主渲染进程
+        historyAutocompleteView.webContents.once('did-finish-load', () => {
+            if (window && !window.isDestroyed()) {
+                window.webContents.focus();
+            }
+        });
         
         console.log('历史记录自动匹配 WebContentsView 创建成功');
         return historyAutocompleteView;
@@ -95,6 +102,7 @@ function createHistoryAutocompleteView(window) {
 // 显示历史记录自动匹配 WebContentsView
 function showHistoryAutocomplete(window, items, addressInputBounds) {
     if (!historyAutocompleteView) {
+        console.log("createHistoryAutocompleteView")
         createHistoryAutocompleteView(window);
     }
     
@@ -103,6 +111,8 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
     try {
         // 确保 WebContentsView 被添加到窗口中
         window.contentView.addChildView(historyAutocompleteView);
+        // addChildView 会让新 view 抢走焦点，立即还给主渲染进程（地址栏）
+        // window.webContents.focus();
         
         //计算位置和尺寸
         const contentBounds = window.getContentBounds();
