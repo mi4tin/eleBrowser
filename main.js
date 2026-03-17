@@ -2837,10 +2837,11 @@ const template = [
         label: '视图',
 
         submenu: [
-            { role: 'resetzoom', label: '重置缩放', visible: false, },
-            { role: 'zoomin', label: '放大' },
+            { role: 'resetzoom', label: '重置缩放' },
+            { role: 'zoomin', label: '放大0',visible: false,accelerator: isMac ? 'Cmd+Plus' : 'Ctrl+=' },
+             { role: 'zoomin', label: '放大' },
             { role: 'zoomout', label: '缩小' },
-            { role: 'togglefullscreen', label: '全屏' }
+            { role: 'togglefullscreen', label: '全屏/退出全屏',accelerator: isMac ? 'Cmd+F11' : 'Ctrl+F11' },
         ]
     }
 ];
