@@ -1303,9 +1303,10 @@ function newWindow() {
 
     // 监听窗口大小改变，调整BrowserView尺寸
     myWindow.on('resize', () => {
+        console.log('窗口大小改变，调整BrowserView尺寸');
         resizeBrowserViews(myWindow);
     });
-
+    
     // 检查是否需要打开测试页面
     const shouldOpenTestPage = process.argv.includes('--test-search');
     if (shouldOpenTestPage) {
@@ -1341,8 +1342,25 @@ function newWindow() {
     });
 
     myWindow.webContents.on('before-input-event', (event, input) => {
-        console.log("before-input-event", input)//测试输入键
+        // console.log("before-input-event", input)//测试输入键
     });
+
+    let zoomLevel = 0
+    myWindow.on('ready-to-show', () => {
+        zoomLevel=myWindow.webContents.zoomLevel
+        console.log("zoomLevel",zoomLevel)
+        resizeBrowserViews(myWindow);
+    });
+
+    myWindow.webContents.on('zoom-changed',(e, zoomDirection)=>{
+        console.log('zoom-changed',zoomLevel, zoomDirection)
+    if (zoomDirection === 'in') {
+      zoomLevel =  zoomLevel += 0.2
+    } else {
+      zoomLevel =  zoomLevel -= 0.2
+    }
+    myWindow.webContents.setZoomLevel(zoomLevel)
+  })
 
     // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）
     registerAppShortcuts();
