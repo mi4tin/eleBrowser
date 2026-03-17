@@ -327,7 +327,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         });
         
         v.webContents.on('zoom-changed', (e, zoomDirection) => {
-            console.log('zoom-changed', zoomLevel, zoomDirection)
+            // console.log('zoom-changed', zoomLevel, zoomDirection)
             if (zoomDirection === 'in') {
                 zoomLevel = zoomLevel += 0.2
             } else {
