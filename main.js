@@ -1341,29 +1341,7 @@ function newWindow() {
     });
 
     myWindow.webContents.on('before-input-event', (event, input) => {
-        console.log("before-input-event", input)
-    });
-
-    // 监听鼠标滚轮事件，实现 Ctrl+滚轮缩放 tag
-    app.on('wheel', (event) => {
-        if (event.ctrlKey && lastActiveTabId !== null) {
-            const activeView = browserViews.get(lastActiveTabId);
-            if (activeView && activeView.webContents && !activeView.webContents.isDestroyed()) {
-                event.preventDefault();
-                const currentZoom = activeView.webContents.getZoomLevel();
-                const zoomStep = 0.5;
-
-                if (event.deltaY < 0) {
-                    const newZoom = currentZoom + zoomStep;
-                    activeView.webContents.setZoomLevel(newZoom);
-                    console.log(`页面放大: ${newZoom}`);
-                } else {
-                    const newZoom = currentZoom - zoomStep;
-                    activeView.webContents.setZoomLevel(newZoom);
-                    console.log(`页面缩小: ${newZoom}`);
-                }
-            }
-        }
+        console.log("before-input-event", input)//测试输入键
     });
 
     // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）
