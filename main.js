@@ -1,4 +1,4 @@
-const { app , BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 
 /** 获取 preload 脚本的绝对路径（开发与打包均可用；打包且 asarUnpack 时指向 app.asar.unpacked 内文件） */
@@ -31,7 +31,7 @@ function isCustomProtocol(url) {
         const parsedUrl = new URL(url);
         return parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'file:';
     } catch (e) {
-        console.error("isCustomProtocol err=>",e)
+        console.error("isCustomProtocol err=>", e)
         // 如果 URL 解析失败，可能是相对路径，返回 false（不是自定义协议）
         return false;
     }
@@ -63,7 +63,7 @@ function createHistoryAutocompleteView(window) {
         }
         historyAutocompleteView = null;
     }
-    
+
     try {
         // 创建 WebContentsView 实例
         historyAutocompleteView = new WebContentsView({
@@ -73,13 +73,13 @@ function createHistoryAutocompleteView(window) {
                 preload: getPreloadPath('preload-history-autocomplete.js')
             }
         });
-        
+
         // 透明背景（WebContentsView 默认白底）
         historyAutocompleteView.setBackgroundColor('#00000000');
-        
+
         // 设置 WebContentsView 到窗口
         window.contentView.addChildView(historyAutocompleteView);
-        
+
         // 加载自动匹配页面
         const autocompleteUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/history-autocomplete.html';
         historyAutocompleteView.webContents.loadURL(autocompleteUrl);
@@ -90,7 +90,7 @@ function createHistoryAutocompleteView(window) {
                 window.webContents.focus();
             }
         });
-        
+
         console.log('历史记录自动匹配 WebContentsView 创建成功');
         return historyAutocompleteView;
     } catch (error) {
@@ -105,15 +105,15 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
         console.log("createHistoryAutocompleteView")
         createHistoryAutocompleteView(window);
     }
-    
+
     if (!historyAutocompleteView) return;
-    
+
     try {
         // 确保 WebContentsView 被添加到窗口中
         window.contentView.addChildView(historyAutocompleteView);
         // addChildView 会让新 view 抢走焦点，立即还给主渲染进程（地址栏）
         // window.webContents.focus();
-        
+
         //计算位置和尺寸
         const contentBounds = window.getContentBounds();
         const itemHeight = 36; //项目的高度
@@ -121,7 +121,7 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
         const width = addressInputBounds.width;
         const x = addressInputBounds.x;
         const y = addressInputBounds.y + addressInputBounds.height;
-        
+
         // 设置位置和尺寸
         historyAutocompleteView.setBounds({
             x: x,
@@ -129,7 +129,7 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
             width: width,
             height: maxHeight
         });
-        
+
         // 发送匹配结果到 WebContentsView
         if (!historyAutocompleteView.webContents.isDestroyed()) {
             console.log('发送历史记录自动匹配数据到 WebContentsView');
@@ -137,7 +137,7 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
         }
 
         console.log('显示历史记录自动匹配 WebContentsView.items[0]:', JSON.stringify(items[0]));
-        
+
         console.log(`显示历史记录自动匹配，项目数: ${items.length}, 位置: (${x}, ${y}),尺: ${width}x${maxHeight}`);
     } catch (error) {
         console.error('显示历史记录自动匹配失败:', error);
@@ -147,7 +147,7 @@ function showHistoryAutocomplete(window, items, addressInputBounds) {
 // 隐藏历史记录自动匹配 WebContentsView
 function hideHistoryAutocomplete(window) {
     if (!historyAutocompleteView) return;
-    
+
     try {
         if (window && !window.isDestroyed()) {
             window.contentView.removeChildView(historyAutocompleteView);
@@ -161,7 +161,7 @@ function hideHistoryAutocomplete(window) {
 // 销毁历史记录自动匹配 WebContentsView
 function destroyHistoryAutocompleteView() {
     if (!historyAutocompleteView) return;
-    
+
     try {
         if (historyAutocompleteView.webContents && !historyAutocompleteView.webContents.isDestroyed()) {
             historyAutocompleteView.webContents.destroy();
@@ -181,7 +181,7 @@ function destroyHistoryAutocompleteView() {
  */
 function createBrowserView(window, url = 'https://www.baidu.com') {
     const tabId = ++tabIdCounter;
-    
+
     // 创建 WebContentsView 实例
     const view = new WebContentsView({
         webPreferences: {
@@ -196,16 +196,16 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     });
     // 透明背景（WebContentsView 默认白底）
     // view.setBackgroundColor('#00000000');
-    
+
     // 存储 WebContentsView 实例
     browserViews.set(tabId, view);
-    
+
     // 显式设置 Chrome 风格 User-Agent，避免云控制台等站点返回空白页（Chrome 可打开、Electron 空白时多为 UA/环境检测）
     view.webContents.setUserAgent(CUSTOM_USER_AGENT);
 
     // 设置 WebContentsView 到窗口
     window.contentView.addChildView(view);
-    
+
     // 设置 WebContentsView 的尺寸和位置
     const contentBounds = window.getContentBounds();
 
@@ -215,7 +215,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         width: contentBounds.width,
         height: contentBounds.height - viewY
     });
-    
+
     // 加载URL
     view.webContents.loadURL(url);
     // 设置协议拦截和其他安全处理
@@ -235,7 +235,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         callback({});
     });
 
-    var viewData={}
+    var viewData = {}
 
     // 转发 WebContentsView 的导航/标题事件到渲染进程，以便更新地址栏和标签标题
     const sendUpdate = (data) => {
@@ -250,8 +250,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
 
     function setupViewListeners(v) {
         v.webContents.on('did-navigate', (_event, navigationUrl, httpResponseCode) => {
-            if(navigationUrl){
-                viewData["url"]=navigationUrl;
+            if (navigationUrl) {
+                viewData["url"] = navigationUrl;
                 sendUpdate(viewData);
             }
             if (httpResponseCode >= 400 || httpResponseCode <= 0) {
@@ -281,9 +281,9 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                                 height: contentBounds.height - viewY
                             });
                             browserViews.set(tabId, newView);
-                            try { setupProtocolBlocking(newView.webContents); } catch (e) {}
+                            try { setupProtocolBlocking(newView.webContents); } catch (e) { }
                             setupViewListeners(newView);
-                            try { v.webContents.destroy(); } catch (_) {}
+                            try { v.webContents.destroy(); } catch (_) { }
                             newView.webContents.loadURL(retryUrl);
                             console.log(`[RETRY] tabId=${tabId} reloaded with contextIsolation=false: ${retryUrl}`);
                         } catch (err) {
@@ -295,15 +295,15 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         });
 
         v.webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
-            if(navigationUrl){
-                viewData["url"]=navigationUrl;
+            if (navigationUrl) {
+                viewData["url"] = navigationUrl;
                 sendUpdate(viewData);
             }
         });
 
         v.webContents.on('page-title-updated', (_event, title) => {
-            if(title){
-                viewData["title"]=title;
+            if (title) {
+                viewData["title"] = title;
                 sendUpdate(viewData);
             }
         });
@@ -348,7 +348,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 }
                 const url = v.webContents.getURL();
 
-                console.log("@@@did-stop-loading",url)
+                console.log("@@@did-stop-loading", url)
                 lastActiveTabId = tabId;
 
                 const title = v.webContents.getTitle();
@@ -357,17 +357,17 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                     sendUpdate(viewData);
                 }
 
-                 setTimeout(async () => {
-                await loadAndRestoreUnderline(url, v.webContents);    
+                setTimeout(async () => {
+                    await loadAndRestoreUnderline(url, v.webContents);
                 }, 0);
-                
+
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
             }
         });
 
         v.webContents.on('page-favicon-updated', (_event, favicons) => {
-            if(favicons && favicons.length > 0){
+            if (favicons && favicons.length > 0) {
                 try {
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.send('browser-view-favicon-updated', { tabId, favicon: favicons[0] });
@@ -384,9 +384,9 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     } catch (e) {
         console.error('注册 WebContentsView 事件监听失败:', e);
     }
-    
+
     console.log(`创建 WebContentsView，tabId: ${tabId}, URL: ${url}`);
-    
+
     return tabId;
 }
 
@@ -401,22 +401,22 @@ function activateBrowserView(window, tabId) {
         console.error(`未找到tabId为${tabId}的 WebContentsView`);
         return;
     }
-    
+
     // 隐藏所有标签页视图（从 contentView 移除）
     browserViews.forEach(v => {
         window.contentView.removeChildView(v);
     });
-    
+
     // 显示指定的 WebContentsView
     window.contentView.addChildView(view);
     lastActiveTabId = tabId;
-    
+
     console.log(`激活 WebContentsView，tabId: ${tabId}`);
 
     // 如果存在搜索面板，将其重新添加以保证在最上层并重新定位
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
-            try { window.contentView.removeChildView(searchPanelView); } catch (e) {}
+            try { window.contentView.removeChildView(searchPanelView); } catch (e) { }
             window.contentView.addChildView(searchPanelView);
             // 重新定位
             const contentBounds = window.getContentBounds();
@@ -443,16 +443,16 @@ function closeBrowserView(window, tabId) {
         console.error(`未找到tabId为${tabId}的 WebContentsView`);
         return;
     }
-    
+
     // 从窗口移除 WebContentsView
     window.contentView.removeChildView(view);
-    
+
     // 销毁 webContents
     view.webContents.destroy();
-    
+
     // 从存储中删除
     browserViews.delete(tabId);
-    
+
     console.log(`关闭 WebContentsView，tabId: ${tabId}`);
 }
 
@@ -483,12 +483,12 @@ function resizeBrowserViews(window) {
             console.error('重新定位搜索面板失败:', e);
         }
     }
-    
+
 }
 
 const panelWidth = 444;
 const panelHeight = 58;
-const panelY = 0 ;
+const panelY = 0;
 const panelPadding = 53;
 // 创建并显示搜索面板（WebContentsView）
 function createSearchPanel(window) {
@@ -516,7 +516,7 @@ function createSearchPanel(window) {
 
     // 初始位置与尺寸（resize 时由 resizeBrowserViews 更新）
     const contentBounds = window.getContentBounds();
-   
+
     panel.setBounds({
         x: Math.max(0, contentBounds.width - panelWidth - panelPadding),
         y: panelY + panelPadding,
@@ -542,7 +542,7 @@ function createSearchPanel(window) {
         console.log('搜索面板 webContents 已销毁');
         searchPanelView = null;
     });
-    
+
     // 防止内存泄漏：限制事件监听器数量
     if (window.listenerCount && window.listenerCount('closed') > 10) {
         console.warn('检测到过多的 closed 事件监听器，可能存在内存泄漏');
@@ -558,10 +558,10 @@ function destroySearchPanel(window) {
         // 停止在页面中的查找
         const targetView = browserViews.get(lastActiveTabId) || Array.from(browserViews.values())[0];
         if (targetView && targetView.webContents && !targetView.webContents.isDestroyed()) {
-            try { targetView.webContents.stopFindInPage('clearSelection'); } catch (e) {}
+            try { targetView.webContents.stopFindInPage('clearSelection'); } catch (e) { }
         }
         if (window && !window.isDestroyed()) window.contentView.removeChildView(searchPanelView);
-        
+
         // 正确销毁搜索面板的webContents
         if (searchPanelView.webContents && !searchPanelView.webContents.isDestroyed()) {
             searchPanelView.webContents.destroy();
@@ -589,7 +589,7 @@ if (process.platform === 'win32') {
         app.quit();
         return;
     }
-    
+
     // 处理第二个实例（可能是通过协议启动）
     app.on('second-instance', (event, commandLine, workingDirectory) => {
         // 如果应用已经运行，第二个实例被启动（可能是协议链接）
@@ -606,9 +606,9 @@ if (process.platform === 'win32') {
             win.focus();
         }
     });
-    
+
     // 处理首次启动时的协议参数 - 直接忽略，不处理
-    const hasProtocolArg = process.argv.some(arg => 
+    const hasProtocolArg = process.argv.some(arg =>
         arg && (arg.includes('://') || arg.startsWith('bytedance') || arg.startsWith('douyin') || arg.startsWith('snssdk'))
     );
     if (hasProtocolArg) {
@@ -619,7 +619,7 @@ if (process.platform === 'win32') {
 // 为 webContents 设置协议拦截
 function setupProtocolBlocking(contents) {
     console.log('设置协议拦截，webContents ID:', contents.id);
-    
+
     // 监听控制台消息以调试问题（使用新的 Event 对象格式）
     contents.on('console-message', (event) => {
         const { level, message, line, sourceId } = event;
@@ -627,7 +627,7 @@ function setupProtocolBlocking(contents) {
             console.log(`[WebView Console] ${message}`);
         }
     });
-    
+
     // 拦截导航到自定义协议
     contents.on('will-navigate', (event, navigationUrl) => {
         console.log('will-navigate 事件:', navigationUrl);
@@ -670,7 +670,7 @@ function setupProtocolBlocking(contents) {
             }
         });
     }
-    
+
     // 额外拦截：监听所有导航请求
     contents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
         if (isCustomProtocol(validatedURL)) {
@@ -688,13 +688,13 @@ const webviewContentsMap = new Map();
 
 // 拦截所有 webContents 的自定义协议请求（包括 WebView、BrowserView、BrowserWindow)
 app.on('web-contents-created', (event, contents) => {
-    console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL(),"Type:", contents.getType());
+    console.log("web-contents-created, ID:", contents.id, "URL:", contents.getURL(), "Type:", contents.getType());
     setupProtocolBlocking(contents);
-    
+
     // 修改 CSP 以允许加载本地 wasm 文件等资源
     contents.session.webRequest.onHeadersReceived((details, callback) => {
         const responseHeaders = details.responseHeaders || {};
-        
+
         // 如果存在 CSP 头，修改它以允许本地资源
         if (responseHeaders['content-security-policy']) {
             responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map(csp => {
@@ -706,10 +706,10 @@ app.on('web-contents-created', (event, contents) => {
                 return csp;
             });
         }
-        
+
         callback({ responseHeaders });
     });
-    
+
     // User-Agent 与请求头已在 app.whenReady 中通过 session.defaultSession.setUserAgent 与 onBeforeSendHeaders 统一设置，对所有请求（含子资源）生效
 
     // 允许 webview 加载本地资源（Electron 内部资源）
@@ -721,7 +721,7 @@ app.on('web-contents-created', (event, contents) => {
             callback({});
             return;
         }
-        
+
         // 允许加载 Electron 内部的其他资源文件
         if (details.url.includes('electron.asar') || details.url.includes('electron/dist')) {
             callback({ cancel: false });
@@ -729,7 +729,7 @@ app.on('web-contents-created', (event, contents) => {
             callback({});
         }
     });
-    
+
     // 为所有 网页/窗口/BrowserView 添加右键菜单
     // 检查类型，区分 webview / window / browserView 等
     const type = (typeof contents.getType === 'function') ? contents.getType() : 'unknown';
@@ -738,159 +738,159 @@ app.on('web-contents-created', (event, contents) => {
     const shouldAttachContextMenu = isWeb || type === 'window' || type === 'browserView';
 
     console.log('web-contents-created, 是否是 网页:', isWeb, '类型:', type, '绑定右键菜单:', shouldAttachContextMenu)
-    
+
     // 注册全局事件监听器用于调试
     const handleSaveUnderlineRequest = (url, underlineInfo) => {
         console.log('全局监听到划线保存请求:', url, underlineInfo);
         saveUnderlineDirect(url, underlineInfo);
     };
-    
+
     // 将处理函数绑定到app上
     app.removeAllListeners('save-underline-request-debug');
     app.on('save-underline-request-debug', handleSaveUnderlineRequest);
-    
+
     if (shouldAttachContextMenu) {
         // 存储 webview 的 webContents
         const url = contents.getURL();
         if (url) {
             webviewContentsMap.set(url, contents);
         }
-        
+
         // 添加右键菜单
         contents.on('context-menu', (event, params) => {
             // 根据选中的文本决定是否启用复制选项
             const text = params.selectionText ? params.selectionText.trim() : '';
             const hasSelection = text.length > 0;
 
-            var selectedMenu=[]//选中文本的菜单项
-            var underlineMenu=[];//划线相关菜单项
-            var closeTabMenu=[];//关闭标签相关菜单项
-            
+            var selectedMenu = []//选中文本的菜单项
+            var underlineMenu = [];//划线相关菜单项
+            var closeTabMenu = [];//关闭标签相关菜单项
+
             //基础菜单项
-            var baseMenu=[ {
-                        label: '查看网页源码',
-                        click: () => {
-                            // 查看源码逻辑
-                            handleViewSource(contents);
-                        }
-                    },
-                    {
-                        label: '打开开发者工具',
-                        accelerator: 'F12',
-                        click: () => {
-                            try {
-                                console.log('打开开发者工具12, webContents id:', contents.id);
-                                // 记录当前 DevTools 状态
-                                const isOpened = typeof contents.isDevToolsOpened === 'function' ? contents.isDevToolsOpened() : false;
-                                console.log('DevTools 已打开:', isOpened);
+            var baseMenu = [{
+                label: '查看网页源码',
+                click: () => {
+                    // 查看源码逻辑
+                    handleViewSource(contents);
+                }
+            },
+            {
+                label: '打开开发者工具',
+                accelerator: 'F12',
+                click: () => {
+                    try {
+                        console.log('打开开发者工具12, webContents id:', contents.id);
+                        // 记录当前 DevTools 状态
+                        const isOpened = typeof contents.isDevToolsOpened === 'function' ? contents.isDevToolsOpened() : false;
+                        console.log('DevTools 已打开:', isOpened);
 
-                                // 尝试聚焦并显示所属窗口（如果存在）
-                                try {
-                                    const win = BrowserWindow.fromWebContents(contents);
-                                    if (win && !win.isDestroyed()) {
-                                        win.show();
-                                        win.focus();
-                                    }
-                                } catch (err) {
-                                    console.log('无法从 webContents 获取窗口或聚焦窗口:', err && err.message);
-                                }
-
-                                const url = contents.getURL();
-                                console.log('调用 openDevTools，URL:',type, url,url.endsWith('search-panel.html'));
-                                // 注意：打开 DevTools 时控制台可能出现 "Autofill.enable" / "Autofill.setAddresses" wasn't found 的 CDP 错误，
-                                // 这是 Electron 内嵌 Chromium 未实现 Autofill 协议导致的已知问题，不影响功能，可忽略。
-                                if (url.startsWith('file://')) {
-                                    console.log('打开开发者工具123, type:');
-                                    contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
-                                }else{
-                                    contents.openDevTools();//会默认选择上次使用的模式
-                                    // contents.openDevTools({ mode: 'detach' });
-                                }
-                                
-                                console.log('已调用 openDevTools，检查是否成功打开');
-
-                                // 若若干毫秒后仍未打开，记录并再次尝试（用于排查隐藏/被覆盖问题）
-                                setTimeout(() => {
-                                    const openedAfter = typeof contents.isDevToolsOpened === 'function' ? contents.isDevToolsOpened() : false;
-                                    console.log('延迟检查 DevTools 已打开:', openedAfter);
-                                    if (!openedAfter) {
-                                        console.log('DevTools 未显示，尝试再次打开（detach）');
-                                        try { contents.openDevTools({ mode: 'detach' }); } catch (e) { console.error('再次打开 DevTools 失败:', e && e.message); }
-                                    }
-                                }, 300);
-                            } catch (e) {
-                                console.error('打开开发者工具出错:', e && e.message);
+                        // 尝试聚焦并显示所属窗口（如果存在）
+                        try {
+                            const win = BrowserWindow.fromWebContents(contents);
+                            if (win && !win.isDestroyed()) {
+                                win.show();
+                                win.focus();
                             }
+                        } catch (err) {
+                            console.log('无法从 webContents 获取窗口或聚焦窗口:', err && err.message);
                         }
-                    },
-                    { type: 'separator' },
-                    {
-                        label: '刷新',
-                        accelerator: 'F5',
-                        click: () => {
-                            contents.reload();
-                        }
-                    },
-                    {
-                        label: '强制刷新',
-                        accelerator: 'Ctrl+F5',
-                        click: () => {
-                            contents.reloadIgnoringCache();
-                        }
-                    }];
 
-            var preview='';
-            if(hasSelection){
-                underlineMenu=[{
-                        label: '添加下划线',
-                        enabled: hasSelection,
-                        click: () => {
-                            handleAddUnderline(contents);
+                        const url = contents.getURL();
+                        console.log('调用 openDevTools，URL:', type, url, url.endsWith('search-panel.html'));
+                        // 注意：打开 DevTools 时控制台可能出现 "Autofill.enable" / "Autofill.setAddresses" wasn't found 的 CDP 错误，
+                        // 这是 Electron 内嵌 Chromium 未实现 Autofill 协议导致的已知问题，不影响功能，可忽略。
+                        if (url.startsWith('file://')) {
+                            console.log('打开开发者工具123, type:');
+                            contents.openDevTools({ mode: 'detach' });// 使用 detach 模式打开（更可靠地弹出独立 DevTools 窗口）。因为有browserView的特殊性，直接打开可能会被隐藏在窗口后面，detach 模式可以让它成为独立窗口，更容易被用户发现和操作。
+                        } else {
+                            contents.openDevTools();//会默认选择上次使用的模式
+                            // contents.openDevTools({ mode: 'detach' });
                         }
-                    }]
+
+                        console.log('已调用 openDevTools，检查是否成功打开');
+
+                        // 若若干毫秒后仍未打开，记录并再次尝试（用于排查隐藏/被覆盖问题）
+                        setTimeout(() => {
+                            const openedAfter = typeof contents.isDevToolsOpened === 'function' ? contents.isDevToolsOpened() : false;
+                            console.log('延迟检查 DevTools 已打开:', openedAfter);
+                            if (!openedAfter) {
+                                console.log('DevTools 未显示，尝试再次打开（detach）');
+                                try { contents.openDevTools({ mode: 'detach' }); } catch (e) { console.error('再次打开 DevTools 失败:', e && e.message); }
+                            }
+                        }, 300);
+                    } catch (e) {
+                        console.error('打开开发者工具出错:', e && e.message);
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '刷新',
+                accelerator: 'F5',
+                click: () => {
+                    contents.reload();
+                }
+            },
+            {
+                label: '强制刷新',
+                accelerator: 'Ctrl+F5',
+                click: () => {
+                    contents.reloadIgnoringCache();
+                }
+            }];
+
+            var preview = '';
+            if (hasSelection) {
+                underlineMenu = [{
+                    label: '添加下划线',
+                    enabled: hasSelection,
+                    click: () => {
+                        handleAddUnderline(contents);
+                    }
+                }]
 
                 preview = text && text.length > 30 ? text.slice(0, 30) + '…' : text;
-                selectedMenu=[ {
-                            label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
-                            enabled: hasSelection,
-                            click: () => {
-                                try {
-                                    const t = params.selectionText ? params.selectionText.trim() : '';
-                                    if (t && mainWindow && !mainWindow.isDestroyed()) {
-                                        const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
-                                        mainWindow.webContents.send('open-url-in-new-tab', url);
-                                    }
-                                } catch (err) {
-                                    console.error('发送百度搜索消息失败:', err);
-                                }
+                selectedMenu = [{
+                    label: text ? `在百度中搜索 "${preview}"` : '在百度中搜索',
+                    enabled: hasSelection,
+                    click: () => {
+                        try {
+                            const t = params.selectionText ? params.selectionText.trim() : '';
+                            if (t && mainWindow && !mainWindow.isDestroyed()) {
+                                const url = 'https://www.baidu.com/s?wd=' + encodeURIComponent(t);
+                                mainWindow.webContents.send('open-url-in-new-tab', url);
                             }
-                    },
-                    
-                    {
-                        label: '复制',
-                        enabled: hasSelection,  // 只有当选中了文本时才启用
-                        accelerator: 'Ctrl+C',
-                        click: () => {
-                            // 复制选中的文本到剪贴板
-                            contents.copy();
+                        } catch (err) {
+                            console.error('发送百度搜索消息失败:', err);
                         }
-                    },
-                    {
-                        label: '在页面中搜索选中文本',
-                        enabled: hasSelection,
-                        click: () => {
-                            try {
-                                const text = params.selectionText ? params.selectionText.trim() : '';
-                                if (mainWindow && !mainWindow.isDestroyed()) {
-                                    mainWindow.webContents.send('show-search-panel-with-text', text);
-                                }
-                            } catch (err) {
-                                console.error('发送搜索选中文本消息失败:', err);
+                    }
+                },
+
+                {
+                    label: '复制',
+                    enabled: hasSelection,  // 只有当选中了文本时才启用
+                    accelerator: 'Ctrl+C',
+                    click: () => {
+                        // 复制选中的文本到剪贴板
+                        contents.copy();
+                    }
+                },
+                {
+                    label: '在页面中搜索选中文本',
+                    enabled: hasSelection,
+                    click: () => {
+                        try {
+                            const text = params.selectionText ? params.selectionText.trim() : '';
+                            if (mainWindow && !mainWindow.isDestroyed()) {
+                                mainWindow.webContents.send('show-search-panel-with-text', text);
                             }
+                        } catch (err) {
+                            console.error('发送搜索选中文本消息失败:', err);
                         }
-                    }, { type: 'separator' }]
+                    }
+                }, { type: 'separator' }]
             }
-            
+
             // 检查右键点击位置是否有划线元素或是否是右键的标签
             contents.executeJavaScript(
                 `(function() {
@@ -972,8 +972,8 @@ app.on('web-contents-created', (event, contents) => {
             ).then(elementCheckResult => {
                 console.log('元素检查结果:', elementCheckResult);
 
-                if(elementCheckResult.hasUnderline || hasSelection){
-                    underlineMenu=[ {
+                if (elementCheckResult.hasUnderline || hasSelection) {
+                    underlineMenu = [{
                         label: elementCheckResult.hasUnderline ? '取消划线' : '添加下划线',
                         enabled: true,
                         click: () => {
@@ -988,19 +988,19 @@ app.on('web-contents-created', (event, contents) => {
                     }]
                 }
 
-                if(hasSelection&&elementCheckResult.hasUnderline==false){
-                    underlineMenu=[...underlineMenu, { type: 'separator' }]
+                if (hasSelection && elementCheckResult.hasUnderline == false) {
+                    underlineMenu = [...underlineMenu, { type: 'separator' }]
                 }
 
-                if(elementCheckResult.isTab&&type === 'window'){
-                    closeTabMenu=[
+                if (elementCheckResult.isTab && type === 'window') {
+                    closeTabMenu = [
                         { type: 'separator' },
                         {
                             label: '关闭标签',
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-tab',lastActiveTabId);
+                                        mainWindow.webContents.send('close-tab', lastActiveTabId);
                                     }
                                 } catch (err) {
                                     console.error('发送关闭标签消息失败:', err);
@@ -1013,7 +1013,7 @@ app.on('web-contents-created', (event, contents) => {
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-other-tab',lastActiveTabId);
+                                        mainWindow.webContents.send('close-other-tab', lastActiveTabId);
                                     }
                                 } catch (err) {
                                     console.error('发送关闭其它标签消息失败:', err);
@@ -1026,7 +1026,7 @@ app.on('web-contents-created', (event, contents) => {
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-left-tab',lastActiveTabId);
+                                        mainWindow.webContents.send('close-left-tab', lastActiveTabId);
                                     }
                                 } catch (err) {
                                     console.error('发送关闭左侧标签消息失败:', err);
@@ -1039,7 +1039,7 @@ app.on('web-contents-created', (event, contents) => {
                             click: () => {
                                 try {
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-right-tab',lastActiveTabId);
+                                        mainWindow.webContents.send('close-right-tab', lastActiveTabId);
                                     }
                                 } catch (err) {
                                     console.error('发送关闭右侧标签消息失败:', err);
@@ -1049,14 +1049,14 @@ app.on('web-contents-created', (event, contents) => {
                     ]
                 }
 
-                
+
                 const menu = Menu.buildFromTemplate([
-                   ...underlineMenu,
+                    ...underlineMenu,
                     ...selectedMenu,
-                   ...baseMenu,
-                   ...closeTabMenu
+                    ...baseMenu,
+                    ...closeTabMenu
                 ]);
-                
+
                 menu.popup();
             }).catch(error => {
                 console.error('执行右键菜单JavaScript时发生错误:', error);
@@ -1065,14 +1065,14 @@ app.on('web-contents-created', (event, contents) => {
                     // 在百度中搜索选中文本（后备菜单）
                     ...selectedMenu,
                     ...underlineMenu,
-                   ...baseMenu
+                    ...baseMenu
                 ]);
-                
+
                 menu.popup();
             });
         });
     }
-        
+
     // 特别处理 webview 的 webContents
     contents.on('will-attach-webview', (event, webPreferences, params) => {
         console.log('will-attach-webview, src:', params.src);
@@ -1139,7 +1139,7 @@ app.whenReady().then(() => {
     // SSL证书错误处理 - 仅当地址栏对应页面（主框架）报错时显示安全警告页面
     app.on('certificate-error', (event, webContents, url, error, certificate, callback, isMainFrame) => {
         console.log('SSL证书错误:', url, error, 'isMainFrame:', isMainFrame);
-        
+
         let hostname;
         try {
             hostname = new URL(url).hostname;
@@ -1153,29 +1153,29 @@ app.whenReady().then(() => {
             callback(true); // 信任证书
             return;
         }
-        
+
         // 仅当主框架（地址栏里的页面）出现证书错误时才跳转 ssl-warning；子资源/iframe 报错只拒绝，不跳转
         if (isMainFrame === false) {
             event.preventDefault();
             callback(false);
             return;
         }
-        
+
         // 阻止默认行为
         event.preventDefault();
-        
+
         // 存储证书错误信息，用于继续访问功能
         certificateErrors.set(webContents.id, { url, error, certificate });
-        
+
         // 获取主机名和错误消息
         const errorMessage = getCertificateErrorMessage(error);
-        
+
         // 构建SSL警告页面的URL，通过查询参数传递信息
         const sslWarningUrl = `file://${__dirname.replace(/\\/g, '/')}/html/ssl-warning.html?hostname=${encodeURIComponent(hostname)}&url=${encodeURIComponent(url)}&error=${encodeURIComponent(error)}`;
-        
+
         // 加载安全警告页面
         webContents.loadURL(sslWarningUrl);
-        
+
         // 不信任证书
         callback(false);
     });
@@ -1184,9 +1184,9 @@ app.whenReady().then(() => {
     ipcMain.on('ssl-continue-access', (event, url) => {
         const webContents = event.sender;
         const webContentsId = webContents.id;
-        
+
         console.log('用户选择继续访问:', url, 'webContentsId:', webContentsId);
-        
+
         let hostname;
         try {
             hostname = new URL(url).hostname;
@@ -1196,11 +1196,11 @@ app.whenReady().then(() => {
         if (hostname) {
             sessionAllowedCertHostnames.add(hostname);
         }
-        
+
         if (certificateErrors.has(webContentsId)) {
             certificateErrors.delete(webContentsId);
         }
-        
+
         // 仅依赖 certificate-error：下次请求该 host 时会命中 sessionAllowedCertHostnames 并 callback(true)；其它域名（如 huahu.cool）不受影响，走系统默认验证
         webContents.loadURL(url);
     });
@@ -1223,7 +1223,7 @@ app.whenReady().then(() => {
         protocol.registerStringProtocol('dxbrowser', (request, callback) => {
             const url = request.url;
             console.log('dxbrowser protocol:', url);
-            
+
             // 处理 dxbrowser://bookmarks/ 请求
             if (url.includes('bookmarks')) {
                 // 在主窗口的标签页中打开书签管理器
@@ -1271,7 +1271,7 @@ app.whenReady().then(() => {
 let mainWindow = null;
 
 function newWindow() {
-    console.log("icon",__dirname + '/assets/icon.ico')
+    console.log("icon", __dirname + '/assets/icon.ico')
     const myWindow = new BrowserWindow({
         width: 1000,
         height: 700,
@@ -1291,12 +1291,12 @@ function newWindow() {
     mainWindow = myWindow;
 
     console.log("crt")
-    
+
     // 在主窗口的 webContents 上也设置拦截（双重保险）
     setupProtocolBlocking(myWindow.webContents);
-    
+
     myWindow.loadFile('html/index.html');
-    
+
     //测试专用
     // myWindow.loadURL('https://console.cucloud.cn/login?returnUrl=https%3A%2F%2Fconsole.cucloud.cn%2Fconsole%2Fcuig%2FsubscribePlan%2Fcreate');
     // return
@@ -1324,12 +1324,12 @@ function newWindow() {
         console.log('窗口获得焦点，注册快捷键');
         registerAppShortcuts();
     });
-    
+
     myWindow.on('blur', () => {
         console.log('窗口失去焦点，注销快捷键');
         unregisterAppShortcuts();
     });
-    
+
     // 监听窗口关闭
     myWindow.on('closed', () => {
         mainWindow = null;
@@ -1339,7 +1339,6 @@ function newWindow() {
         browserViews.clear();
         tabIdCounter = 0;
     });
-    
     // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）
     registerAppShortcuts();
 }
@@ -1352,7 +1351,7 @@ function registerAppShortcuts() {
     try {
         // 先注销已存在的快捷键
         unregisterAppShortcuts();
-        
+
         const shortcutsToRegister = [
             {
                 key: 'CommandOrControl+F',
@@ -1361,7 +1360,7 @@ function registerAppShortcuts() {
                     console.log('应用内快捷键: 打开文本搜索');
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         console.log('尝试获取选中文本，当前活动tabId:', lastActiveTabId);
-                        
+
                         // 直接使用已知的活动tabId
                         if (lastActiveTabId !== null) {
                             const activeView = browserViews.get(lastActiveTabId);
@@ -1392,18 +1391,6 @@ function registerAppShortcuts() {
                             console.log('没有活动的tab，正常打开搜索面板');
                             showSearchPanel();
                         }
-                    }
-                }
-            },
-             {
-                key: 'Escape',
-                name: '关闭搜索',
-                action: () => {
-                    console.log('应用内快捷键: 关闭搜索');
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        // mainWindow.webContents.send('show-search-panel');
-                        // showSearchPanel();
-                        destroySearchPanel(mainWindow);
                     }
                 }
             },
@@ -1822,11 +1809,11 @@ ipcMain.on('search-panel-find', (event, payload) => {
         const { text, forward, findNext, matchCase } = payload || {};
         const targetView = browserViews.get(lastActiveTabId) || Array.from(browserViews.values())[0];
         if (!targetView || !targetView.webContents) return;
-        
+
         const wc = targetView.webContents;
         // 首次搜索findNext必须为true，否则found-in-page事件不触发
-        const options = { forward: payload.forward, findNext:payload.findNext, matchCase: false };
-        
+        const options = { forward: payload.forward, findNext: payload.findNext, matchCase: false };
+
         const foundListener = (e, result) => {
             console.log('found-in-page 事件:', result);
             // 规范化并只发送必要字段，避免在渲染端处理 undefined
@@ -1839,20 +1826,20 @@ ipcMain.on('search-panel-find', (event, payload) => {
                 searchPanelView.webContents.send('found-in-page', payload);
             }
             if (payload.final) {
-                try { wc.removeAllListeners('found-in-page'); } catch (e) {console.log('移除 found-in-page 监听器失败2:', e);}
+                try { wc.removeAllListeners('found-in-page'); } catch (e) { console.log('移除 found-in-page 监听器失败2:', e); }
             }
         };
-        
-        try { 
-            wc.removeAllListeners('found-in-page'); 
+
+        try {
+            wc.removeAllListeners('found-in-page');
         } catch (e) {
             console.log('移除 found-in-page 监听器失败:', e);
         }
 
         wc.on('found-in-page', foundListener);
-        
-        console.log('执行 findInPage.options:',options);
-        var id=wc.findInPage(text || '', options);
+
+        console.log('执行 findInPage.options:', options);
+        var id = wc.findInPage(text || '', options);
         console.log('findInPage 执行结果:', id);
     } catch (e) {
         console.error('处理搜索请求失败:', e);
@@ -1952,17 +1939,17 @@ const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
 async function loadAndRestoreUnderline(url, contents) {
     try {
         console.log('加载划线数据请求:', url);
-        
+
         let underlineData = {};
         if (fs.existsSync(underlineFilePath)) {
             const data = fs.readFileSync(underlineFilePath, 'utf8');
             underlineData = JSON.parse(data);
         }
-        
+
         const underlines = underlineData[url] || [];
         if (underlines && underlines.length > 0) {
-            underlineNameIndex=1;//每个页面重置 
-            resetUnerlineNameIndexMap={};//每个页面重置
+            underlineNameIndex = 1;//每个页面重置 
+            resetUnerlineNameIndexMap = {};//每个页面重置
             console.log('找到划线数据:', underlines.length, '条');
             // 恢复划线信息
             for (const underlineInfo of underlines) {
@@ -1974,7 +1961,7 @@ async function loadAndRestoreUnderline(url, contents) {
     }
 }
 
-let resetUnerlineNameIndexMap={};//用于同一页面的不同下划线的命名标识重置映射，key为url,value为underlineNameIndex
+let resetUnerlineNameIndexMap = {};//用于同一页面的不同下划线的命名标识重置映射，key为url,value为underlineNameIndex
 let underlineNameIndex = 1;//用于同一页面的不同下划线的命名标识
 
 /**
@@ -1984,22 +1971,22 @@ let underlineNameIndex = 1;//用于同一页面的不同下划线的命名标识
  * @param {number} underlineNameIndexP - 下划线命名索引，用于同一页面的不同下划线的命名标识,默认值为underlineNameIndex，默认不传，只有划线信息没获取到重试才传
  * @returns {number} 恢复的划线数量,-1表示划线失败,暂时无用（2026-3-3）
  */
-async function restoreUnderlineInBrowserView(contents, underlineInfo,underlineNameIndexP) {
+async function restoreUnderlineInBrowserView(contents, underlineInfo, underlineNameIndexP) {
     try {
-        underlineInfo.mode=underlineInfo.mode || 1
-        underlineInfo.occurrenceIndex=underlineInfo.occurrenceIndex || 0
+        underlineInfo.mode = underlineInfo.mode || 1
+        underlineInfo.occurrenceIndex = underlineInfo.occurrenceIndex || 0
 
         // console.log('恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP,underlineNameIndex);
 
-        let hasUnderlineNameIndexP=!!underlineNameIndexP
-        if(!hasUnderlineNameIndexP){
-            underlineNameIndexP=underlineNameIndex;
+        let hasUnderlineNameIndexP = !!underlineNameIndexP
+        if (!hasUnderlineNameIndexP) {
+            underlineNameIndexP = underlineNameIndex;
         }
 
         // console.log('2恢复划线信息:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP,underlineNameIndex);
-        
+
         // 在BrowserView中执行JavaScript代码来恢复划线。内部添加划线的核心方法来源 ds(chat.deepseek.com):JS跨标签文本添加下划线方法
-        var underlineCount= await contents.executeJavaScript(
+        var underlineCount = await contents.executeJavaScript(
             `(function(text, mode, occurrenceIndex) {
                 // 检查并注入划线样式
                 if (!document.getElementById('underline-styles')) {
@@ -2224,21 +2211,21 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo,underlineNa
 
         console.log('恢复划线完成数量:', underlineCount);
 
-        if (underlineCount==0) {
+        if (underlineCount == 0) {
             setTimeout(() => {
                 //已重试过不再重试
-                if(resetUnerlineNameIndexMap[underlineNameIndexP]){
-                    console.log('已重试过，不再重试:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP);
+                if (resetUnerlineNameIndexMap[underlineNameIndexP]) {
+                    console.log('已重试过，不再重试:', underlineInfo.text, underlineInfo.mode, underlineInfo.occurrenceIndex, underlineNameIndexP);
                     return
                 }
-                resetUnerlineNameIndexMap[underlineNameIndexP]=1;//设置重试标记
-                console.log('恢复划线失败，1秒后重试:', underlineInfo.text, underlineInfo.mode , underlineInfo.occurrenceIndex, underlineNameIndexP);
-                restoreUnderlineInBrowserView(contents, underlineInfo,underlineNameIndexP);
+                resetUnerlineNameIndexMap[underlineNameIndexP] = 1;//设置重试标记
+                console.log('恢复划线失败，1秒后重试:', underlineInfo.text, underlineInfo.mode, underlineInfo.occurrenceIndex, underlineNameIndexP);
+                restoreUnderlineInBrowserView(contents, underlineInfo, underlineNameIndexP);
             }, 1000);
         }
-        
+
         //如果没有传递underlineNameIndexP，说明是第一次恢复，需要增加underlineNameIndex
-        if(!hasUnderlineNameIndexP){
+        if (!hasUnderlineNameIndexP) {
             underlineNameIndex++
             // console.log('增加underlineNameIndex:',underlineInfo.text, underlineNameIndex);
         }
@@ -2260,7 +2247,7 @@ if (!fs.existsSync(userDataPath)) {
 
 // IPC 处理器：加载书签数据
 ipcMain.on('load-bookmarks', (event) => {
-    console.log('收到加载书签请求',bookmarksFilePath);
+    console.log('收到加载书签请求', bookmarksFilePath);
     try {
         if (fs.existsSync(bookmarksFilePath)) {
             const data = fs.readFileSync(bookmarksFilePath, 'utf8');
@@ -2291,19 +2278,19 @@ ipcMain.on('save-bookmarks', (event, bookmarks) => {
 ipcMain.handle('record-history', (event, title, url) => {
     try {
         let history = [];
-        
+
         // 检查历史记录文件是否存在
         if (fs.existsSync(historyFilePath)) {
             const data = fs.readFileSync(historyFilePath, 'utf8');
             history = JSON.parse(data);
         }
-        
+
         // 检查是否已存在相同的URL（避免重复）
         const existingIndex = history.findIndex(item => item.url === url);
         if (existingIndex !== -1) {
             history.splice(existingIndex, 1);
         }
-        
+
         // 创建新的历史记录项
         const historyItem = {
             id: Date.now() + Math.random(),
@@ -2313,18 +2300,18 @@ ipcMain.handle('record-history', (event, title, url) => {
             date: new Date().toLocaleDateString(),
             time: new Date().toLocaleTimeString()
         };
-        
+
         // 将新记录添加到开头
         history.unshift(historyItem);
-        
+
         // 只保留最近的1000条记录
         if (history.length > 1000) {
             history = history.slice(0, 1000);
         }
-        
+
         // 保存到文件
         fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), 'utf8');
-        
+
         return { success: true };
     } catch (e) {
         console.error('保存历史记录失败:', e);
@@ -2336,19 +2323,19 @@ ipcMain.handle('record-history', (event, title, url) => {
 ipcMain.handle('remove-history-item', (event, id) => {
     try {
         let history = [];
-        
+
         // 检查历史记录文件是否存在
         if (fs.existsSync(historyFilePath)) {
             const data = fs.readFileSync(historyFilePath, 'utf8');
             history = JSON.parse(data);
-            
+
             // 过滤掉指定ID的记录
             history = history.filter(item => item.id !== id);
-            
+
             // 保存到文件
             fs.writeFileSync(historyFilePath, JSON.stringify(history, null, 2), 'utf8');
         }
-        
+
         return { success: true };
     } catch (e) {
         console.error('删除历史记录失败:', e);
@@ -2360,13 +2347,13 @@ ipcMain.handle('remove-history-item', (event, id) => {
 ipcMain.handle('get-history', (event) => {
     try {
         let history = [];
-        
+
         // 检查历史记录文件是否存在
         if (fs.existsSync(historyFilePath)) {
             const data = fs.readFileSync(historyFilePath, 'utf8');
             history = JSON.parse(data);
         }
-        
+
         return history;
     } catch (e) {
         console.error('获取历史记录失败:', e);
@@ -2378,25 +2365,25 @@ ipcMain.handle('get-history', (event) => {
 ipcMain.handle('search-history', (event, query) => {
     try {
         let history = [];
-        
+
         //检查历史记录文件是否存在
         if (fs.existsSync(historyFilePath)) {
             const data = fs.readFileSync(historyFilePath, 'utf8');
             history = JSON.parse(data);
         }
-        
+
         if (!query || query.trim() === '') {
             return [];
         }
-        
+
         const searchTerm = query.toLowerCase().trim();
         const matches = [];
-        
+
         // 搜索历史记录（按URL和标题）
         for (const item of history) {
             const urlMatch = item.url.toLowerCase().includes(searchTerm);
             const titleMatch = item.title.toLowerCase().includes(searchTerm);
-            
+
             if (urlMatch || titleMatch) {
                 //计匹配度
                 let score = 0;
@@ -2412,7 +2399,7 @@ ipcMain.handle('search-history', (event, query) => {
                         score += 20 + (searchTerm.length / item.url.length) * 10;
                     }
                 }
-                
+
                 if (titleMatch) {
                     //标题完全匹配
                     if (item.title.toLowerCase() === searchTerm) {
@@ -2425,14 +2412,14 @@ ipcMain.handle('search-history', (event, query) => {
                         score += 15 + (searchTerm.length / item.title.length) * 10;
                     }
                 }
-                
+
                 matches.push({
                     ...item,
                     matchScore: score
                 });
             }
         }
-        
+
         //按匹配度排序，取前10个
         matches.sort((a, b) => b.matchScore - a.matchScore);
         return matches.slice(0, 10);
@@ -2474,25 +2461,25 @@ ipcMain.handle('hide-history-autocomplete', (event) => {
 
 ipcMain.handle('update-address-input-bounds', (event, addressInputBounds) => {
     try {
-            if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
             addressInputBoundsTemp = addressInputBounds;
 
             if (historyAutocompleteView && !historyAutocompleteView.webContents.isDestroyed()) {
                 historyAutocompleteView.setBounds({
-                x: addressInputBoundsTemp.x,
-                y: addressInputBoundsTemp.y + addressInputBoundsTemp.height,
-                width: addressInputBoundsTemp.width,
-                height: historyAutocompleteView.getBounds().height
+                    x: addressInputBoundsTemp.x,
+                    y: addressInputBoundsTemp.y + addressInputBoundsTemp.height,
+                    width: addressInputBoundsTemp.width,
+                    height: historyAutocompleteView.getBounds().height
                 });
-            
+
                 return { success: true };
             }
             return { success: false, error: '主窗口不存在2' };
         }
-        } catch (error) {
-            console.error('更新下拉历史失败:', error);
-            return { success: false, error: error.message };
-        }
+    } catch (error) {
+        console.error('更新下拉历史失败:', error);
+        return { success: false, error: error.message };
+    }
 });
 
 // IPC处理器：处理历史记录自动匹配选择
@@ -2582,7 +2569,7 @@ ipcMain.handle('clear-history', (event) => {
     try {
         // 直接创建空数组并保存
         fs.writeFileSync(historyFilePath, JSON.stringify([], null, 2), 'utf8');
-        
+
         return { success: true };
     } catch (e) {
         console.error('清空历史记录失败:', e);
@@ -2592,15 +2579,15 @@ ipcMain.handle('clear-history', (event) => {
 
 // IPC 处理器：加载划线数据
 ipcMain.handle('load-underline-data', async (event, url) => {
-    console.log('收到加载划线数据请求1', url,underlineFilePath+"@end");
+    console.log('收到加载划线数据请求1', url, underlineFilePath + "@end");
     try {
         let underlineData = {};
-        
+
         if (fs.existsSync(underlineFilePath)) {
             const data = fs.readFileSync(underlineFilePath, 'utf8');
             underlineData = JSON.parse(data);
         }
-        
+
         // 返回特定URL的划线数据
         return underlineData[url] || [];
     } catch (e) {
@@ -2614,24 +2601,24 @@ ipcMain.handle('save-underline-data', async (event, url, underlineInfo) => {
     try {
         let underlineData = {};
         console.log("保存划线数据:", url, underlineInfo)
-        
+
         // 检查划线数据文件是否存在
         if (fs.existsSync(underlineFilePath)) {
             const data = fs.readFileSync(underlineFilePath, 'utf8');
             underlineData = JSON.parse(data);
         }
-        
+
         // 更新特定URL的划线数据
         if (!underlineData[url]) {
             underlineData[url] = [];
         }
-        
+
         // 添加新的划线信息
         underlineData[url].push(underlineInfo);
-        
+
         // 保存到文件
         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
-        
+
         return { success: true };
     } catch (e) {
         console.error('保存划线数据失败:', e);
@@ -2643,19 +2630,19 @@ ipcMain.handle('save-underline-data', async (event, url, underlineInfo) => {
 ipcMain.handle('update-underline-data', async (event, url, underlineArray) => {
     try {
         let underlineData = {};
-        
+
         // 检查划线数据文件是否存在
         if (fs.existsSync(underlineFilePath)) {
             const data = fs.readFileSync(underlineFilePath, 'utf8');
             underlineData = JSON.parse(data);
         }
-        
+
         // 更新特定URL的划线数据
         underlineData[url] = underlineArray;
-        
+
         // 保存到文件
         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
-        
+
         return { success: true };
     } catch (e) {
         console.error('更新划线数据失败:', e);
@@ -2667,16 +2654,16 @@ ipcMain.handle('update-underline-data', async (event, url, underlineArray) => {
 const saveUnderlineDirect = async (url, underlineInfo) => {
     try {
         console.log('开始保存划线数据:', url, underlineInfo);
-        
+
         // 确保 userData 目录存在
         const userDataPath = app.getPath('userData');
         if (!fs.existsSync(userDataPath)) {
             fs.mkdirSync(userDataPath, { recursive: true });
             console.log('创建 userData 目录:', userDataPath);
         }
-        
+
         let underlineData = {};
-        
+
         // 检查划线数据文件是否存在
         if (fs.existsSync(underlineFilePath)) {
             try {
@@ -2688,18 +2675,18 @@ const saveUnderlineDirect = async (url, underlineInfo) => {
                 underlineData = {};
             }
         }
-        
+
         // 更新特定URL的划线数据
         if (!underlineData[url]) {
             underlineData[url] = [];
         }
-        
+
         // 添加新的划线信息
         underlineData[url].push(underlineInfo);
-        
+
         // 保存到文件
         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
-        
+
         console.log('成功保存划线数据:', url, underlineInfo.text);
     } catch (e) {
         console.error('保存划线数据失败:', e);
@@ -2729,6 +2716,21 @@ ipcMain.handle('get-all-underlines', async (event) => {
 
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
+
+//应用内快捷键
+const appShortcuts = [
+    {
+        label: '关闭搜索',
+        accelerator: 'Escape',
+        visible: false,
+        click: () => {
+            console.log('窗口级别快捷键: 关闭搜索');
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                destroySearchPanel(mainWindow);
+            }
+        }
+    },
+];
 
 const template = [
     // macOS 上通常第一个是应用菜单
@@ -2761,6 +2763,8 @@ const template = [
             isMac
                 ? { role: 'close', label: '关闭窗口' }
                 : { role: 'quit', label: '退出' }
+
+                ,...appShortcuts
         ]
     },
     {
@@ -2829,8 +2833,18 @@ const template = [
                 }
             }
         ]
+    }, {
+        label: '视图',
+
+        submenu: [
+            { role: 'resetzoom', label: '重置缩放', visible: false, },
+            { role: 'zoomin', label: '放大' },
+            { role: 'zoomout', label: '缩小' },
+            { role: 'togglefullscreen', label: '全屏' }
+        ]
     }
 ];
+
 
 const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
@@ -2852,28 +2866,28 @@ const underlineMode = 1; // 划线模式，1、只加载指定出现次数的文
 // 处理添加下划线的函数
 function handleAddUnderline(contents, mode = underlineMode) {
     contents.executeJavaScript('window.getSelection().toString()')
-    .then((selectedText) => {
+        .then((selectedText) => {
 
-        const url = contents.getURL();
-        if (!url||!selectedText || !selectedText.trim()) {
-            console.log('没有选中文本');
-            return;
-        }
+            const url = contents.getURL();
+            if (!url || !selectedText || !selectedText.trim()) {
+                console.log('没有选中文本');
+                return;
+            }
 
-         // 构造划线信息对象
-        let underlineInfo = {
-            text: selectedText,
-            timestamp: Date.now(),
-            url: url,
-            mode: mode,
-            occurrenceIndex: 0
-        };
+            // 构造划线信息对象
+            let underlineInfo = {
+                text: selectedText,
+                timestamp: Date.now(),
+                url: url,
+                mode: mode,
+                occurrenceIndex: 0
+            };
 
-        
-        const addUnderlinePromise = (mode === 2)
-            ? restoreUnderlineInBrowserView(contents, underlineInfo)
-            : contents.executeJavaScript( // 只给当前选中的添加下划线
-            `(function(selectedText, mode) {
+
+            const addUnderlinePromise = (mode === 2)
+                ? restoreUnderlineInBrowserView(contents, underlineInfo)
+                : contents.executeJavaScript( // 只给当前选中的添加下划线
+                    `(function(selectedText, mode) {
                 // 检查并注入划线样式
                 if (!document.getElementById('underline-styles')) {
                     const style = document.createElement('style');
@@ -2965,42 +2979,42 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 
                 return { occurrenceIndex: result.occurrenceIndex, spansCount: result.spans.length };
             })('${selectedText.replace(/'/g, "\\'")}', ${mode})`
-        )
-        
-        
-        addUnderlinePromise.then((result) => {
-            // 成功添加下划线后，记录划线信息
-            console.log("成功添加下划线.result:", result)
-            console.log('保存划线数据1:', url, underlineInfo);
+                )
 
-            if(mode==1){
-                underlineInfo.occurrenceIndex=result.occurrenceIndex;//只有模式1才会返回result
-            }
-                
-            // 只使用最可靠的方式保存划线数据
-            try {
-                saveUnderlineDirect(url, underlineInfo);
-                console.log('已保存划线信息:', url, underlineInfo.text, '模式:', mode, '出现次数:', underlineInfo.occurrenceIndex);
-            } catch (e) {
-                console.log('保存划线失败:', e);
-            }
+
+            addUnderlinePromise.then((result) => {
+                // 成功添加下划线后，记录划线信息
+                console.log("成功添加下划线.result:", result)
+                console.log('保存划线数据1:', url, underlineInfo);
+
+                if (mode == 1) {
+                    underlineInfo.occurrenceIndex = result.occurrenceIndex;//只有模式1才会返回result
+                }
+
+                // 只使用最可靠的方式保存划线数据
+                try {
+                    saveUnderlineDirect(url, underlineInfo);
+                    console.log('已保存划线信息:', url, underlineInfo.text, '模式:', mode, '出现次数:', underlineInfo.occurrenceIndex);
+                } catch (e) {
+                    console.log('保存划线失败:', e);
+                }
+            }).catch((err) => {
+                console.log('添加下划线失败:', err);
+            });
         }).catch((err) => {
-            console.log('添加下划线失败:', err);
+            console.log('获取选中文本失败:', err);
         });
-    }).catch((err) => {
-        console.log('获取选中文本失败:', err);
-    });
 }
 
 // 处理取消下划线的函数
 function handleRemoveUnderline(contents, underlineText = null) {
     // 如果提供了划线文本，直接使用；否则尝试获取选中文本
-    const getTextPromise = underlineText ? 
-        Promise.resolve(underlineText) : 
+    const getTextPromise = underlineText ?
+        Promise.resolve(underlineText) :
         contents.executeJavaScript('window.getSelection().toString()');
-        
+
     getTextPromise.then((selectedText) => {
-        console.log('开始取消划线selectedText:',selectedText)
+        console.log('开始取消划线selectedText:', selectedText)
         // 取消划线
         contents.executeJavaScript(
             `(function() {
@@ -3133,7 +3147,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
             console.log("删除划线执行结果:", result);
             // 成功取消下划线后，从划线数据中删除对应的记录
             const url = contents.getURL();
-            selectedText=result.underlineText;
+            selectedText = result.underlineText;
             if (url && selectedText && selectedText.trim()) {
                 // 从划线数据中删除
                 try {
@@ -3142,7 +3156,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                         const data = fs.readFileSync(underlineFilePath, 'utf8');
                         underlineData = JSON.parse(data);
                     }
-                    
+
                     if (underlineData[url]) {
                         // 查找并删除匹配的划线记录
                         // 支持精确匹配和模糊匹配
@@ -3160,14 +3174,14 @@ function handleRemoveUnderline(contents, underlineText = null) {
                             }
                             return true;
                         });
-                        
+
                         console.log(`从 ${originalLength} 条记录中删除了 ${originalLength - underlineData[url].length} 条`);
-                        
+
                         // 如果该URL没有划线记录了，删除该URL的条目
                         if (underlineData[url].length === 0) {
                             delete underlineData[url];
                         }
-                        
+
                         // 保存更新后的数据
                         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
                         console.log('已删除划线信息1:', url, selectedText);
@@ -3184,7 +3198,7 @@ function handleRemoveUnderline(contents, underlineText = null) {
                         const data = fs.readFileSync(underlineFilePath, 'utf8');
                         underlineData = JSON.parse(data);
                     }
-                    
+
                     if (underlineData[url]) {
                         const originalLength = underlineData[url].length;
                         // 根据移除的文本内容删除对应的记录
@@ -3203,14 +3217,14 @@ function handleRemoveUnderline(contents, underlineText = null) {
                                 return true;
                             });
                         });
-                        
+
                         console.log(`从 ${originalLength} 条记录中删除了相关记录`);
-                        
+
                         // 如果该URL没有划线记录了，删除该URL的条目
                         if (underlineData[url].length === 0) {
                             delete underlineData[url];
                         }
-                        
+
                         // 保存更新后的数据
                         fs.writeFileSync(underlineFilePath, JSON.stringify(underlineData, null, 2), 'utf8');
                         console.log('已删除划线信息2:', url, result.removedTexts);
@@ -3241,7 +3255,7 @@ function handleViewSource(contents) {
         if (!html) {
             html = '<html><body>无法获取源码</body></html>';
         }
-        
+
         // 创建新窗口显示源码
         const sourceWindow = new BrowserWindow({
             width: 1000,
@@ -3252,7 +3266,7 @@ function handleViewSource(contents) {
                 contextIsolation: true
             }
         });
-        
+
         // 转义 HTML 以便在文本中显示
         const escapedHtml = html
             .replace(/&/g, '&amp;')
@@ -3260,7 +3274,7 @@ function handleViewSource(contents) {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
-        
+
         // 创建显示源码的 HTML
         const sourceHtml = `
             <!DOCTYPE html>
@@ -3308,7 +3322,7 @@ function handleViewSource(contents) {
             </body>
             </html>
         `;
-        
+
         sourceWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(sourceHtml));
     }).catch((err) => {
         console.error('获取源码失败:', err);
