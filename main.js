@@ -1339,6 +1339,33 @@ function newWindow() {
         browserViews.clear();
         tabIdCounter = 0;
     });
+
+    myWindow.webContents.on('before-input-event', (event, input) => {
+        console.log("before-input-event", input)
+    });
+
+    // 监听鼠标滚轮事件，实现 Ctrl+滚轮缩放 tag
+    app.on('wheel', (event) => {
+        if (event.ctrlKey && lastActiveTabId !== null) {
+            const activeView = browserViews.get(lastActiveTabId);
+            if (activeView && activeView.webContents && !activeView.webContents.isDestroyed()) {
+                event.preventDefault();
+                const currentZoom = activeView.webContents.getZoomLevel();
+                const zoomStep = 0.5;
+
+                if (event.deltaY < 0) {
+                    const newZoom = currentZoom + zoomStep;
+                    activeView.webContents.setZoomLevel(newZoom);
+                    console.log(`页面放大: ${newZoom}`);
+                } else {
+                    const newZoom = currentZoom - zoomStep;
+                    activeView.webContents.setZoomLevel(newZoom);
+                    console.log(`页面缩小: ${newZoom}`);
+                }
+            }
+        }
+    });
+
     // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）
     registerAppShortcuts();
 }
@@ -2764,7 +2791,7 @@ const template = [
                 ? { role: 'close', label: '关闭窗口' }
                 : { role: 'quit', label: '退出' }
 
-                ,...appShortcuts
+            , ...appShortcuts
         ]
     },
     {
@@ -2838,10 +2865,13 @@ const template = [
 
         submenu: [
             { role: 'resetzoom', label: '重置缩放' },
-            { role: 'zoomin', label: '放大0',visible: false,accelerator: isMac ? 'Cmd+Plus' : 'Ctrl+=' },
-             { role: 'zoomin', label: '放大' },
+            { role: 'resetzoom', label: '重置缩放0', visible: false, accelerator: 'CommandOrControl+num0' },
+            { role: 'zoomin', label: '放大' },
+            { role: 'zoomin', label: '放大0', visible: false, accelerator: isMac ? 'Cmd+Plus' : 'Ctrl+=' },
+            { role: 'zoomin', label: '放大1', visible: false, accelerator: 'CommandOrControl+numadd' },
             { role: 'zoomout', label: '缩小' },
-            { role: 'togglefullscreen', label: '全屏/退出全屏',accelerator: isMac ? 'Cmd+F11' : 'Ctrl+F11' },
+            { role: 'zoomout', label: '缩小0', visible: false, accelerator: 'CommandOrControl+numsub' },
+            { role: 'togglefullscreen', label: '全屏/退出全屏', accelerator: isMac ? 'Cmd+F11' : 'Ctrl+F11' },
         ]
     }
 ];
