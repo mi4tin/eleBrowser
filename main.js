@@ -2985,6 +2985,17 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         const contents = range.extractContents();
                         span.appendChild(contents);
                         range.insertNode(span);
+
+                        // 清理 extractContents 拆分产生的空残余标签
+                        const prev = span.previousElementSibling;
+                        console.log('addUnderlineToRange.a0:', '清理空残余标签开始');
+                        console.log('addUnderlineToRange.a0:', prev);
+                        if (prev&&prev.textContent==='') {
+                            prev.remove();
+                            console.log('addUnderlineToRange.a0:', '清理空残余标签成功');
+                        }
+
+                        console.log('addUnderlineToRange.a0:', '添加跨节点下划线成功');
                     }
                     return span;
                 }
