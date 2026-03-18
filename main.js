@@ -2905,6 +2905,8 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 return;
             }
 
+            selectedText=selectedText.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "").replace(/\r/g, "");//将换行等替换为空串，否则会在下面的('${selectedText}', ${mode})`处报错
+
             // 构造划线信息对象
             let underlineInfo = {
                 text: selectedText,
@@ -2913,7 +2915,8 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 mode: mode,
                 occurrenceIndex: 0
             };
-
+            
+            console.log('handleAddUnderline:', selectedText);
 
             const addUnderlinePromise = (mode === 2)
                 ? restoreUnderlineInBrowserView(contents, underlineInfo)
@@ -2968,6 +2971,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 
                 // 为指定范围添加下划线
                 function addUnderlineToRange(range) {
+                console.log('addUnderlineToRange.a1:', range);
                     // 创建一个span元素用于添加下划线样式
                     const span = document.createElement('span');
                     span.className = 'underline-fb3b780f';
@@ -2975,6 +2979,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                     // 将选中的内容包装在span中
                     try {
                         range.surroundContents(span);
+                        console.log('addUnderlineToRange.a0:', '添加下划线成功');
                     } catch (e) {
                         // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
                         const contents = range.extractContents();
@@ -3009,7 +3014,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 console.log('添加下划线结果666:', result);
                 
                 return { occurrenceIndex: result.occurrenceIndex, spansCount: result.spans.length };
-            })('${selectedText.replace(/'/g, "\\'")}', ${mode})`
+            })('${selectedText}', ${mode})`
                 )
 
 

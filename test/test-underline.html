@@ -817,19 +817,23 @@ function underlineAllMatches(container, text) {
   });
 }
 
+
+console.log('划线应用完成\n\r\t');
+
                 
                 // 确保DOM完全加载后再应用划线
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', function() {
-                        console.log('DOMContentLoaded事件触发，开始应用划线');
-                        underlineAllMatches(document.body, text, mode, occurrenceIndex);
-                    });
-                } else {
-                    console.log('DOMContentLoaded事件未触发，立即应用划线');
-                    underlineAllMatches(document.body, text, mode, occurrenceIndex);
-                }
+                // if (document.readyState === 'loading') {
+                //     document.addEventListener('DOMContentLoaded', function() {
+                //         console.log('DOMContentLoaded事件触发，开始应用划线');
+                //         underlineAllMatches(document.body, text, mode, occurrenceIndex);
+                //     });
+                // } else {
+                //     console.log('DOMContentLoaded事件未触发，立即应用划线');
+                //     underlineAllMatches(document.body, text, mode, occurrenceIndex);
+                // }
 
-                console.log('划线应用完成');
+                // console.log('划线应用完成');
+                
 </script>
 </body>
 </html>
