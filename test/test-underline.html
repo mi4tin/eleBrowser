@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>划线功能测试页面</title>
+    <title>underline test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,7 +43,10 @@
 </head>
 <body>
     <div class="aa11" id="content">
-      <p name="a1" class="aa">这一段示例是一段<b>示例</b>又一段</p>
+      <p name="a1" class="aa">这一段示例是一段
+        <p>我的</p><p>qwe</p>
+        <p>示例</p>
+        <p>abcd</p>又一段</p>
   <p name="a1" class="aa">这是一段<b>示例</b>文本，演示跨标签<b>文本处理</b>。</p>
   <p name="a1" class="aa">另一段需要<em>处理</em>的文本。</p>
 </div>
@@ -93,8 +96,9 @@ function underlineTextWithRange(container, text) {
   const textNodes = [];
   let node;
   
-  // 收集所有文本节点并构建完整文本
+  // 收集所有文本节点并构建完整文本（跳过纯空白节点，避免标签换行导致匹配失败）
   while (node = walker.nextNode()) {
+    if (/^\s+$/.test(node.textContent)) continue;
     fullText += node.textContent;
     textNodes.push({
       node: node,
@@ -288,35 +292,6 @@ function underlineAllMatchesWithRange(container, text) {
 
 
 
-/**
- * 在容器中，根据全局字符偏移量查找所在的文本节点及内部偏移
- * @param {HTMLElement} container 
- * @param {number} offset - 从容器文本开头计算的字符偏移（0-based）
- * @returns {{ node: Text, offset: number }} 文本节点和内部偏移
- */
-function getTextNodeAtPosition(container, offset) {
-  const walker = document.createTreeWalker(
-    container,
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
-
-  let currentPos = 0;
-  let node;
-  while ((node = walker.nextNode())) {
-    const nodeLength = node.textContent.length;
-    if (offset < currentPos + nodeLength) {
-      return {
-        node: node,
-        offset: offset - currentPos
-      };
-    }
-    currentPos += nodeLength;
-  }
-  throw new Error(`Offset ${offset} out of range`);
-}
-
 
 /**
  * 包裹单个文本节点中的一段
@@ -345,68 +320,6 @@ function wrapTextNodeSegment(node, start, end) {
   parent.replaceChild(fragment, node);
 }
 
-/**
- * 处理跨文本节点的范围
- */
-function handleMultiNodeRange(startNode, startOffset, endNode, endOffset) {
-  // 1. 处理起始节点（保留后半部分）
-  const startParent = startNode.parentNode;
-  if (startParent) {
-    const startContent = startNode.textContent;
-    const startFrag = document.createDocumentFragment();
-    
-    // 从 startOffset 到末尾的内容加上下划线
-    const underlineSpan = document.createElement('span');
-    underlineSpan.className = 'underlined-text';
-    underlineSpan.textContent = startContent.substring(startOffset);
-    startFrag.appendChild(underlineSpan);
-    
-    // 前半部分保留为纯文本（如果存在）
-    if (startOffset > 0) {
-      const beforeText = document.createTextNode(startContent.substring(0, startOffset));
-      startFrag.insertBefore(beforeText, underlineSpan);
-    }
-    
-    startParent.replaceChild(startFrag, startNode);
-  }
-
-  // 2. 处理结束节点（保留前半部分）
-  const endParent = endNode.parentNode;
-  if (endParent) {
-    const endContent = endNode.textContent;
-    const endFrag = document.createDocumentFragment();
-    
-    // 从开头到 endOffset 的内容加上下划线
-    const underlineSpan = document.createElement('span');
-    underlineSpan.className = 'underlined-text';
-    underlineSpan.textContent = endContent.substring(0, endOffset);
-    endFrag.appendChild(underlineSpan);
-    
-    // 后半部分保留为纯文本（如果存在）
-    if (endOffset < endContent.length) {
-      const afterText = document.createTextNode(endContent.substring(endOffset));
-      endFrag.appendChild(afterText);
-    }
-    
-    endParent.replaceChild(endFrag, endNode);
-  }
-
-  // 3. 处理中间的所有文本节点（整个包裹）
-  let currentNode = startNode.nextSibling;
-  while (currentNode && currentNode !== endNode) {
-    if (currentNode.nodeType === Node.TEXT_NODE && currentNode.parentNode) {
-      const parent = currentNode.parentNode;
-      const content = currentNode.textContent;
-      if (content.length > 0) {
-        const span = document.createElement('span');
-        span.className = 'underlined-text';
-        span.textContent = content;
-        parent.replaceChild(span, currentNode);
-      }
-    }
-    currentNode = currentNode.nextSibling;
-  }
-}
 
 
 // 移除所有下划线（可选功能）
@@ -676,7 +589,101 @@ function underlineAllMatches(container, text) {
   });
 }
 
-// 辅助函数（见上文）
+// 辅助函数
+/**
+ * 处理跨文本节点的范围
+ */
+ function handleMultiNodeRange(startNode, startOffset, endNode, endOffset) {
+  // 1. 处理起始节点（保留后半部分）
+  const startParent = startNode.parentNode;
+  if (startParent) {
+    const startContent = startNode.textContent;
+    const startFrag = document.createDocumentFragment();
+    
+    // 从 startOffset 到末尾的内容加上下划线
+    const underlineSpan = document.createElement('span');
+    underlineSpan.className = 'underlined-text';
+    underlineSpan.textContent = startContent.substring(startOffset);
+    startFrag.appendChild(underlineSpan);
+    
+    // 前半部分保留为纯文本（如果存在）
+    if (startOffset > 0) {
+      const beforeText = document.createTextNode(startContent.substring(0, startOffset));
+      startFrag.insertBefore(beforeText, underlineSpan);
+    }
+    
+    startParent.replaceChild(startFrag, startNode);
+  }
+
+  // 2. 处理结束节点（保留前半部分）
+  const endParent = endNode.parentNode;
+  if (endParent) {
+    const endContent = endNode.textContent;
+    const endFrag = document.createDocumentFragment();
+    
+    // 从开头到 endOffset 的内容加上下划线
+    const underlineSpan = document.createElement('span');
+    underlineSpan.className = 'underlined-text';
+    underlineSpan.textContent = endContent.substring(0, endOffset);
+    endFrag.appendChild(underlineSpan);
+    
+    // 后半部分保留为纯文本（如果存在）
+    if (endOffset < endContent.length) {
+      const afterText = document.createTextNode(endContent.substring(endOffset));
+      endFrag.appendChild(afterText);
+    }
+    
+    endParent.replaceChild(endFrag, endNode);
+  }
+
+  // 3. 处理中间的所有文本节点（整个包裹）
+  let currentNode = startNode.nextSibling;
+  while (currentNode && currentNode !== endNode) {
+    if (currentNode.nodeType === Node.TEXT_NODE && currentNode.parentNode) {
+      const parent = currentNode.parentNode;
+      const content = currentNode.textContent;
+      if (content.length > 0) {
+        const span = document.createElement('span');
+        span.className = 'underlined-text';
+        span.textContent = content;
+        parent.replaceChild(span, currentNode);
+      }
+    }
+    currentNode = currentNode.nextSibling;
+  }
+}
+
+
+/**
+ * 在容器中，根据全局字符偏移量查找所在的文本节点及内部偏移
+ * @param {HTMLElement} container 
+ * @param {number} offset - 从容器文本开头计算的字符偏移（0-based）
+ * @returns {{ node: Text, offset: number }} 文本节点和内部偏移
+ */
+ function getTextNodeAtPosition(container, offset) {
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  let currentPos = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    const nodeLength = node.textContent.length;
+    if (offset < currentPos + nodeLength) {
+      return {
+        node: node,
+        offset: offset - currentPos
+      };
+    }
+    currentPos += nodeLength;
+  }
+  throw new Error(`Offset ${offset} out of range`);
+}
+
+
 </script>
 
 

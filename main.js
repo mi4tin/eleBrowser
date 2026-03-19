@@ -2015,6 +2015,9 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo, underlineN
         // 在BrowserView中执行JavaScript代码来恢复划线。内部添加划线的核心方法来源 ds(chat.deepseek.com):JS跨标签文本添加下划线方法
         var underlineCount = await contents.executeJavaScript(
             `(function(text, mode, occurrenceIndex) {
+
+                console.log('划线信息:', text, mode, occurrenceIndex);
+
                 // 检查并注入划线样式
                 if (!document.getElementById('underline-styles')) {
                     const style = document.createElement('style');
@@ -2041,6 +2044,7 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo, underlineN
                 let currentPos = 0;
                 let node;
                 while ((node = walker.nextNode())) {
+                    if (/^\\s+$/.test(node.textContent)) continue;
                     const nodeLength = node.textContent.length;
                     if (offset < currentPos + nodeLength) {
                     return {
@@ -2164,8 +2168,13 @@ async function restoreUnderlineInBrowserView(contents, underlineInfo, underlineN
                 function underlineAllMatches(container, text,mode, matchIndex) {
                 if (!container || !text) return 0;
 
-                // 1. 基于当前实时文本查找所有匹配位置
-                const fullText = container.textContent;
+                // 1. 基于当前实时文本查找所有匹配位置（跳过纯空白文本节点，避免标签换行导致匹配失败）
+                let fullText = '';
+                const tw = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+                let tn;
+                while ((tn = tw.nextNode())) {
+                    if (!/^\\s+$/.test(tn.textContent)) fullText += tn.textContent;
+                }
                 const matches = [];
                 let pos = 0;
                 while ((pos = fullText.indexOf(text, pos)) !== -1) {
@@ -3001,8 +3010,8 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         if (next&&next.tagName===span.lastElementChild.tagName&&next.textContent==='') {
                             // next.remove();
                             console.log('addUnderlineToRange.a0:', '清理空残余标签成功2');
-                        }
 
+                        }
                         console.log('addUnderlineToRange.a0:', '添加跨节点下划线成功');
                     }
                     return span;

@@ -1,4 +1,5 @@
 ==待修复==
++跨相邻标签<p>1234</p><p>abcd</p> 34ab划线
 +无法加载 https://console.cucloud.cn/login?returnUrl=https%3A%2F%2Fconsole.cucloud.cn%2Fconsole%2Fcuig%2FsubscribePlan%2Fcreate
 
 +https://juejin.cn/post/7585897699603693594 里的【过早优化是万恶之源 ! ! !】 不能加下划线，【过早优化是万恶之源】可以加下划线
