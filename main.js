@@ -2981,7 +2981,81 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 // 为指定范围添加下划线
                 function addUnderlineToRange(range) {
                 console.log('addUnderlineToRange.a1:', range);
-                    // 创建一个span元素用于添加下划线样式
+                    
+                    // 检查是否跨越多个元素节点
+                    const startContainer = range.startContainer;
+                    const endContainer = range.endContainer;
+                    
+                    // 如果选中的范围跨越多个元素节点，分别处理每个节点内的选中部分
+                    if (startContainer !== endContainer || 
+                        (startContainer.nodeType === 3 && endContainer.nodeType === 3 && 
+                         startContainer.parentNode !== endContainer.parentNode)) {
+                        
+                        console.log('addUnderlineToRange.a0:', '检测到跨标签选中，分别处理');
+                        
+                        // 获取选中的所有文本节点
+                        const textNodes = [];
+                        const walker = document.createTreeWalker(
+                            range.commonAncestorContainer,
+                            NodeFilter.SHOW_TEXT,
+                            {
+                                acceptNode: function(node) {
+                                    // 检查节点是否在选中范围内
+                                    const nodeRange = document.createRange();
+                                    nodeRange.selectNode(node);
+                                    const isIntersecting = range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0 && 
+                                                         range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0;
+                                    return isIntersecting ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                                }
+                            }
+                        );
+                        
+                        let currentNode;
+                        while (currentNode = walker.nextNode()) {
+                            textNodes.push(currentNode);
+                        }
+                        
+                        const spans = [];
+                        
+                        // 为每个文本节点内的选中部分创建下划线
+                        textNodes.forEach((textNode, index) => {
+                            const span = document.createElement('span');
+                            span.className = 'underline-fb3b780f';
+                            
+                            // 计算当前文本节点内的选中范围
+                            const nodeRange = document.createRange();
+                            
+                            if (index === 0) {
+                                // 第一个节点：从选中开始位置到节点结束
+                                nodeRange.setStart(textNode, range.startOffset);
+                                nodeRange.setEnd(textNode, textNode.textContent.length);
+                            } else if (index === textNodes.length - 1) {
+                                // 最后一个节点：从节点开始到选中结束位置
+                                nodeRange.setStart(textNode, 0);
+                                nodeRange.setEnd(textNode, range.endOffset);
+                            } else {
+                                // 中间节点：选中整个节点
+                                nodeRange.selectNode(textNode);
+                            }
+                            
+                            // 为当前节点内的选中部分添加下划线
+                            try {
+                                nodeRange.surroundContents(span);
+                                spans.push(span);
+                            } catch (e) {
+                                console.log('addUnderlineToRange.a0:', '单个节点内下划线添加失败，使用备用方法');
+                                const contents = nodeRange.extractContents();
+                                span.appendChild(contents);
+                                nodeRange.insertNode(span);
+                                spans.push(span);
+                            }
+                        });
+                        
+                        console.log('addUnderlineToRange.a0:', '跨标签下划线添加成功，共添加', spans.length, '个下划线');
+                        return spans[0]; // 返回第一个span用于后续处理
+                    }
+                    
+                    // 单个节点内的选中，使用原有逻辑
                     const span = document.createElement('span');
                     span.className = 'underline-fb3b780f';
                     
@@ -2990,7 +3064,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         range.surroundContents(span);
                         console.log('addUnderlineToRange.a0:', '添加下划线成功');
                     } catch (e) {
-                        // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
+                        // 如果surroundContents失败，则使用extractContents方法
                         const contents = range.extractContents();
                         span.appendChild(contents);
                         range.insertNode(span);
