@@ -1989,7 +1989,7 @@ async function loadAndRestoreUnderline(url, contents) {
 }
 
 let resetUnerlineNameIndexMap = {};//用于同一页面的不同下划线的命名标识重置映射，key为url,value为underlineNameIndex
-let underlineNameIndex = 1;//用于同一页面的不同下划线的命名标识
+let underlineNameIndex = 1;//用于同一页面的不同下划线的命名标识，即同一命名标识表示同一划线。而occurrenceIndex表示同一划线内容的不同匹配的位置
 
 /**
  * 在BrowserView中恢复划线信息
