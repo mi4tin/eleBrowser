@@ -3108,6 +3108,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         const spans = addUnderlineToRange(range);
                         spans.forEach(span => {
                             span.dataset.occurrenceIndex = occurrenceIndex;
+                            span.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndex}');
                             result.spans.push(span);
                         });
                     } else if (mode === 2) {
@@ -3122,6 +3123,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 )
 
 
+            underlineNameIndex++;
             addUnderlinePromise.then((result) => {
                 // 成功添加下划线后，记录划线信息
                 console.log("成功添加下划线.result:", result)
