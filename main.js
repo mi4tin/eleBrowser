@@ -2901,7 +2901,7 @@ app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
 })
 
-const underlineMode = 1; // 划线模式，1、只加载指定出现次数的文本划线，2、加载所有匹配文本的划线
+const underlineMode = 1; // 划线模式，1、只加载指定出现次数的文本划线(即选中处文本的划线)，2、加载所有匹配文本的划线
 
 // 处理添加下划线的函数
 function handleAddUnderline(contents, mode = underlineMode) {
@@ -3052,7 +3052,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         });
                         
                         console.log('addUnderlineToRange.a0:', '跨标签下划线添加成功，共添加', spans.length, '个下划线');
-                        return spans[0]; // 返回第一个span用于后续处理
+                        return spans; // 返回spans用于后续处理
                     }
                     
                     // 单个节点内的选中，使用原有逻辑
@@ -3064,7 +3064,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         range.surroundContents(span);
                         console.log('addUnderlineToRange.a0:', '添加下划线成功');
                     } catch (e) {
-                        // 如果surroundContents失败，则使用extractContents方法
+                        // 如果surroundContents失败（例如跨越多个节点），则使用extractContents方法
                         const contents = range.extractContents();
                         span.appendChild(contents);
                         range.insertNode(span);
@@ -3088,7 +3088,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                         }
                         console.log('addUnderlineToRange.a0:', '添加跨节点下划线成功');
                     }
-                    return span;
+                    return [span];
                 }
                 
                 const result = { spans: [], occurrenceIndex: 0 };
@@ -3105,9 +3105,11 @@ function handleAddUnderline(contents, mode = underlineMode) {
 
                         console.log('当前选中的文本occurrenceIndex:', occurrenceIndex);
                         
-                        const span = addUnderlineToRange(range);
-                        span.dataset.occurrenceIndex = occurrenceIndex;
-                        result.spans.push(span);
+                        const spans = addUnderlineToRange(range);
+                        spans.forEach(span => {
+                            span.dataset.occurrenceIndex = occurrenceIndex;
+                            result.spans.push(span);
+                        });
                     } else if (mode === 2) {
                         console.error('不应在此有模式2。当前选中的文本:', selectedText);
                     }
