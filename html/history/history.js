@@ -289,10 +289,8 @@ class HistoryManager {
                 const item = e.target.closest('.history-item');
                 const id = item.dataset.id;
                 
-                if (confirm('确定要删除这条历史记录吗？')) {
-                    this.removeHistory(parseFloat(id));
-                    this.render();
-                }
+                this.removeHistory(parseFloat(id));
+                this.render();
             });
         });
     }
