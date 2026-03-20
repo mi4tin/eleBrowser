@@ -697,6 +697,16 @@ function setupProtocolBlocking(contents) {
         // 记录加载失败信息（排除 xmtls.wasm）
         if (!validatedURL.includes('xmtls.wasm') && errorCode !== 0 && errorCode !== -3) {
             console.log(`页面加载失败: ${validatedURL}, 错误代码: ${errorCode}, 描述: ${errorDescription}`);
+            
+            // 跳转到网页加载失败提示页面
+            const path = require('path');
+            const errorPagePath = path.join(__dirname, 'html/error-page.html');
+            
+            // 构造包含错误信息的URL
+            const errorPageUrl = `file:///${errorPagePath.replace(/\\/g, '/')}?url=${encodeURIComponent(validatedURL)}&error=${encodeURIComponent(errorDescription)}`;
+            
+            // 加载错误页面
+            contents.loadURL(errorPageUrl);
         }
     });
 }
