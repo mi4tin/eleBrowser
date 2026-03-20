@@ -1040,9 +1040,9 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
             const urlObj = new URL(selectedItem.url);
             const hostname = urlObj.hostname;
 
-            console.log('接收到默认选中:', hostname.includes(currentValue), hostname, selectedItem.url);
-            // 检查主域名是否包含在选中的一部分
-            if (hostname.includes(currentValue)) {
+            console.log('接收到默认选中:', hostname.startsWith(currentValue), hostname, selectedItem.url);
+            // 检查主域名是否以用户输入开头
+            if (hostname.startsWith(currentValue)) {
 
                 addressInputPreviousValue = selectedItem.url
                 console.log("修改地址为：", addressInputPreviousValue)
