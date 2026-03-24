@@ -85,8 +85,8 @@ function createBookmarkDropdownView(window,bounds) {
         bookmarkDropdownView.setBounds({
             x: bounds.x,
             y: bounds.y,
-            width: bounds.width,
-            height: bounds.height
+            width: 300,
+            height: 200
         });
 
         // 加载下拉菜单页面

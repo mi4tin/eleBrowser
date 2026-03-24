@@ -153,8 +153,8 @@ function showFolderDropdown(folderId, folderName, folderBounds) {
     });
     
     // 设置下拉菜单位置（从主页面接收的 bounds）
-    folderDropdown.style.left = `${folderBounds.x}px`;
-    folderDropdown.style.top = `${folderBounds.y}px`;
+    // folderDropdown.style.left = `${folderBounds.x}px`;
+    // folderDropdown.style.top = `${folderBounds.y}px`;
     
     // 显示下拉菜单
     folderDropdown.classList.add('show');
@@ -173,6 +173,7 @@ function loadBookmarksData() {
     return new Promise((resolve) => {
         ipcRenderer.send('load-bookmarks');
         ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+            console.log('收到书签数据:', bookmarks);
             if (bookmarks) {
                 resolve(bookmarks);
             } else {

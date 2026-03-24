@@ -12,31 +12,16 @@ body {
     pointer-events: none; /* 整个页面不阻挡鼠标事件 */
 }
 
-/* 下拉菜单容器 */
-.folder-dropdown-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none; /* 容器不接收事件 */
-    z-index: 9999;
-}
 
 /* 文件夹下拉菜单 */
 .folder-dropdown {
-    position: absolute;
-    top: 82px; /* 初始位置：地址栏下方 */
-    left: 0;
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-    z-index: 9999; /* 非常高的 z-index 确保在最上层 */
     display: none;
     max-width: 300px;
     min-width: 200px;
-    pointer-events: auto; /* 下拉菜单需要接收鼠标事件 */
 }
 
 .folder-dropdown.show {
