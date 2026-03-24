@@ -74,7 +74,7 @@ function createBookmarkDropdownView(window) {
         });
 
         // 透明背景
-        bookmarkDropdownView.setBackgroundColor('#00000000');
+        // bookmarkDropdownView.setBackgroundColor('#00000000');
 
         // 设置 WebContentsView 到窗口（最后添加的 view 会在最上层）
         window.contentView.addChildView(bookmarkDropdownView);
@@ -89,7 +89,7 @@ function createBookmarkDropdownView(window) {
         });
 
         // 加载下拉菜单页面
-        const dropdownUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/bookmark-bar/bookmark-bar.html';
+        const dropdownUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
         bookmarkDropdownView.webContents.loadURL(dropdownUrl);
 
         // 监听页面加载完成
@@ -1419,9 +1419,9 @@ function newWindow() {
     // 创建书签栏下拉菜单 WebContentsView（在页面加载完成后）
     myWindow.webContents.once('did-finish-load', () => {
         console.log('主窗口加载完成，创建书签栏下拉菜单');
-        setTimeout(() => {
-            createBookmarkDropdownView(myWindow);
-        }, 1000);
+        // setTimeout(() => {
+        //     createBookmarkDropdownView(myWindow);
+        // }, 1000);
         
     });
 
@@ -2018,6 +2018,12 @@ ipcMain.on('open-bookmark', (event, url) => {
 // IPC 处理器：显示文件夹下拉菜单
 ipcMain.on('show-folder-dropdown', (event, folderId, folderName, folderBounds) => {
     console.log('收到显示文件夹下拉菜单请求:', folderId, folderName);
+
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new Error('下拉菜单.无法获取窗口实例');
+    }
+    createBookmarkDropdownView(window);
     if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
         bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
     }
