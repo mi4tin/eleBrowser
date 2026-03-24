@@ -82,7 +82,7 @@ function showFolderDropdown(folderId, folderName, folderBounds) {
         return null;
     }
     
-    const targetFolder = findFolderById(defaultBookmarksTree, folderId);
+    const targetFolder = findFolderById(bookmarksTreeData, folderId);
     if (!targetFolder) return;
     
     // 收集该文件夹下的所有内容（包括子文件夹和书签）
@@ -165,8 +165,138 @@ function hideFolderDropdown() {
     folderDropdown.classList.remove('show');
 }
 
+// 书签数据（从主进程接收）
+let bookmarksTreeData = null;
+
+// 加载书签数据
+function loadBookmarksData() {
+    return new Promise((resolve) => {
+        ipcRenderer.send('load-bookmarks');
+        ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+            if (bookmarks) {
+                resolve(bookmarks);
+            } else {
+                // 如果没有书签数据，使用默认值
+                resolve(getDefaultBookmarks());
+            }
+        });
+        
+        // 超时处理
+        setTimeout(() => {
+            resolve(getDefaultBookmarks());
+        }, 1000);
+    });
+}
+
+// 默认书签数据
+function getDefaultBookmarks() {
+    return {
+        id: 'root',
+        name: '书签',
+        type: 'folder',
+        items: [
+            {
+                id: 'life',
+                name: '生活',
+                type: 'folder',
+                items: [
+                    {
+                        id: 'life-food',
+                        name: '美食',
+                        type: 'folder',
+                        items: []
+                    },
+                    {
+                        id: 'life-shopping',
+                        name: '购物',
+                        type: 'folder',
+                        items: [
+                            {
+                                type: 'bookmark',
+                                title: '淘宝',
+                                url: 'https://www.taobao.com',
+                                favicon: '🛒'
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'world-news',
+                name: '世界消息',
+                type: 'folder',
+                items: [
+                    {
+                        id: 'bloomberg',
+                        name: '彭博社',
+                        type: 'folder',
+                        items: [
+                            {
+                                type: 'bookmark',
+                                title: '特朗普：将于明年 4 月访华',
+                                url: 'https://baijiahao.baidu.com/s?id=123456789',
+                                favicon: '🔵'
+                            },
+                            {
+                                type: 'bookmark',
+                                title: '彭博社放风救市，地产股集体反弹！但底层数据藏着大信号...',
+                                url: 'https://mp.weixin.qq.com/s/abcdefgh',
+                                favicon: '🟢'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'reuters',
+                        name: '路透社',
+                        type: 'folder',
+                        items: []
+                    }
+                ]
+            },
+            {
+                id: 'weather',
+                name: '天气/气象',
+                type: 'folder',
+                items: [
+                    {
+                        type: 'bookmark',
+                        title: '中国天气网',
+                        url: 'https://www.weather.com.cn',
+                        favicon: '☁️'
+                    }
+                ]
+            },
+            {
+                id: 'travel',
+                name: '出行工具',
+                type: 'folder',
+                items: []
+            },
+            {
+                id: 'hygiene',
+                name: '家庭卫生',
+                type: 'folder',
+                items: []
+            }
+        ]
+    };
+}
+
+// 初始化书签数据
+loadBookmarksData().then(data => {
+    bookmarksTreeData = data;
+    console.log('下拉菜单书签数据加载完成');
+});
+
 // 监听主页面的消息
-ipcRenderer.on('show-folder-dropdown', (event, folderId, folderName, folderBounds) => {
+ipcRenderer.on('show-folder-dropdown', async (event, folderId, folderName, folderBounds) => {
+    console.log('收到显示文件夹下拉菜单请求:', folderId, folderName, folderBounds);
+    
+    // 确保书签数据已加载
+    if (!bookmarksTreeData) {
+        bookmarksTreeData = await loadBookmarksData();
+    }
+    
     showFolderDropdown(folderId, folderName, folderBounds);
 });
 

@@ -49,6 +49,7 @@ const viewY = 82+bookmarkBarHeight;
  */
 function createBookmarkDropdownView(window) {
     if (bookmarkDropdownView) {
+        return bookmarkDropdownView;
         // 如果已经存在，先销毁
         try {
             if (window && !window.isDestroyed()) {
@@ -83,9 +84,9 @@ function createBookmarkDropdownView(window) {
         const contentBounds = window.getContentBounds();
         bookmarkDropdownView.setBounds({
             x: 0,
-            y: 0,
-            width: contentBounds.width,
-            height: contentBounds.height
+            y: viewY,
+            width:300,
+            height: 200
         });
 
         // 加载下拉菜单页面
