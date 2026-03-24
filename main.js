@@ -47,7 +47,7 @@ const viewY = 82+bookmarkBarHeight;
 /**
  * 创建书签栏下拉菜单 WebContentsView
  */
-function createBookmarkDropdownView(window) {
+function createBookmarkDropdownView(window,bounds) {
     if (bookmarkDropdownView) {
         return bookmarkDropdownView;
         // 如果已经存在，先销毁
@@ -81,12 +81,12 @@ function createBookmarkDropdownView(window) {
         window.contentView.addChildView(bookmarkDropdownView);
 
         // 设置位置和尺寸（覆盖整个窗口，用于显示下拉菜单）
-        const contentBounds = window.getContentBounds();
+        // const contentBounds = window.getContentBounds();
         bookmarkDropdownView.setBounds({
-            x: 0,
-            y: viewY,
-            width:300,
-            height: 200
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height
         });
 
         // 加载下拉菜单页面
@@ -2024,7 +2024,7 @@ ipcMain.on('show-folder-dropdown', (event, folderId, folderName, folderBounds) =
     if (!window) {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
-    createBookmarkDropdownView(window);
+    createBookmarkDropdownView(window,folderBounds);
     if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
         bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
     }
