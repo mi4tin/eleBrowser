@@ -76,17 +76,22 @@ function createBookmarkBarView(window) {
         // 透明背景
         bookmarkBarView.setBackgroundColor('#00000000');
 
-        // 设置 WebContentsView 到窗口
+        // 设置 WebContentsView 到窗口（最后添加的 view 会在最上层）
         window.contentView.addChildView(bookmarkBarView);
 
-        // 设置位置和尺寸
+        // 设置位置和尺寸（留出足够的空间给下拉菜单）
         const contentBounds = window.getContentBounds();
+        const dropdownMaxHeight = 450; // 下拉菜单最大高度 400px + padding
         bookmarkBarView.setBounds({
             x: 0,
             y: bookmarkBarY,
             width: contentBounds.width,
-            height: bookmarkBarHeight
+            height: bookmarkBarHeight + dropdownMaxHeight
         });
+        
+        // 将书签栏置顶到最上层
+        window.contentView.addChildView(bookmarkBarView);
+        console.log('书签栏 WebContentsView 置顶到最上层');
 
         // 加载书签栏页面
         const bookmarkBarUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/bookmark-bar/bookmark-bar.html';
@@ -112,12 +117,16 @@ function updateBookmarkBarBounds(window) {
     if (!bookmarkBarView || bookmarkBarView.webContents.isDestroyed()) return;
     
     const contentBounds = window.getContentBounds();
+    const dropdownMaxHeight = 450; // 下拉菜单最大高度 400px + padding
     bookmarkBarView.setBounds({
         x: 0,
-        y: bookmarkBarY,
+        y: bookmarkBarY ,
         width: contentBounds.width,
-        height: bookmarkBarHeight
+        height: bookmarkBarHeight + dropdownMaxHeight
     });
+    
+    // 重新置顶到最上层（防止其他 view 覆盖）
+    window.contentView.addChildView(bookmarkBarView);
 }
 
 /**
@@ -1411,7 +1420,10 @@ function newWindow() {
     // 创建书签栏 WebContentsView（在页面加载完成后）
     myWindow.webContents.once('did-finish-load', () => {
         console.log('主窗口加载完成，创建书签栏');
-        createBookmarkBarView(myWindow);
+        setTimeout(() => {
+            createBookmarkBarView(myWindow);
+        }, 1000*3);
+        
     });
 
     //测试专用
