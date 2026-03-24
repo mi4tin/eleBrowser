@@ -703,7 +703,7 @@ function setupProtocolBlocking(contents) {
             const errorPagePath = path.join(__dirname, 'html/error-page.html');
             
             // 构造包含错误信息的URL
-            const errorPageUrl = `file:///${errorPagePath.replace(/\\/g, '/')}?url=${encodeURIComponent(validatedURL)}&error=${encodeURIComponent(errorDescription)}`;
+            const errorPageUrl = `file://${errorPagePath.replace(/\\/g, '/')}?url=${encodeURIComponent(validatedURL)}&error=${encodeURIComponent(errorDescription)}`;
             
             // 加载错误页面
             contents.loadURL(errorPageUrl);

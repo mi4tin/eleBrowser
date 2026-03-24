@@ -9,6 +9,19 @@ const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
 
+
+/** 应用URL映射，用于从应用URL到浏览器URL的映射 
+ * 比如：
+ * 'dxbrowser://bookmarks/': 'file://' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html',
+ * 'dxbrowser://history/': 'file://' + __dirname.replace(/\\/g, '/') + '/history/history.html',
+ * 'dxbrowser://underline/': 'file://' + __dirname.replace(/\\/g, '/') + '/underline/underline.html',
+*/
+var appUrlMap = {
+};
+
+const appUrlStart="dxbrowser://"//应用URL前缀协议，如：dxbrowser://bookmarks/
+
+
 let currentTabId = null;
 // 记录地址栏的上一个值，用于检测是输入还是删除
 let addressInputPreviousValue = '';
@@ -19,7 +32,7 @@ let tabLoadingState = {};
 function looksLikeDirectUrl(input) {
     const trimmed = (input || '').trim();
     if (!trimmed) return false;
-    if (trimmed.startsWith('dxbrowser://')) return true;
+    if (trimmed.startsWith(appUrlStart)) return true;
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return true;
     // 无协议但包含点且无空格，视为域名（如 123.huahu.cool）
     if (/^[^/\s]+\./.test(trimmed) && !/\s/.test(trimmed)) return true;
@@ -30,7 +43,7 @@ function formatUrl(input) {
     if (!input) return DEFAULT_URL;
     const trimmed = input.trim();
     // 检查是否是 dxbrowser:// 协议
-    if (trimmed.startsWith('dxbrowser://')) {
+    if (trimmed.startsWith(appUrlStart)) {
         return trimmed;
     }
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
@@ -41,6 +54,12 @@ let lastUrl = '';//事件等更新到地址栏的最新地址，而非手动输�
 function updateAddressBar(url) {
     if (currentTabId == null) return;
     lastUrl=url||'';
+
+    // console.log('updateAddressBar.url:', lastUrl,addressInput.value,appUrlMap,appUrlMap[lastUrl]);
+    if (appUrlMap[lastUrl]) {
+        lastUrl = appUrlMap[lastUrl];
+        // console.log('updateAddressBar.appUrlMap:', lastUrl);
+    }
     addressInput.value =lastUrl;
 }
 
@@ -48,13 +67,13 @@ async function loadAddressForCurrentTab() {
     const inputValue = addressInput.value.trim();
 
     // 检查是否是 dxbrowser://bookmarks/ 协议
-    if (inputValue === 'dxbrowser://bookmarks/' || inputValue.startsWith('dxbrowser://bookmarks')) {
+    if (inputValue === appUrlStart+'bookmarks/' || inputValue.startsWith(appUrlStart+'bookmarks')) {
         await openBookmarksTab();
         return;
     }
 
     // 检查是否是 dxbrowser://history/ 协议
-    if (inputValue === 'dxbrowser://history/' || inputValue.startsWith('dxbrowser://history')) {
+    if (inputValue === appUrlStart+'history/' || inputValue.startsWith(appUrlStart+'history')) {
         await openHistoryTab();
         return;
     }
@@ -85,7 +104,7 @@ async function openBookmarksTab() {
 
     try {
         // 使用主进程的 createBrowserView 创建书签管理器
-        const bookmarksUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html';
+        const bookmarksUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', bookmarksUrl);
         // console.log('创建书签管理器标签页成功，tabId:', tabId);
         console.trace('创建书签管理器标签页成功，tabId:', tabId);
@@ -156,6 +175,9 @@ async function openBookmarksTab() {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
 
+        const appUrl = appUrlStart+'bookmarks/';
+        appUrlMap[bookmarksUrl] = appUrl;
+
         updateAddressBar('dxbrowser://bookmarks/');
     } catch (error) {
         console.error('创建书签管理器标签页失败:', error);
@@ -174,7 +196,8 @@ async function openHistoryTab() {
 
     try {
         // 使用主进程的 createBrowserView 创建历史记录管理器
-        const historyUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/history/history.html';
+        console.log('createHistoryTab.dirname:', __dirname);
+        const historyUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/history/history.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', historyUrl);
         console.log('创建历史记录标签页成功，tabId:', tabId);
 
@@ -244,7 +267,10 @@ async function openHistoryTab() {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
 
-        updateAddressBar('dxbrowser://history/');
+
+        appUrlMap[historyUrl] = appUrlStart+'history/';
+
+        updateAddressBar(appUrlStart+'history/');
     } catch (error) {
         console.error('创建历史记录标签页失败:', error);
     }
@@ -261,7 +287,7 @@ async function openUnderlineTab() {
 
     try {
         // 使用主进程的 createBrowserView 创建划线记录管理器
-        const underlineUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/underline/underline.html';
+        const underlineUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/underline/underline.html';
         const tabId = await ipcRenderer.invoke('create-browser-view', underlineUrl);
         console.log('创建划线记录标签页成功，tabId:', tabId);
 
@@ -331,7 +357,11 @@ async function openUnderlineTab() {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
 
-        updateAddressBar('dxbrowser://underline/');
+        const appUrl = appUrlStart+'underline/';
+
+        appUrlMap[underlineUrl] =appUrl;
+
+        updateAddressBar(appUrl);
     } catch (error) {
         console.error('创建划线记录标签页失败:', error);
     }
@@ -411,7 +441,7 @@ async function closeAllTabs() {
 function recordHistory(title, url) {
     console.log('记录历史:', title, url);
     // 避免记录内部协议页面
-    if (url.startsWith('dxbrowser://') || url.startsWith('file://')) {
+    if (url.startsWith(appUrlStart) || url.startsWith('file://')) {
         return;
     }
 
@@ -957,7 +987,7 @@ addressInput.addEventListener('input', (e) => {
     // addressInputPreviousValue = query;
 
     // 如果是内部协议或特殊页面，不显示自动匹配
-    if (query.startsWith('dxbrowser://') || query.startsWith('file://')) {
+    if (query.startsWith(appUrlStart) || query.startsWith('file://')) {
         hideAutocomplete();
         return;
     }
