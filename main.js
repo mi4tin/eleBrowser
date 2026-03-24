@@ -16,13 +16,15 @@ const CUSTOM_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 
 // WebContentsView 管理器 - 存储所有标签页 WebContentsView 实例
 const browserViews = new Map(); // Map<tabId, WebContentsView>
-let tabIdCounter = 0; //标签页ID计数器
+let tabIdCounter = 0; //标签页 ID 计数器
 // 当前激活的 tabId
 let lastActiveTabId = null;
 // 搜索面板 WebContentsView
 let searchPanelView = null;
 // 历史记录自动匹配 WebContentsView
 let historyAutocompleteView = null;
+// 书签栏 WebContentsView
+let bookmarkBarView = null;
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -40,6 +42,84 @@ function isCustomProtocol(url) {
 // WebContentsView 管理函数
 
 const viewY = 82+30;
+const bookmarkBarY = 82; // 书签栏 Y 坐标（地址栏下方）
+const bookmarkBarHeight = 50; // 书签栏高度
+
+/**
+ * 创建书签栏 WebContentsView
+ */
+function createBookmarkBarView(window) {
+    if (bookmarkBarView) {
+        // 如果已经存在，先销毁
+        try {
+            if (window && !window.isDestroyed()) {
+                window.contentView.removeChildView(bookmarkBarView);
+            }
+            if (bookmarkBarView.webContents && !bookmarkBarView.webContents.isDestroyed()) {
+                bookmarkBarView.webContents.destroy();
+            }
+        } catch (e) {
+            console.error('销毁书签栏 WebContentsView 失败:', e);
+        }
+        bookmarkBarView = null;
+    }
+
+    try {
+        // 创建 WebContentsView 实例
+        bookmarkBarView = new WebContentsView({
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: getPreloadPath('preload-browserview.js')
+            }
+        });
+
+        // 透明背景
+        bookmarkBarView.setBackgroundColor('#00000000');
+
+        // 设置 WebContentsView 到窗口
+        window.contentView.addChildView(bookmarkBarView);
+
+        // 设置位置和尺寸
+        const contentBounds = window.getContentBounds();
+        bookmarkBarView.setBounds({
+            x: 0,
+            y: bookmarkBarY,
+            width: contentBounds.width,
+            height: bookmarkBarHeight
+        });
+
+        // 加载书签栏页面
+        const bookmarkBarUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/bookmark-bar/bookmark-bar.html';
+        bookmarkBarView.webContents.loadURL(bookmarkBarUrl);
+
+        // 监听页面加载完成
+        bookmarkBarView.webContents.once('did-finish-load', () => {
+            if (window && !window.isDestroyed()) {
+                window.webContents.focus();
+            }
+        });
+
+        console.log('书签栏 WebContentsView 创建成功');
+        return bookmarkBarView;
+    } catch (error) {
+        console.error('创建书签栏 WebContentsView 失败:', error);
+        return null;
+    }
+}
+
+// 更新书签栏位置（窗口大小改变时调用）
+function updateBookmarkBarBounds(window) {
+    if (!bookmarkBarView || bookmarkBarView.webContents.isDestroyed()) return;
+    
+    const contentBounds = window.getContentBounds();
+    bookmarkBarView.setBounds({
+        x: 0,
+        y: bookmarkBarY,
+        width: contentBounds.width,
+        height: bookmarkBarHeight
+    });
+}
 
 /**
  * 创建新的 WebContentsView（标签页）
@@ -488,6 +568,10 @@ function resizeBrowserViews(window) {
             height: contentBounds.height - viewY
         });
     });
+    
+    // 更新书签栏位置
+    updateBookmarkBarBounds(window);
+    
     // 如果搜索面板存在，则重新定位它
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
@@ -1325,6 +1409,12 @@ function newWindow() {
 
     myWindow.loadFile('html/index.html');
 
+    // 创建书签栏 WebContentsView（在页面加载完成后）
+    myWindow.webContents.once('did-finish-load', () => {
+        console.log('主窗口加载完成，创建书签栏');
+        createBookmarkBarView(myWindow);
+    });
+
     //测试专用
     // myWindow.loadURL('https://console.cucloud.cn/login?returnUrl=https%3A%2F%2Fconsole.cucloud.cn%2Fconsole%2Fcuig%2FsubscribePlan%2Fcreate');
     // return
@@ -1905,13 +1995,33 @@ ipcMain.on('open-bookmark', (event, url) => {
         console.log('主窗口不存在，创建新窗口');
         // 如果主窗口不存在，创建一个新窗口
         newWindow();
-        // 等待窗口加载完成后再发送URL
+        // 等待窗口加载完成后再发送 URL
         mainWindow.webContents.once('did-finish-load', () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
-                console.log('主窗口加载完成，发送URL:', url);
+                console.log('主窗口加载完成，发送 URL:', url);
                 mainWindow.webContents.send('open-url-in-new-tab', url);
             }
         });
+    }
+});
+
+// IPC 处理器：从书签栏打开书签 URL
+ipcMain.on('open-bookmark-url', (event, url) => {
+    console.log('收到从书签栏打开 URL 请求:', url);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('open-url-in-new-tab', url);
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        mainWindow.focus();
+    }
+});
+
+// IPC 处理器：打开书签管理器
+ipcMain.on('open-bookmarks-manager', (event) => {
+    console.log('收到打开书签管理器请求');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('open-bookmarks-manager');
     }
 });
 

@@ -817,6 +817,12 @@ ipcRenderer.on('open-bookmarks-tab', () => {
     openBookmarksTab();
 });
 
+// 主进程要求打开书签管理器（从书签栏点击文件夹）
+ipcRenderer.on('open-bookmarks-manager', () => {
+    console.log("主窗口收到打开书签管理器请求（从书签栏）");
+    openBookmarksTab();
+});
+
 // 修改createTab函数以添加搜索监听器
 (function () {
     const originalCreateTab = window.createTab || createTab;
