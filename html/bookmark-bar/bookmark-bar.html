@@ -1,24 +1,20 @@
 <!DOCTYPE html>
-<html lang="zh-CN" style=" pointer-events: none;">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>书签栏</title>
-    <link rel="stylesheet" href="bookmark-bar.css">
+    <title>书签栏下拉菜单</title>
+    <link rel="stylesheet" href="dropdown-menu.css">
 </head>
 <body>
-    <div class="bookmark-bar" id="bookmarkBar">
-        <div class="bookmark-bar-scroll">
-            <div class="bookmark-bar-content" id="bookmarkBarContent"></div>
+    <!-- 文件夹下拉菜单容器 - 独立显示层 -->
+    <div class="folder-dropdown-container" id="folderDropdownContainer">
+        <div class="folder-dropdown" id="folderDropdown">
+            <div class="folder-dropdown-content" id="folderDropdownContent"></div>
         </div>
     </div>
     
-    <!-- 文件夹下拉菜单 -->
-    <div class="folder-dropdown" id="folderDropdown">
-        <div class="folder-dropdown-content" id="folderDropdownContent"></div>
-    </div>
-    
-    <script src="bookmark-bar.js"></script>
+    <script src="dropdown-menu.js"></script>
 </body>
 </html>

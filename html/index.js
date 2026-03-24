@@ -1219,3 +1219,243 @@ tabsContainer.addEventListener('drop', (e) => {
         }
     }
 });
+
+// ========== 书签栏功能 ==========
+
+const bookmarkBarContent = document.getElementById('bookmarkBarContent');
+
+// 默认书签数据
+const defaultBookmarksTree = {
+    id: 'root',
+    name: '书签',
+    type: 'folder',
+    items: [
+        {
+            id: 'life',
+            name: '生活',
+            type: 'folder',
+            items: [
+                {
+                    id: 'life-food',
+                    name: '美食',
+                    type: 'folder',
+                    items: []
+                },
+                {
+                    id: 'life-shopping',
+                    name: '购物',
+                    type: 'folder',
+                    items: [
+                        {
+                            type: 'bookmark',
+                            title: '淘宝',
+                            url: 'https://www.taobao.com',
+                            favicon: '🛒'
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            id: 'world-news',
+            name: '世界消息',
+            type: 'folder',
+            items: [
+                {
+                    id: 'bloomberg',
+                    name: '彭博社',
+                    type: 'folder',
+                    items: [
+                        {
+                            type: 'bookmark',
+                            title: '特朗普：将于明年 4 月访华',
+                            url: 'https://baijiahao.baidu.com/s?id=123456789',
+                            favicon: '🔵'
+                        },
+                        {
+                            type: 'bookmark',
+                            title: '彭博社放风救市，地产股集体反弹！但底层数据藏着大信号...',
+                            url: 'https://mp.weixin.qq.com/s/abcdefgh',
+                            favicon: '🟢'
+                        }
+                    ]
+                },
+                {
+                    id: 'reuters',
+                    name: '路透社',
+                    type: 'folder',
+                    items: []
+                }
+            ]
+        },
+        {
+            id: 'weather',
+            name: '天气/气象',
+            type: 'folder',
+            items: [
+                {
+                    type: 'bookmark',
+                    title: '中国天气网',
+                    url: 'https://www.weather.com.cn',
+                    favicon: '☁️'
+                }
+            ]
+        },
+        {
+            id: 'travel',
+            name: '出行工具',
+            type: 'folder',
+            items: []
+        },
+        {
+            id: 'hygiene',
+            name: '家庭卫生',
+            type: 'folder',
+            items: []
+        }
+    ]
+};
+
+let bookmarksTreeData = null;
+
+// 加载书签数据
+async function loadBookmarkBarData() {
+    return new Promise((resolve) => {
+        ipcRenderer.send('load-bookmarks');
+        ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+            if (bookmarks) {
+                resolve(bookmarks);
+            } else {
+                resolve(defaultBookmarksTree);
+            }
+        });
+    });
+}
+
+// 收集所有书签和文件夹（扁平化展示）
+function collectAllItems(folder, results = []) {
+    if (!folder.items) return results;
+    
+    folder.items.forEach(item => {
+        if (item.type === 'folder') {
+            results.push({
+                ...item,
+                itemType: 'folder'
+            });
+            // 递归收集子文件夹
+            collectAllItems(item, results);
+        } else if (item.type === 'bookmark') {
+            results.push({
+                ...item,
+                itemType: 'bookmark'
+            });
+        }
+    });
+    
+    return results;
+}
+
+// HTML 转义函数
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 渲染书签栏
+async function renderBookmarkBar() {
+    if (!bookmarkBarContent) return;
+    
+    try {
+        // 加载书签数据
+        bookmarksTreeData = await loadBookmarkBarData();
+        
+        // 收集所有项目
+        const allItems = collectAllItems(bookmarksTreeData);
+        
+        // 清空书签栏
+        bookmarkBarContent.innerHTML = '';
+        
+        if (allItems.length === 0) {
+            bookmarkBarContent.innerHTML = '<div style="color:#999;padding:10px;">暂无书签</div>';
+            return;
+        }
+        
+        // 渲染每个项目
+        allItems.forEach(item => {
+            const itemEl = document.createElement('div');
+            itemEl.className = `bookmark-bar-item ${item.itemType === 'folder' ? 'folder-item' : 'bookmark-item'}`;
+            
+            if (item.itemType === 'folder') {
+                itemEl.innerHTML = `
+                    <div class="bookmark-bar-icon">📁</div>
+                    <div class="bookmark-bar-label">${escapeHtml(item.name)}</div>
+                `;
+                
+                // 点击文件夹：显示下拉菜单
+                itemEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showFolderDropdown(item.id, item.name, itemEl);
+                });
+            } else {
+                itemEl.innerHTML = `
+                    <div class="bookmark-bar-icon">${item.favicon || '🔗'}</div>
+                    <div class="bookmark-bar-label">${escapeHtml(item.title)}</div>
+                `;
+                
+                // 点击书签：直接打开网址
+                itemEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    let url = item.url;
+                    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                        url = 'https://' + url;
+                    }
+                    if (url) {
+                        ipcRenderer.send('open-bookmark-url', url);
+                    }
+                });
+            }
+            
+            bookmarkBarContent.appendChild(itemEl);
+        });
+        
+    } catch (error) {
+        console.error('渲染书签栏失败:', error);
+    }
+}
+
+// 显示文件夹下拉菜单
+function showFolderDropdown(folderId, folderName, folderElement) {
+    // 获取文件夹的位置信息
+    const rect = folderElement.getBoundingClientRect();
+    const folderBounds = {
+        x: rect.left,
+        y: rect.bottom, // 下拉菜单应该出现在文件夹下方
+        width: rect.width,
+        height: rect.height
+    };
+    
+    // 发送消息到下拉菜单 WebContentsView
+    ipcRenderer.send('show-folder-dropdown', folderId, folderName, folderBounds);
+    
+    // 给当前文件夹添加激活状态
+    folderElement.classList.add('dropdown-active');
+}
+
+// 隐藏文件夹下拉菜单
+function hideFolderDropdown() {
+    ipcRenderer.send('hide-folder-dropdown');
+    
+    // 移除所有文件夹的激活状态
+    document.querySelectorAll('.bookmark-bar-item.folder-item.dropdown-active').forEach(el => {
+        el.classList.remove('dropdown-active');
+    });
+}
+
+// 全局点击事件监听 - 点击其他地方关闭下拉菜单
+document.addEventListener('click', () => {
+    hideFolderDropdown();
+});
+
+// 初始化书签栏
+renderBookmarkBar();

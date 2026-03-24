@@ -23,8 +23,8 @@ let lastActiveTabId = null;
 let searchPanelView = null;
 // 历史记录自动匹配 WebContentsView
 let historyAutocompleteView = null;
-// 书签栏 WebContentsView
-let bookmarkBarView = null;
+// 书签栏 WebContentsView（下拉菜单）
+let bookmarkDropdownView = null;
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -45,27 +45,27 @@ const bookmarkBarHeight = 50; // 书签栏高度
 const viewY = 82+bookmarkBarHeight;
 
 /**
- * 创建书签栏 WebContentsView
+ * 创建书签栏下拉菜单 WebContentsView
  */
-function createBookmarkBarView(window) {
-    if (bookmarkBarView) {
+function createBookmarkDropdownView(window) {
+    if (bookmarkDropdownView) {
         // 如果已经存在，先销毁
         try {
             if (window && !window.isDestroyed()) {
-                window.contentView.removeChildView(bookmarkBarView);
+                window.contentView.removeChildView(bookmarkDropdownView);
             }
-            if (bookmarkBarView.webContents && !bookmarkBarView.webContents.isDestroyed()) {
-                bookmarkBarView.webContents.destroy();
+            if (bookmarkDropdownView.webContents && !bookmarkDropdownView.webContents.isDestroyed()) {
+                bookmarkDropdownView.webContents.destroy();
             }
         } catch (e) {
-            console.error('销毁书签栏 WebContentsView 失败:', e);
+            console.error('销毁书签栏下拉菜单 WebContentsView 失败:', e);
         }
-        bookmarkBarView = null;
+        bookmarkDropdownView = null;
     }
 
     try {
         // 创建 WebContentsView 实例
-        bookmarkBarView = new WebContentsView({
+        bookmarkDropdownView = new WebContentsView({
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
@@ -74,60 +74,59 @@ function createBookmarkBarView(window) {
         });
 
         // 透明背景
-        bookmarkBarView.setBackgroundColor('#00000000');
+        bookmarkDropdownView.setBackgroundColor('#00000000');
 
         // 设置 WebContentsView 到窗口（最后添加的 view 会在最上层）
-        window.contentView.addChildView(bookmarkBarView);
+        window.contentView.addChildView(bookmarkDropdownView);
 
-        // 设置位置和尺寸（留出足够的空间给下拉菜单）
+        // 设置位置和尺寸（覆盖整个窗口，用于显示下拉菜单）
         const contentBounds = window.getContentBounds();
-        const dropdownMaxHeight = 450; // 下拉菜单最大高度 400px + padding
-        bookmarkBarView.setBounds({
+        bookmarkDropdownView.setBounds({
             x: 0,
-            y: bookmarkBarY,
+            y: 0,
             width: contentBounds.width,
-            height: bookmarkBarHeight + dropdownMaxHeight
+            height: contentBounds.height
         });
-        
-        // 将书签栏置顶到最上层
-        window.contentView.addChildView(bookmarkBarView);
-        console.log('书签栏 WebContentsView 置顶到最上层');
 
-        // 加载书签栏页面
-        const bookmarkBarUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/bookmark-bar/bookmark-bar.html';
-        bookmarkBarView.webContents.loadURL(bookmarkBarUrl);
+        // 加载下拉菜单页面
+        const dropdownUrl = 'file://' + __dirname.replace(/\\/g, '/') + '/html/bookmark-bar/bookmark-bar.html';
+        bookmarkDropdownView.webContents.loadURL(dropdownUrl);
 
         // 监听页面加载完成
-        bookmarkBarView.webContents.once('did-finish-load', () => {
+        bookmarkDropdownView.webContents.once('did-finish-load', () => {
             if (window && !window.isDestroyed()) {
                 window.webContents.focus();
             }
         });
 
-        console.log('书签栏 WebContentsView 创建成功');
-        return bookmarkBarView;
+        console.log('书签栏下拉菜单 WebContentsView 创建成功');
+        return bookmarkDropdownView;
     } catch (error) {
-        console.error('创建书签栏 WebContentsView 失败:', error);
+        console.error('创建书签栏下拉菜单 WebContentsView 失败:', error);
         return null;
     }
 }
 
-// 更新书签栏位置（窗口大小改变时调用）
-function updateBookmarkBarBounds(window) {
-    if (!bookmarkBarView || bookmarkBarView.webContents.isDestroyed()) return;
+/**
+ * 更新书签栏下拉菜单位置（窗口大小改变时调用）
+ */
+function updateBookmarkDropdownBounds(window) {
+    if (!bookmarkDropdownView || bookmarkDropdownView.webContents.isDestroyed()) return;
     
     const contentBounds = window.getContentBounds();
-    const dropdownMaxHeight = 450; // 下拉菜单最大高度 400px + padding
-    bookmarkBarView.setBounds({
+    bookmarkDropdownView.setBounds({
         x: 0,
-        y: bookmarkBarY ,
+        y: 0,
         width: contentBounds.width,
-        height: bookmarkBarHeight + dropdownMaxHeight
+        height: contentBounds.height
     });
-    
-    // 重新置顶到最上层（防止其他 view 覆盖）
-    window.contentView.addChildView(bookmarkBarView);
 }
+
+// 注意：书签栏已移至 index.html 中，此函数已废弃
+// function createBookmarkBarView(window) { ... }
+
+// 注意：书签栏已移至 index.html 中，此函数已废弃
+// function updateBookmarkBarBounds(window) { ... }
 
 /**
  * 创建新的 WebContentsView（标签页）
@@ -577,8 +576,8 @@ function resizeBrowserViews(window) {
         });
     });
     
-    // 更新书签栏位置
-    updateBookmarkBarBounds(window);
+    // 更新书签栏下拉菜单位置
+    updateBookmarkDropdownBounds(window);
     
     // 如果搜索面板存在，则重新定位它
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
@@ -1417,12 +1416,12 @@ function newWindow() {
 
     myWindow.loadFile('html/index.html');
 
-    // 创建书签栏 WebContentsView（在页面加载完成后）
+    // 创建书签栏下拉菜单 WebContentsView（在页面加载完成后）
     myWindow.webContents.once('did-finish-load', () => {
-        console.log('主窗口加载完成，创建书签栏');
+        console.log('主窗口加载完成，创建书签栏下拉菜单');
         setTimeout(() => {
-            createBookmarkBarView(myWindow);
-        }, 1000*3);
+            createBookmarkDropdownView(myWindow);
+        }, 1000);
         
     });
 
@@ -2013,6 +2012,21 @@ ipcMain.on('open-bookmark', (event, url) => {
                 mainWindow.webContents.send('open-url-in-new-tab', url);
             }
         });
+    }
+});
+
+// IPC 处理器：显示文件夹下拉菜单
+ipcMain.on('show-folder-dropdown', (event, folderId, folderName, folderBounds) => {
+    console.log('收到显示文件夹下拉菜单请求:', folderId, folderName);
+    if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
+        bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
+    }
+});
+
+// IPC 处理器：隐藏文件夹下拉菜单
+ipcMain.on('hide-folder-dropdown', (event) => {
+    if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
+        bookmarkDropdownView.webContents.send('hide-folder-dropdown');
     }
 });
 
