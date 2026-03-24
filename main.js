@@ -39,7 +39,7 @@ function isCustomProtocol(url) {
 
 // WebContentsView 管理函数
 
-const viewY = 82;
+const viewY = 82+30;
 
 /**
  * 创建新的 WebContentsView（标签页）
