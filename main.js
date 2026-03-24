@@ -40,10 +40,9 @@ function isCustomProtocol(url) {
 }
 
 // WebContentsView 管理函数
-
-const viewY = 82+30;
 const bookmarkBarY = 82; // 书签栏 Y 坐标（地址栏下方）
 const bookmarkBarHeight = 50; // 书签栏高度
+const viewY = 82+bookmarkBarHeight;
 
 /**
  * 创建书签栏 WebContentsView
