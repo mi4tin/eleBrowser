@@ -42,12 +42,12 @@ function isCustomProtocol(url) {
 // WebContentsView 管理函数
 const bookmarkBarY = 82; // 书签栏 Y 坐标（地址栏下方）
 const bookmarkBarHeight = 50; // 书签栏高度
-const viewY = 82+bookmarkBarHeight;
+const viewY = 82 + bookmarkBarHeight;
 
 /**
  * 创建书签栏下拉菜单 WebContentsView
  */
-function createBookmarkDropdownView(window,bounds) {
+function createBookmarkDropdownView(window, bounds) {
     if (bookmarkDropdownView) {
         return bookmarkDropdownView;
         // 如果已经存在，先销毁
@@ -74,8 +74,10 @@ function createBookmarkDropdownView(window,bounds) {
             }
         });
 
+        // bookmarkDropdownView.setVisible(false);
+
         // 透明背景
-        // bookmarkDropdownView.setBackgroundColor('#00000000');
+        // bookmarkDropdownView.setBackgroundColor('#00000000');//设置透明，没加载出来前不显示白板
 
         // 设置 WebContentsView 到窗口（最后添加的 view 会在最上层）
         window.contentView.addChildView(bookmarkDropdownView);
@@ -93,12 +95,7 @@ function createBookmarkDropdownView(window,bounds) {
         const dropdownUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
         bookmarkDropdownView.webContents.loadURL(dropdownUrl);
 
-        // 监听页面加载完成
-        bookmarkDropdownView.webContents.once('did-finish-load', () => {
-            if (window && !window.isDestroyed()) {
-                window.webContents.focus();
-            }
-        });
+       
 
         console.log('书签栏下拉菜单 WebContentsView 创建成功');
         return bookmarkDropdownView;
@@ -113,7 +110,7 @@ function createBookmarkDropdownView(window,bounds) {
  */
 function updateBookmarkDropdownBounds(window) {
     if (!bookmarkDropdownView || bookmarkDropdownView.webContents.isDestroyed()) return;
-    
+
     const contentBounds = window.getContentBounds();
     bookmarkDropdownView.setBounds({
         x: 0,
@@ -395,7 +392,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 sendUpdate(viewData);
             }
         });
-        
+
         v.webContents.on('did-start-loading', () => {
             console.log("did-start-loading")
             try {
@@ -408,12 +405,12 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         });
 
         // Ctrl+滑轮缩放
-        let zoomLevel =0
+        let zoomLevel = 0
         v.webContents.on('dom-ready', () => {
             zoomLevel = v.webContents.zoomLevel
             console.log("zoomLevel.aa12b", zoomLevel)
         });
-        
+
         v.webContents.on('zoom-changed', (e, zoomDirection) => {
             // console.log('zoom-changed', zoomLevel, zoomDirection)
             if (zoomDirection === 'in') {
@@ -576,10 +573,10 @@ function resizeBrowserViews(window) {
             height: contentBounds.height - viewY
         });
     });
-    
+
     // 更新书签栏下拉菜单位置
     updateBookmarkDropdownBounds(window);
-    
+
     // 如果搜索面板存在，则重新定位它
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
@@ -789,14 +786,14 @@ function setupProtocolBlocking(contents) {
         // 记录加载失败信息（排除 xmtls.wasm）
         if (!validatedURL.includes('xmtls.wasm') && errorCode !== 0 && errorCode !== -3) {
             console.log(`页面加载失败: ${validatedURL}, 错误代码: ${errorCode}, 描述: ${errorDescription}`);
-            
+
             // 跳转到网页加载失败提示页面
             const path = require('path');
             const errorPagePath = path.join(__dirname, 'html/error-page.html');
-            
+
             // 构造包含错误信息的URL
             const errorPageUrl = `file://${errorPagePath.replace(/\\/g, '/')}?url=${encodeURIComponent(validatedURL)}&error=${encodeURIComponent(errorDescription)}`;
-            
+
             // 加载错误页面
             contents.loadURL(errorPageUrl);
         }
@@ -1423,7 +1420,7 @@ function newWindow() {
         // setTimeout(() => {
         //     createBookmarkDropdownView(myWindow);
         // }, 1000);
-        
+
     });
 
     //测试专用
@@ -2017,17 +2014,43 @@ ipcMain.on('open-bookmark', (event, url) => {
 });
 
 // IPC 处理器：显示文件夹下拉菜单
-ipcMain.on('show-folder-dropdown', (event, folderId, folderName, folderBounds) => {
+ipcMain.on('show-folder-dropdown', async (event, folderId, folderName, folderBounds) => {
     console.log('收到显示文件夹下拉菜单请求:', folderId, folderName);
 
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
-    createBookmarkDropdownView(window,folderBounds);
-    if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
-        bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
+
+    let timeout = 1
+    if (!!bookmarkDropdownView == false) {
+        createBookmarkDropdownView(window, folderBounds);
+        timeout = 500
+        console.log('bookmarkDropdownView.webContents.isLoading():', bookmarkDropdownView.webContents.isLoading());
+        
+         // 监听页面加载完成
+        bookmarkDropdownView.webContents.once('did-finish-load', () => {
+            if (window && !window.isDestroyed()) {
+                // bookmarkDropdownView.setVisible(true);
+                window.webContents.focus();
+                
+                if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
+                console.log('bookmarkDropdownView.webContents.isLoading()2.1:', bookmarkDropdownView.webContents.isLoading());
+                console.log('发送到下拉菜单:', folderId, folderName, folderBounds);
+                bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
+                }
+            }
+        });
+    }else{
+        if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
+                console.log('bookmarkDropdownView.webContents.isLoading()2:', bookmarkDropdownView.webContents.isLoading());
+                console.log('发送到下拉菜单:', folderId, folderName, folderBounds);
+
+                // bookmarkDropdownView.setVisible(true);
+                bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
+        }
     }
+
 });
 
 // IPC 处理器：隐藏文件夹下拉菜单
@@ -3065,7 +3088,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 return;
             }
 
-            selectedText=selectedText.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "").replace(/\r/g, "");//将换行等替换为空串，否则会在下面的('${selectedText}', ${mode})`处报错
+            selectedText = selectedText.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "").replace(/\r/g, "");//将换行等替换为空串，否则会在下面的('${selectedText}', ${mode})`处报错
 
             // 构造划线信息对象
             let underlineInfo = {
@@ -3075,7 +3098,7 @@ function handleAddUnderline(contents, mode = underlineMode) {
                 mode: mode,
                 occurrenceIndex: 0
             };
-            
+
             console.log('handleAddUnderline:', selectedText);
 
             const addUnderlinePromise = (mode === 2)
