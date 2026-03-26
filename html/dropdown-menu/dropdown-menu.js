@@ -44,7 +44,7 @@ function escapeHtml(text) {
 // 收集文件夹内的所有书签（递归）
 function collectFolderBookmarks(folder, results = []) {
     if (!folder.items) return results;
-    
+
     folder.items.forEach(item => {
         if (item.type === 'folder') {
             // 子文件夹也加入结果，并标记为文件夹
@@ -62,19 +62,19 @@ function collectFolderBookmarks(folder, results = []) {
             });
         }
     });
-    
+
     return results;
 }
 
 // 显示文件夹下拉菜单
 function showFolderDropdown() {
-    const items = folderData.items; 
-    
+    const items = folderData.items;
+
     if (items.length === 0) {
         // 空文件夹，不显示下拉菜单
         return;
     }
-    
+
     // 清空并重新渲染下拉菜单内容
     folderDropdownContent.innerHTML = '';
 
@@ -82,20 +82,22 @@ function showFolderDropdown() {
     items.forEach(item => {
         const itemEl = document.createElement('div');
         itemEl.className = 'folder-dropdown-item';
-        
+
         if (item.type === 'folder') {
             // 子文件夹
             itemEl.innerHTML = `
                 <span class="icon folder-icon">📁</span>
                 <span class="label">${escapeHtml(item.name)}</span>
             `;
-            
+
             // 点击子文件夹：打开书签管理页面并定位到该文件夹
-            itemEl.addEventListener('click', () => {
-                console.log('点击了子文件夹:', item.name); 
+            itemEl.addEventListener('mouseenter', () => {
+                const rect = itemEl.getBoundingClientRect();
+                console.log('鼠标进入子文件夹:', item.name, rect);
                 // hideFolderDropdown();
-                ipcRenderer.send('hide-folder-dropdown');
-                ipcRenderer.send('open-bookmarks-manager');
+                // ipcRenderer.send('hide-folder-dropdown');
+                const bounds = { x: rect.right, y: rect.top };
+                ipcRenderer.send('show-folder-dropdown-next', bounds, item);
             });
         } else {
             // 书签
@@ -103,7 +105,7 @@ function showFolderDropdown() {
                 <span class="icon">${item.favicon || '🔗'}</span>
                 <span class="label">${escapeHtml(item.title)}</span>
             `;
-            
+
             // 点击书签：直接打开网址
             itemEl.addEventListener('click', () => {
                 console.log('点击了书签:', item.title);
@@ -117,14 +119,14 @@ function showFolderDropdown() {
                 }
             });
         }
-        
+
         folderDropdownContent.appendChild(itemEl);
     });
-    
+
     // 设置下拉菜单位置（从主页面接收的 bounds）
     // folderDropdown.style.left = `${folderBounds.x}px`;
     // folderDropdown.style.top = `${folderBounds.y}px`;
-    
+
     // 显示下拉菜单
     folderDropdown.classList.add('show');
 }
@@ -151,7 +153,7 @@ function loadBookmarksData(folderId) {
                 resolve(getDefaultBookmarks());
             }
         });
-        
+
         // 超时处理
         setTimeout(() => {
             resolve(getDefaultBookmarks());
@@ -256,9 +258,9 @@ function getDefaultBookmarks() {
 // 监听主页面的消息
 ipcRenderer.on('show-folder-dropdown', async (event, receivedFolderData, folderBounds) => {
     console.log('收到显示文件夹下拉菜单请求:', receivedFolderData, folderBounds);
-    
-    folderData=receivedFolderData
-    
+
+    folderData = receivedFolderData
+
     showFolderDropdown();
 });
 

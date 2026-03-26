@@ -2052,6 +2052,28 @@ ipcMain.on('hide-folder-dropdown', (event) => {
     hideFolderDropdown(window);
 })
 
+// IPC 处理器：下级文件夹下拉菜单
+ipcMain.on('show-folder-dropdown-next', (event,nextBounds,item) => {
+     const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new Error('下拉菜单.无法获取窗口实例');
+    }
+    if (!bookmarkDropdownView) {
+        console.log('下级下拉失败, 无法获取第一个下拉菜单', nextBounds);
+        return;
+    }
+    let bounds =bookmarkDropdownView.getBounds();
+    nextBounds = {
+        x: bounds.x + nextBounds.x,
+        y: bounds.y + nextBounds.y,
+        width: bounds.width,
+        height: bounds.height
+    }
+
+
+})
+
+
 function hideFolderDropdown(window) {
     if (!bookmarkDropdownView) return;
 
