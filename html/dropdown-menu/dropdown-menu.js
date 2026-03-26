@@ -93,7 +93,7 @@ function showFolderDropdown() {
             // 点击子文件夹：打开书签管理页面并定位到该文件夹
             itemEl.addEventListener('click', () => {
                 console.log('点击了子文件夹:', item.name); 
-                hideFolderDropdown();
+                // hideFolderDropdown();
                 ipcRenderer.send('open-bookmarks-manager');
             });
         } else {
@@ -105,6 +105,7 @@ function showFolderDropdown() {
             
             // 点击书签：直接打开网址
             itemEl.addEventListener('click', () => {
+                console.log('点击了书签:', item.title);
                 hideFolderDropdown();
                 let url = item.url;
                 if (url && !url.startsWith('http://') && !url.startsWith('https://')) {

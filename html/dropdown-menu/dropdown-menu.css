@@ -9,7 +9,6 @@ body {
     overflow: hidden;
     height: 100vh;
     background: transparent; /* 透明背景 */
-    pointer-events: none; /* 整个页面不阻挡鼠标事件 */
 }
 
 
@@ -19,7 +18,7 @@ body {
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     /* box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); */
-    display: none;
+    /* display: none; */
     max-width: 300px;
     min-width: 200px;
 }
