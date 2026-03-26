@@ -1323,6 +1323,7 @@ async function loadBookmarkBarData() {
     return new Promise((resolve) => {
         ipcRenderer.send('load-bookmarks');
         ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+            console.log('收到书签数据:', bookmarks);
             if (bookmarks) {
                 resolve(bookmarks);
             } else {
@@ -1371,7 +1372,8 @@ async function renderBookmarkBar() {
         bookmarksTreeData = await loadBookmarkBarData();
         
         // 收集所有项目
-        const allItems = collectAllItems(bookmarksTreeData);
+        // const allItems = collectAllItems(bookmarksTreeData);
+        const allItems = bookmarksTreeData.items;
         
         // 清空书签栏
         bookmarkBarContent.innerHTML = '';
@@ -1383,10 +1385,11 @@ async function renderBookmarkBar() {
         
         // 渲染每个项目
         allItems.forEach(item => {
+            console.log('渲染书签栏项目:', item);
             const itemEl = document.createElement('div');
-            itemEl.className = `bookmark-bar-item ${item.itemType === 'folder' ? 'folder-item' : 'bookmark-item'}`;
+            itemEl.className = `bookmark-bar-item ${item.type === 'folder' ? 'folder-item' : 'bookmark-item'}`;
             
-            if (item.itemType === 'folder') {
+            if (item.type === 'folder') {
                 itemEl.innerHTML = `
                     <div class="bookmark-bar-icon">📁</div>
                     <div class="bookmark-bar-label">${escapeHtml(item.name)}</div>
