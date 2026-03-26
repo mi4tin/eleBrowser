@@ -1333,6 +1333,20 @@ async function loadBookmarkBarData() {
     });
 }
 
+// 根据文件夹json数据,查找指定id的文件夹数据
+function findFolderById(folder, id) {
+    if (folder.id === id) return folder;
+    if (!folder.items) return null;
+
+    for (const item of folder.items) {
+        if (item.type === 'folder') {
+            const found = findFolderById(item, id);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 // 收集所有书签和文件夹（扁平化展示）
 function collectAllItems(folder, results = []) {
     if (!folder.items) return results;
@@ -1429,17 +1443,23 @@ async function renderBookmarkBar() {
 
 // 显示文件夹下拉菜单
 function showFolderDropdown(folderId, folderName, folderElement) {
+
+    const folderData = findFolderById(bookmarksTreeData, folderId);
+    console.log('找到的目标文件夹:', folderData);
+    if (!folderData) return;
+    if (!folderData.items || folderData.items.length === 0) return;
+
     // 获取文件夹的位置信息
     const rect = folderElement.getBoundingClientRect();
     const folderBounds = {
         x: rect.left,
         y: rect.bottom, // 下拉菜单应该出现在文件夹下方
-        width: rect.width,
-        height: rect.height
+        width: 300,
+        height:41*folderData.items.length+16+2
     };
     
     // 发送消息到下拉菜单 WebContentsView
-    ipcRenderer.send('show-folder-dropdown', folderId, folderName, folderBounds);
+    ipcRenderer.send('show-folder-dropdown', folderData, folderBounds);
     
     // 给当前文件夹添加激活状态
     folderElement.classList.add('dropdown-active');

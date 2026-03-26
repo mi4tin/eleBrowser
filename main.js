@@ -49,7 +49,7 @@ const viewY = 82 + bookmarkBarHeight;
  */
 function createBookmarkDropdownView(window, bounds) {
     if (bookmarkDropdownView) {
-        return bookmarkDropdownView;
+        // return bookmarkDropdownView;
         // 如果已经存在，先销毁
         try {
             if (window && !window.isDestroyed()) {
@@ -87,15 +87,15 @@ function createBookmarkDropdownView(window, bounds) {
         bookmarkDropdownView.setBounds({
             x: bounds.x,
             y: bounds.y,
-            width: 300,
-            height: 200
+            width: bounds.width,
+            height: bounds.height
         });
 
         // 加载下拉菜单页面
         const dropdownUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
         bookmarkDropdownView.webContents.loadURL(dropdownUrl);
 
-       
+
 
         console.log('书签栏下拉菜单 WebContentsView 创建成功');
         return bookmarkDropdownView;
@@ -2014,40 +2014,42 @@ ipcMain.on('open-bookmark', (event, url) => {
 });
 
 // IPC 处理器：显示文件夹下拉菜单
-ipcMain.on('show-folder-dropdown', async (event, folderId, folderName, folderBounds) => {
-    console.log('收到显示文件夹下拉菜单请求:', folderId, folderName);
+ipcMain.on('show-folder-dropdown', async (event, folderData, folderBounds) => {
+    console.log('收到显示文件夹下拉菜单请求:', folderData.name,folderBounds);
 
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
 
-    let timeout = 1
     if (!!bookmarkDropdownView == false) {
+
+        //获取书签数据
+        // await loadBookmarksData(folderId);
+        // const bookmarks = loadBookmarksData(folderId);
+
         createBookmarkDropdownView(window, folderBounds);
-        timeout = 500
         console.log('bookmarkDropdownView.webContents.isLoading():', bookmarkDropdownView.webContents.isLoading());
-        
-         // 监听页面加载完成
+
+        // 监听页面加载完成
         bookmarkDropdownView.webContents.once('did-finish-load', () => {
             if (window && !window.isDestroyed()) {
-                // bookmarkDropdownView.setVisible(true);
                 window.webContents.focus();
-                
+
                 if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
-                console.log('bookmarkDropdownView.webContents.isLoading()2.1:', bookmarkDropdownView.webContents.isLoading());
-                console.log('发送到下拉菜单:', folderId, folderName, folderBounds);
-                bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
+                    console.log('bookmarkDropdownView.webContents.isLoading()2.1:', bookmarkDropdownView.webContents.isLoading());
+                    console.log('发送到下拉菜单:', folderData, folderBounds);
+                    bookmarkDropdownView.webContents.send('show-folder-dropdown', folderData, folderBounds);
                 }
             }
         });
-    }else{
+    } else {
         if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
-                console.log('bookmarkDropdownView.webContents.isLoading()2:', bookmarkDropdownView.webContents.isLoading());
-                console.log('发送到下拉菜单:', folderId, folderName, folderBounds);
+            console.log('bookmarkDropdownView.webContents.isLoading()2:', bookmarkDropdownView.webContents.isLoading());
+            console.log('发送到下拉菜单:', folderData, folderBounds);
 
-                // bookmarkDropdownView.setVisible(true);
-                bookmarkDropdownView.webContents.send('show-folder-dropdown', folderId, folderName, folderBounds);
+            // bookmarkDropdownView.setVisible(true);
+            bookmarkDropdownView.webContents.send('show-folder-dropdown', folderData, folderBounds);
         }
     }
 
@@ -2458,21 +2460,47 @@ if (!fs.existsSync(userDataPath)) {
 }
 
 // IPC 处理器：加载书签数据
-ipcMain.on('load-bookmarks', (event) => {
-    console.log('收到加载书签请求', bookmarksFilePath);
+ipcMain.on('load-bookmarks', (event, folderId) => {
+    console.log('收到加载书签请求', bookmarksFilePath, folderId);
     try {
-        if (fs.existsSync(bookmarksFilePath)) {
-            const data = fs.readFileSync(bookmarksFilePath, 'utf8');
-            const bookmarks = JSON.parse(data);
-            event.reply('load-bookmarks-reply', bookmarks);
-        } else {
-            event.reply('load-bookmarks-reply', null);
-        }
+        const bookmarks = loadBookmarksData(folderId);
+        event.reply('load-bookmarks-reply', bookmarks);
     } catch (e) {
         console.error('加载书签数据失败:', e);
         event.reply('load-bookmarks-reply', null);
     }
 });
+
+// 根据文件夹json数据,查找指定id的文件夹数据
+function findFolderById(folder, id) {
+    if (folder.id === id) return folder;
+    if (!folder.items) return null;
+
+    for (const item of folder.items) {
+        if (item.type === 'folder') {
+            const found = findFolderById(item, id);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+function loadBookmarksData(folderId) {
+    if (fs.existsSync(bookmarksFilePath)) {
+        const data = fs.readFileSync(bookmarksFilePath, 'utf8');
+        let bookmarks = JSON.parse(data);
+
+        if (folderId) {
+            const folder = findFolderById(bookmarks, folderId);
+            if (folder) {
+                bookmarks = folder;
+            }
+        }
+        return bookmarks;
+    } else {
+        return null;
+    }
+}
 
 // IPC 处理器：保存书签数据
 ipcMain.on('save-bookmarks', (event, bookmarks) => {
