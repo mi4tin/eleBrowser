@@ -48,21 +48,6 @@ const viewY = 82 + bookmarkBarHeight;
  * 创建书签栏下拉菜单 WebContentsView
  */
 function createBookmarkDropdownView(window, bounds) {
-    if (bookmarkDropdownView) {
-        // return bookmarkDropdownView;
-        // 如果已经存在，先销毁
-        try {
-            if (window && !window.isDestroyed()) {
-                window.contentView.removeChildView(bookmarkDropdownView);
-            }
-            if (bookmarkDropdownView.webContents && !bookmarkDropdownView.webContents.isDestroyed()) {
-                bookmarkDropdownView.webContents.destroy();
-            }
-        } catch (e) {
-            console.error('销毁书签栏下拉菜单 WebContentsView 失败:', e);
-        }
-        bookmarkDropdownView = null;
-    }
 
     try {
         // 创建 WebContentsView 实例
@@ -2013,13 +1998,20 @@ ipcMain.on('open-bookmark', (event, url) => {
     }
 });
 
+
+let dropdownFolderId = null;
 // IPC 处理器：显示文件夹下拉菜单
 ipcMain.on('show-folder-dropdown', async (event, folderData, folderBounds) => {
-    console.log('收到显示文件夹下拉菜单请求:', folderData.name,folderBounds);
+    console.log('收到显示文件夹下拉菜单请求:', folderData.name, folderBounds);
 
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) {
         throw new Error('下拉菜单.无法获取窗口实例');
+    }
+
+    if (dropdownFolderId&&dropdownFolderId != folderData.id) {
+        hideFolderDropdown(window)//关闭之前的
+        // return;
     }
 
     if (!!bookmarkDropdownView == false) {
@@ -2029,6 +2021,7 @@ ipcMain.on('show-folder-dropdown', async (event, folderData, folderBounds) => {
         // const bookmarks = loadBookmarksData(folderId);
 
         createBookmarkDropdownView(window, folderBounds);
+        dropdownFolderId = folderData.id;
         console.log('bookmarkDropdownView.webContents.isLoading():', bookmarkDropdownView.webContents.isLoading());
 
         // 监听页面加载完成
@@ -2044,16 +2037,27 @@ ipcMain.on('show-folder-dropdown', async (event, folderData, folderBounds) => {
             }
         });
     } else {
-        if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
-            console.log('bookmarkDropdownView.webContents.isLoading()2:', bookmarkDropdownView.webContents.isLoading());
-            console.log('发送到下拉菜单:', folderData, folderBounds);
-
-            // bookmarkDropdownView.setVisible(true);
-            bookmarkDropdownView.webContents.send('show-folder-dropdown', folderData, folderBounds);
-        }
+        // 隐藏书签栏下拉菜单
+        hideFolderDropdown(window);
     }
 
 });
+
+function hideFolderDropdown(window) {
+    if (!bookmarkDropdownView) return;
+
+    try {
+        if (window && !window.isDestroyed()) {
+            window.contentView.removeChildView(bookmarkDropdownView);
+        }
+        if (bookmarkDropdownView.webContents && !bookmarkDropdownView.webContents.isDestroyed()) {
+            bookmarkDropdownView.webContents.destroy();
+        }
+    } catch (e) {
+        console.error('销毁书签栏下拉菜单 WebContentsView 失败:', e);
+    }
+    bookmarkDropdownView = null;
+}
 
 // IPC 处理器：隐藏文件夹下拉菜单
 ipcMain.on('hide-folder-dropdown', (event) => {
