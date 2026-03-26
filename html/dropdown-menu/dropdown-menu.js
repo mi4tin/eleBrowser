@@ -94,6 +94,7 @@ function showFolderDropdown() {
             itemEl.addEventListener('click', () => {
                 console.log('点击了子文件夹:', item.name); 
                 // hideFolderDropdown();
+                ipcRenderer.send('hide-folder-dropdown');
                 ipcRenderer.send('open-bookmarks-manager');
             });
         } else {

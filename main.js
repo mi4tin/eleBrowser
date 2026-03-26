@@ -2001,7 +2001,7 @@ ipcMain.on('open-bookmark', (event, url) => {
 
 let dropdownFolderId = null;
 // IPC 处理器：显示文件夹下拉菜单
-ipcMain.on('show-folder-dropdown', async (event, folderData, folderBounds) => {
+ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
     console.log('收到显示文件夹下拉菜单请求:', folderData.name, folderBounds);
 
     const window = BrowserWindow.fromWebContents(event.sender);
@@ -2043,6 +2043,15 @@ ipcMain.on('show-folder-dropdown', async (event, folderData, folderBounds) => {
 
 });
 
+// IPC 处理器：隐藏文件夹下拉菜单
+ipcMain.on('hide-folder-dropdown', (event) => {
+     const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new Error('下拉菜单.无法获取窗口实例');
+    }
+    hideFolderDropdown(window);
+})
+
 function hideFolderDropdown(window) {
     if (!bookmarkDropdownView) return;
 
@@ -2058,13 +2067,6 @@ function hideFolderDropdown(window) {
     }
     bookmarkDropdownView = null;
 }
-
-// IPC 处理器：隐藏文件夹下拉菜单
-ipcMain.on('hide-folder-dropdown', (event) => {
-    if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
-        bookmarkDropdownView.webContents.send('hide-folder-dropdown');
-    }
-});
 
 // IPC 处理器：从书签栏打开书签 URL
 ipcMain.on('open-bookmark-url', (event, url) => {
