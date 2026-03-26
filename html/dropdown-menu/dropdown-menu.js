@@ -68,26 +68,7 @@ function collectFolderBookmarks(folder, results = []) {
 
 // 显示文件夹下拉菜单
 function showFolderDropdown() {
-    // 查找文件夹数据
-    // function findFolderById(folder, id) {
-    //     if (folder.id === id) return folder;
-    //     if (!folder.items) return null;
-        
-    //     for (const item of folder.items) {
-    //         if (item.type === 'folder') {
-    //             const found = findFolderById(item, id);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // }
-    
-    // const targetFolder = findFolderById(bookmarksTreeData, folderId);
-    // console.log('找到的目标文件夹:', targetFolder);
-    // if (!targetFolder) return;
-    
-    // 收集该文件夹下的所有内容（包括子文件夹和书签）
-    const items = folderData.items; //collectFolderBookmarks(targetFolder);
+    const items = folderData.items; 
     
     if (items.length === 0) {
         // 空文件夹，不显示下拉菜单
@@ -96,23 +77,7 @@ function showFolderDropdown() {
     
     // 清空并重新渲染下拉菜单内容
     folderDropdownContent.innerHTML = '';
-    
-    // 添加文件夹标题
-    // const titleEl = document.createElement('div');
-    // titleEl.className = 'folder-dropdown-item';
-    // titleEl.style.fontWeight = 'bold';
-    // titleEl.style.background = '#f5f7fa';
-    // titleEl.innerHTML = `
-    //     <span class="icon folder-icon">📁</span>
-    //     <span class="label">${escapeHtml(folderName)}</span>
-    // `;
-    // folderDropdownContent.appendChild(titleEl);
-    
-    // // 添加分隔线
-    // const separator = document.createElement('div');
-    // separator.className = 'folder-dropdown-separator';
-    // folderDropdownContent.appendChild(separator);
-    
+
     // 渲染每个项目
     items.forEach(item => {
         const itemEl = document.createElement('div');
@@ -127,6 +92,7 @@ function showFolderDropdown() {
             
             // 点击子文件夹：打开书签管理页面并定位到该文件夹
             itemEl.addEventListener('click', () => {
+                console.log('点击了子文件夹:', item.name); 
                 hideFolderDropdown();
                 ipcRenderer.send('open-bookmarks-manager');
             });
