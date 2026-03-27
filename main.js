@@ -1457,6 +1457,10 @@ function newWindow() {
 
     myWindow.webContents.on('before-input-event', (event, input) => {
         // console.log("before-input-event", input)//测试输入键
+        // if (input.type === 'mouseDown') {
+        //     console.log('窗口内鼠标按下', input);
+        //     // 可以通过 event.preventDefault() 阻止事件传递到页面
+        // }
     });
 
     // 窗口创建后立即注册快捷键（因为新窗口默认是有焦点的）

@@ -1492,5 +1492,10 @@ document.addEventListener('click', () => {
     hideFolderDropdown();
 });
 
+document.addEventListener('blur', () => {
+    console.log('窗口失焦');
+    hideFolderDropdown();
+});
+
 // 初始化书签栏
 renderBookmarkBar();
