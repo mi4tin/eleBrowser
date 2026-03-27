@@ -64,6 +64,21 @@ body {
     color: #f5a623;
 }
 
+.folder-dropdown-item .arrow {
+    font-size: 18px;
+    color: #999;
+    margin-left: auto;
+    transition: all 0.2s;
+}
+
+.folder-dropdown-item.active {
+    background: #e8f0fe;
+}
+
+.folder-dropdown-item.active .arrow {
+    color: #1a73e8;
+}
+
 .folder-dropdown-separator {
     height: 1px;
     background: #e0e0e0;

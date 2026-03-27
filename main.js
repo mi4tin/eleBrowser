@@ -2009,17 +2009,12 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
 
-    if (dropdownFolderId&&dropdownFolderId != folderData.id) {
+    if (dropdownFolderId && dropdownFolderId != folderData.id) {
         hideFolderDropdown(window)//关闭之前的
         // return;
     }
 
     if (!!bookmarkDropdownView == false) {
-
-        //获取书签数据
-        // await loadBookmarksData(folderId);
-        // const bookmarks = loadBookmarksData(folderId);
-
         createBookmarkDropdownView(window, folderBounds);
         dropdownFolderId = folderData.id;
         console.log('bookmarkDropdownView.webContents.isLoading():', bookmarkDropdownView.webContents.isLoading());
@@ -2033,6 +2028,15 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
                     console.log('bookmarkDropdownView.webContents.isLoading()2.1:', bookmarkDropdownView.webContents.isLoading());
                     console.log('发送到下拉菜单:', folderData, folderBounds);
                     bookmarkDropdownView.webContents.send('show-folder-dropdown', folderData, folderBounds);
+
+
+                    // 记录菜单信息
+                    const subMenuInfo = {
+                        folderId: folderData.id,
+                        folderData: folderData,
+                        view: bookmarkDropdownView
+                    };
+                    subDropdownViews.push(subMenuInfo);
                 }
             }
         });
@@ -2045,49 +2049,204 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
 
 // IPC 处理器：隐藏文件夹下拉菜单
 ipcMain.on('hide-folder-dropdown', (event) => {
-     const window = BrowserWindow.fromWebContents(event.sender);
+    const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
     hideFolderDropdown(window);
 })
 
-// IPC 处理器：下级文件夹下拉菜单
-ipcMain.on('show-folder-dropdown-next', (event,nextBounds,item) => {
-     const window = BrowserWindow.fromWebContents(event.sender);
+// 记录当前显示的子菜单，用于清理非直接上级菜单
+let subDropdownViews = [];
+
+// IPC 处理器：下级文件夹下拉菜单, parentId:有可能不是按顺序的一级一级操作,所以需要传parentId
+ipcMain.on('show-folder-dropdown-next', (event, nextBounds, item, parentId) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) {
-        throw new Error('下拉菜单.无法获取窗口实例');
+        throw new Error('下拉菜单。无法获取窗口实例');
     }
-    if (!bookmarkDropdownView) {
-        console.log('下级下拉失败, 无法获取第一个下拉菜单', nextBounds);
-        return;
-    }
-    let bounds =bookmarkDropdownView.getBounds();
-    nextBounds = {
-        x: bounds.x + nextBounds.x,
-        y: bounds.y + nextBounds.y,
-        width: bounds.width,
-        height: bounds.height
+    console.log('显示子文件夹菜单:', item.name, nextBounds, parentId);
+
+    // 如果是新的子文件夹（不是当前已显示的），需要创建新的子菜单
+    // console.log('existingSubIndex:', subDropdownViews);
+
+    let parentFolder = null, parentIndex = -1;
+    let existingSubIndex = -1;
+    // 根据 parentId 找到父菜单
+    for (let i = 0; i < subDropdownViews.length; i++) {
+        //都找到则跳出循环
+        if (parentFolder != null && existingSubIndex != -1) {
+            break;
+        }
+
+        if (subDropdownViews[i].folderId === parentId) {
+            console.log('找到父菜单:', subDropdownViews[i]);
+            parentFolder = subDropdownViews[i];
+            parentIndex = i;
+            continue;
+        }
+        if (subDropdownViews[i].folderId === item.id) {
+            console.log('找到子菜单:', subDropdownViews[i]);
+            existingSubIndex = i;
+            continue;
+        }
     }
 
+    const parentBounds = parentFolder.view.getBounds();
 
-})
+
+
+    let deleteSubs = subDropdownViews.splice(parentIndex, subDropdownViews.length - parentIndex - 1);
+    //删除父级下的其它菜单
+    for (let i = 0; i < deleteSubs.length; i++) {
+        if (deleteSubs[i].folderId === item.id) continue;//如果是要显示的菜单,则不删除
+        console.log('删除父级下的其它菜单:', deleteSubs[i]);
+        const oldSubMenu = deleteSubs[i];
+        try {
+            if (window && !window.isDestroyed()) {
+                window.contentView.removeChildView(oldSubMenu.view);
+            }
+            if (oldSubMenu.view.webContents && !oldSubMenu.view.webContents.isDestroyed()) {
+                oldSubMenu.view.webContents.destroy();
+            }
+        } catch (e) {
+            console.error('删除旧子菜单失败:', oldSubMenu.folderId);
+        }
+    }
+    
+    if (existingSubIndex !== -1) {
+        //tag
+        
+        // 如果该子菜单已存在，更新位置并激活
+        const existingSub = subDropdownViews[existingSubIndex];
+        existingSub.view.setBounds({
+            x: parentBounds.x + nextBounds.x,
+            y: parentBounds.y + nextBounds.y,
+            width: nextBounds.width,
+            height: nextBounds.height
+        });
+        // 移动到数组末尾（表示最新激活）
+        subDropdownViews.splice(existingSubIndex, 1);
+        subDropdownViews.push(existingSub);
+        console.log('existingSubIndex:', existingSubIndex, subDropdownViews);
+    } else {
+        // 创建新的子菜单 WebContentsView
+        const subDropdownView = new WebContentsView({
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: getPreloadPath('preload-browserview.js')
+            }
+        });
+
+        // 设置透明背景
+        // subDropdownView.setBackgroundColor('#00000000');
+
+        // 添加到窗口
+        window.contentView.addChildView(subDropdownView);
+
+        // 设置位置和尺寸
+        subDropdownView.setBounds({
+            x: parentBounds.x + nextBounds.x,
+            y: parentBounds.y + nextBounds.y,
+            width: nextBounds.width,
+            height: nextBounds.height
+        });
+
+        // 加载下拉菜单页面
+        const dropdownUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
+        subDropdownView.webContents.loadURL(dropdownUrl);
+
+        // 记录子菜单信息
+        const subMenuInfo = {
+            folderId: item.id,
+            folderData: item,
+            view: subDropdownView
+        };
+
+        // 监听页面加载完成并发送数据
+        subDropdownView.webContents.once('did-finish-load', () => {
+            if (window && !window.isDestroyed() && subDropdownView && !subDropdownView.webContents.isDestroyed()) {
+                window.webContents.focus();
+                console.log('子菜单加载完成，发送数据:', item);
+                subDropdownView.webContents.send('show-folder-dropdown', item, {
+                    x: nextBounds.x,
+                    y: nextBounds.y,
+                    width: 300,
+                    height: Math.max(200, 41 * (item.items?.length || 0) + 16 + 2)
+                });
+
+                // 加载完成后才加入数组
+                if (!subDropdownView.webContents.isDestroyed()) {
+                    subDropdownViews.push(subMenuInfo);
+
+                    // 清理非直接上级的菜单（只保留当前路径上的菜单）
+                    // 逻辑：当鼠标移动到新的子文件夹时，关闭之前同级的子菜单
+                    if (subDropdownViews.length > 1) {
+                        // 关闭所有之前的子菜单（除了最后一个新创建的）
+                        for (let i = subDropdownViews.length - 3; i >= 0; i--) {
+                            console.log('关闭旧子菜单:', subDropdownViews[i]);
+                            const oldSubMenu = subDropdownViews[i];
+                            try {
+                                if (window && !window.isDestroyed()) {
+                                    window.contentView.removeChildView(oldSubMenu.view);
+                                }
+                                if (oldSubMenu.view.webContents && !oldSubMenu.view.webContents.isDestroyed()) {
+                                    oldSubMenu.view.webContents.destroy();
+                                }
+                            } catch (e) {
+                                console.error('关闭旧子菜单失败:', e);
+                            }
+                        }
+
+                        // 只保留最新创建的子菜单
+                        // const latestSubMenu = subDropdownViews[subDropdownViews.length - 1];
+                        // subDropdownViews = [latestSubMenu];
+
+
+                        // console.log('保留最新创建的子菜单:', subDropdownViews);
+                    }
+                }
+            }
+        });
+    }
+});
 
 
 function hideFolderDropdown(window) {
-    if (!bookmarkDropdownView) return;
-
-    try {
-        if (window && !window.isDestroyed()) {
-            window.contentView.removeChildView(bookmarkDropdownView);
+    // 关闭主菜单
+    if (bookmarkDropdownView) {
+        try {
+            if (window && !window.isDestroyed()) {
+                window.contentView.removeChildView(bookmarkDropdownView);
+            }
+            if (bookmarkDropdownView.webContents && !bookmarkDropdownView.webContents.isDestroyed()) {
+                bookmarkDropdownView.webContents.destroy();
+            }
+        } catch (e) {
+            console.error('销毁主下拉菜单 WebContentsView 失败:', e);
         }
-        if (bookmarkDropdownView.webContents && !bookmarkDropdownView.webContents.isDestroyed()) {
-            bookmarkDropdownView.webContents.destroy();
-        }
-    } catch (e) {
-        console.error('销毁书签栏下拉菜单 WebContentsView 失败:', e);
+        bookmarkDropdownView = null;
     }
-    bookmarkDropdownView = null;
+
+    // 关闭所有子菜单
+    if (subDropdownViews.length > 0) {
+        for (const subMenu of subDropdownViews) {
+            try {
+                if (window && !window.isDestroyed()) {
+                    window.contentView.removeChildView(subMenu.view);
+                }
+                if (subMenu.view.webContents && !subMenu.view.webContents.isDestroyed()) {
+                    subMenu.view.webContents.destroy();
+                }
+            } catch (e) {
+                console.error('销毁子下拉菜单 WebContentsView 失败:', e);
+            }
+        }
+        subDropdownViews = [];
+    }
+
+    dropdownFolderId = null;
 }
 
 // IPC 处理器：从书签栏打开书签 URL

@@ -90,15 +90,50 @@ function showFolderDropdown() {
                 <span class="label">${escapeHtml(item.name)}</span>
             `;
 
-            // 点击子文件夹：打开书签管理页面并定位到该文件夹
-            itemEl.addEventListener('mouseenter', () => {
-                const rect = itemEl.getBoundingClientRect();
-                console.log('鼠标进入子文件夹:', item.name, rect);
-                // hideFolderDropdown();
-                // ipcRenderer.send('hide-folder-dropdown');
-                const bounds = { x: rect.right, y: rect.top };
-                ipcRenderer.send('show-folder-dropdown-next', bounds, item);
-            });
+            if (item.items && item.items.length > 0) {
+                itemEl.innerHTML += `
+                     <span class="arrow">›</span>
+                `;
+                // 鼠标悬停在子文件夹上：显示下级菜单
+                let hoverTimeout = null;
+
+                itemEl.addEventListener('mouseenter', () => {
+                    const rect = itemEl.getBoundingClientRect();
+                    console.log('鼠标进入子文件夹:', item.name, rect);
+
+                    // 延迟显示子菜单，避免快速移动时闪烁
+                    if (hoverTimeout) {
+                        clearTimeout(hoverTimeout);
+                    }
+
+                    hoverTimeout = setTimeout(() => {
+                        // 计算子菜单位置（在当前菜单右侧）
+                        const bounds = {
+                            x: rect.right,
+                            y: rect.top,
+                            width: 300,
+                            height: Math.max(200, 41 * (item.items?.length || 0) + 16 + 2)
+                        };
+                        console.log('发送子菜单显示请求:', bounds, item);
+                        ipcRenderer.send('show-folder-dropdown-next', bounds, item, folderData.id);
+                    }, 100); // 100ms 延迟
+
+                    // 添加激活状态样式
+                    itemEl.classList.add('active');
+                });
+
+                itemEl.addEventListener('mouseleave', () => {
+                    // 鼠标离开时移除激活状态
+                    itemEl.classList.remove('active');
+
+                    // 清除延时器
+                    if (hoverTimeout) {
+                        clearTimeout(hoverTimeout);
+                        hoverTimeout = null;
+                    }
+                });
+            }
+
         } else {
             // 书签
             itemEl.innerHTML = `
