@@ -1440,6 +1440,7 @@ function newWindow() {
         registerAppShortcuts();
     });
 
+    //整个窗口有效,包含标签网页等
     myWindow.on('blur', () => {
         console.log('窗口失去焦点，注销快捷键');
         unregisterAppShortcuts();
