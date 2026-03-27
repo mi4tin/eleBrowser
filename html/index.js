@@ -1377,6 +1377,8 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+
+let canMouseenter = false;
 // 渲染书签栏
 async function renderBookmarkBar() {
     if (!bookmarkBarContent) return;
@@ -1414,6 +1416,13 @@ async function renderBookmarkBar() {
                     e.stopPropagation();
                     showFolderDropdown(item.id, item.name, itemEl);
                 });
+
+                itemEl.addEventListener('mouseenter', (e) => {
+                    if (!canMouseenter) return;
+                    e.stopPropagation();
+                    isMouseenter=true;
+                    showFolderDropdown(item.id, item.name, itemEl,isMouseenter);
+                });
             } else {
                 itemEl.innerHTML = `
                     <div class="bookmark-bar-icon">${item.favicon || '🔗'}</div>
@@ -1442,12 +1451,12 @@ async function renderBookmarkBar() {
 }
 
 // 显示文件夹下拉菜单
-function showFolderDropdown(folderId, folderName, folderElement) {
+function showFolderDropdown(folderId, folderName, folderElement,isMouseenter) {
 
     const folderData = findFolderById(bookmarksTreeData, folderId);
     console.log('找到的目标文件夹:', folderData);
     if (!folderData) return;
-    if (!folderData.items || folderData.items.length === 0) return;
+    // if (!folderData.items || folderData.items.length === 0) return;
 
     // 获取文件夹的位置信息
     const rect = folderElement.getBoundingClientRect();
@@ -1455,11 +1464,14 @@ function showFolderDropdown(folderId, folderName, folderElement) {
         x: rect.left,
         y: rect.bottom, // 下拉菜单应该出现在文件夹下方
         width: 300,
-        height:41*folderData.items.length+16+2
+        height:41*(folderData.items.length||1)+16+2
     };
     
     // 发送消息到下拉菜单 WebContentsView
-    ipcRenderer.send('show-folder-dropdown', folderData, folderBounds);
+    ipcRenderer.send('show-folder-dropdown', folderData, folderBounds, isMouseenter);
+    ipcRenderer.once('show-folder-dropdown-reply', (event, show) => {
+        canMouseenter = show;
+    });
     
     // 给当前文件夹添加激活状态
     folderElement.classList.add('dropdown-active');

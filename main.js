@@ -2001,7 +2001,7 @@ ipcMain.on('open-bookmark', (event, url) => {
 
 let dropdownFolderId = null;
 // IPC 处理器：显示文件夹下拉菜单
-ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
+ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds,isMouseenter) => {
     console.log('收到显示文件夹下拉菜单请求:', folderData.name, folderBounds);
 
     const window = BrowserWindow.fromWebContents(event.sender);
@@ -2010,7 +2010,7 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
     }
 
     if (dropdownFolderId && dropdownFolderId != folderData.id) {
-        hideFolderDropdown(window)//关闭之前的
+        hideFolderDropdown(window)//关闭其它文件夹的下拉
         // return;
     }
 
@@ -2040,9 +2040,15 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds) => {
                 }
             }
         });
+
+        event.reply('show-folder-dropdown-reply', true);
     } else {
+        if (isMouseenter) {
+            return;
+        }
         // 隐藏书签栏下拉菜单
         hideFolderDropdown(window);
+        event.reply('show-folder-dropdown-reply', false);
     }
 
 });
