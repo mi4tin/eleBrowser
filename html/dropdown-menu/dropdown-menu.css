@@ -84,3 +84,10 @@ body {
     background: #e0e0e0;
     margin: 8px 0;
 }
+
+
+.folder-dropdown-empty {
+    text-align: center;
+    color: #999;
+}
+

@@ -2092,14 +2092,94 @@ ipcMain.on('show-folder-dropdown-next', (event, nextBounds, item, parentId) => {
         }
     }
 
+     // 如果 nextBounds 为 null，则是书签或无下级
+    if(nextBounds==null){
+        console.log('书签或无下级');
+        deleteSubMenus(parentIndex+1,window);
+        return
+    }
+
+    //已存在处理
+    if (existingSubIndex !== -1) {
+        if (parentIndex + 1 === existingSubIndex) {
+            //如果下级菜单就是当前菜单,则删除当前菜单的下级菜单
+
+            //正常只会有一个
+            deleteSubMenus(existingSubIndex + 1,window);
+
+            return
+        } else {
+            console.error('子菜单异常:', item);
+            return
+        }
+    }
+
+
+    //不存在处理
+
     const parentBounds = parentFolder.view.getBounds();
+    
+    deleteSubMenus(parentIndex+1,window);
 
+    // 创建新的子菜单 WebContentsView
+    const subDropdownView = new WebContentsView({
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: getPreloadPath('preload-browserview.js')
+        }
+    });
 
+    // 设置透明背景
+    // subDropdownView.setBackgroundColor('#00000000');
 
-    let deleteSubs = subDropdownViews.splice(parentIndex, subDropdownViews.length - parentIndex - 1);
-    //删除父级下的其它菜单
+    // 添加到窗口
+    window.contentView.addChildView(subDropdownView);
+
+    // 设置位置和尺寸
+    subDropdownView.setBounds({
+        x: parentBounds.x + nextBounds.x,
+        y: parentBounds.y + nextBounds.y,
+        width: nextBounds.width,
+        height: nextBounds.height
+    });
+
+    // 加载下拉菜单页面
+    const dropdownUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
+    subDropdownView.webContents.loadURL(dropdownUrl);
+
+    // 记录子菜单信息
+    const subMenuInfo = {
+        folderId: item.id,
+        folderData: item,
+        view: subDropdownView
+    };
+
+    // 监听页面加载完成并发送数据
+    subDropdownView.webContents.once('did-finish-load', () => {
+        if (window && !window.isDestroyed() && subDropdownView && !subDropdownView.webContents.isDestroyed()) {
+            window.webContents.focus();
+            console.log('子菜单加载完成，发送数据:', item);
+            subDropdownView.webContents.send('show-folder-dropdown', item, {
+                x: nextBounds.x,
+                y: nextBounds.y,
+                width: 300,
+                height: Math.max(200, 41 * (item.items?.length || 1) + 16 + 2)
+            });
+
+            // 加载完成后才加入数组
+            if (!subDropdownView.webContents.isDestroyed()) {
+                subDropdownViews.push(subMenuInfo);
+            }
+        }
+    });
+
+});
+
+function deleteSubMenus(startIndex,window) {
+    // 删除父级下的其它菜单
+    let deleteSubs = subDropdownViews.splice(startIndex);
     for (let i = 0; i < deleteSubs.length; i++) {
-        if (deleteSubs[i].folderId === item.id) continue;//如果是要显示的菜单,则不删除
         console.log('删除父级下的其它菜单:', deleteSubs[i]);
         const oldSubMenu = deleteSubs[i];
         try {
@@ -2110,107 +2190,11 @@ ipcMain.on('show-folder-dropdown-next', (event, nextBounds, item, parentId) => {
                 oldSubMenu.view.webContents.destroy();
             }
         } catch (e) {
-            console.error('删除旧子菜单失败:', oldSubMenu.folderId);
+            console.error('删除旧子菜单失败:', oldSubMenu.folderId,e.message);
         }
     }
-    
-    if (existingSubIndex !== -1) {
-        //tag
-        
-        // 如果该子菜单已存在，更新位置并激活
-        const existingSub = subDropdownViews[existingSubIndex];
-        existingSub.view.setBounds({
-            x: parentBounds.x + nextBounds.x,
-            y: parentBounds.y + nextBounds.y,
-            width: nextBounds.width,
-            height: nextBounds.height
-        });
-        // 移动到数组末尾（表示最新激活）
-        subDropdownViews.splice(existingSubIndex, 1);
-        subDropdownViews.push(existingSub);
-        console.log('existingSubIndex:', existingSubIndex, subDropdownViews);
-    } else {
-        // 创建新的子菜单 WebContentsView
-        const subDropdownView = new WebContentsView({
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-                preload: getPreloadPath('preload-browserview.js')
-            }
-        });
+}
 
-        // 设置透明背景
-        // subDropdownView.setBackgroundColor('#00000000');
-
-        // 添加到窗口
-        window.contentView.addChildView(subDropdownView);
-
-        // 设置位置和尺寸
-        subDropdownView.setBounds({
-            x: parentBounds.x + nextBounds.x,
-            y: parentBounds.y + nextBounds.y,
-            width: nextBounds.width,
-            height: nextBounds.height
-        });
-
-        // 加载下拉菜单页面
-        const dropdownUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
-        subDropdownView.webContents.loadURL(dropdownUrl);
-
-        // 记录子菜单信息
-        const subMenuInfo = {
-            folderId: item.id,
-            folderData: item,
-            view: subDropdownView
-        };
-
-        // 监听页面加载完成并发送数据
-        subDropdownView.webContents.once('did-finish-load', () => {
-            if (window && !window.isDestroyed() && subDropdownView && !subDropdownView.webContents.isDestroyed()) {
-                window.webContents.focus();
-                console.log('子菜单加载完成，发送数据:', item);
-                subDropdownView.webContents.send('show-folder-dropdown', item, {
-                    x: nextBounds.x,
-                    y: nextBounds.y,
-                    width: 300,
-                    height: Math.max(200, 41 * (item.items?.length || 0) + 16 + 2)
-                });
-
-                // 加载完成后才加入数组
-                if (!subDropdownView.webContents.isDestroyed()) {
-                    subDropdownViews.push(subMenuInfo);
-
-                    // 清理非直接上级的菜单（只保留当前路径上的菜单）
-                    // 逻辑：当鼠标移动到新的子文件夹时，关闭之前同级的子菜单
-                    if (subDropdownViews.length > 1) {
-                        // 关闭所有之前的子菜单（除了最后一个新创建的）
-                        for (let i = subDropdownViews.length - 3; i >= 0; i--) {
-                            console.log('关闭旧子菜单:', subDropdownViews[i]);
-                            const oldSubMenu = subDropdownViews[i];
-                            try {
-                                if (window && !window.isDestroyed()) {
-                                    window.contentView.removeChildView(oldSubMenu.view);
-                                }
-                                if (oldSubMenu.view.webContents && !oldSubMenu.view.webContents.isDestroyed()) {
-                                    oldSubMenu.view.webContents.destroy();
-                                }
-                            } catch (e) {
-                                console.error('关闭旧子菜单失败:', e);
-                            }
-                        }
-
-                        // 只保留最新创建的子菜单
-                        // const latestSubMenu = subDropdownViews[subDropdownViews.length - 1];
-                        // subDropdownViews = [latestSubMenu];
-
-
-                        // console.log('保留最新创建的子菜单:', subDropdownViews);
-                    }
-                }
-            }
-        });
-    }
-});
 
 
 function hideFolderDropdown(window) {

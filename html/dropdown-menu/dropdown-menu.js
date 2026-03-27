@@ -69,70 +69,67 @@ function collectFolderBookmarks(folder, results = []) {
 // 显示文件夹下拉菜单
 function showFolderDropdown() {
     const items = folderData.items;
+ // 清空并重新渲染下拉菜单内容
+    folderDropdownContent.innerHTML = '';
 
     if (items.length === 0) {
         // 空文件夹，不显示下拉菜单
+        folderDropdownContent.innerHTML = '<div class="folder-dropdown-empty">空文件夹</div>';
         return;
     }
 
-    // 清空并重新渲染下拉菜单内容
-    folderDropdownContent.innerHTML = '';
+   
 
     // 渲染每个项目
     items.forEach(item => {
         const itemEl = document.createElement('div');
         itemEl.className = 'folder-dropdown-item';
 
+         // 鼠标悬停在子文件夹上：显示下级菜单
+            let hoverTimeout = null;
         if (item.type === 'folder') {
             // 子文件夹
             itemEl.innerHTML = `
                 <span class="icon folder-icon">📁</span>
                 <span class="label">${escapeHtml(item.name)}</span>
+                <span class="arrow">›</span>
             `;
+            
+            itemEl.addEventListener('mouseenter', () => {
+                const rect = itemEl.getBoundingClientRect();
+                console.log('鼠标进入子文件夹:', item.name, rect);
 
-            if (item.items && item.items.length > 0) {
-                itemEl.innerHTML += `
-                     <span class="arrow">›</span>
-                `;
-                // 鼠标悬停在子文件夹上：显示下级菜单
-                let hoverTimeout = null;
+                // 延迟显示子菜单，避免快速移动时闪烁
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                }
 
-                itemEl.addEventListener('mouseenter', () => {
-                    const rect = itemEl.getBoundingClientRect();
-                    console.log('鼠标进入子文件夹:', item.name, rect);
+                hoverTimeout = setTimeout(() => {
+                    // 计算子菜单位置（在当前菜单右侧）
+                    const bounds = {
+                        x: rect.right,
+                        y: rect.top,
+                        width: 300,
+                        height: 41*(item.items.length || 1) +16+2//如果没有保留一行
+                    };
+                    console.log('发送子菜单显示请求:', bounds, item);
+                    ipcRenderer.send('show-folder-dropdown-next', bounds, item, folderData.id);
+                }, 100); // 100ms 延迟
 
-                    // 延迟显示子菜单，避免快速移动时闪烁
-                    if (hoverTimeout) {
-                        clearTimeout(hoverTimeout);
-                    }
+                // 添加激活状态样式
+                itemEl.classList.add('active');
+            });
 
-                    hoverTimeout = setTimeout(() => {
-                        // 计算子菜单位置（在当前菜单右侧）
-                        const bounds = {
-                            x: rect.right,
-                            y: rect.top,
-                            width: 300,
-                            height: Math.max(200, 41 * (item.items?.length || 0) + 16 + 2)
-                        };
-                        console.log('发送子菜单显示请求:', bounds, item);
-                        ipcRenderer.send('show-folder-dropdown-next', bounds, item, folderData.id);
-                    }, 100); // 100ms 延迟
+            itemEl.addEventListener('mouseleave', () => {
+                // 鼠标离开时移除激活状态
+                itemEl.classList.remove('active');
 
-                    // 添加激活状态样式
-                    itemEl.classList.add('active');
-                });
-
-                itemEl.addEventListener('mouseleave', () => {
-                    // 鼠标离开时移除激活状态
-                    itemEl.classList.remove('active');
-
-                    // 清除延时器
-                    if (hoverTimeout) {
-                        clearTimeout(hoverTimeout);
-                        hoverTimeout = null;
-                    }
-                });
-            }
+                // 清除延时器
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
+                }
+            });
 
         } else {
             // 书签
@@ -140,6 +137,37 @@ function showFolderDropdown() {
                 <span class="icon">${item.favicon || '🔗'}</span>
                 <span class="label">${escapeHtml(item.title)}</span>
             `;
+
+
+
+            itemEl.addEventListener('mouseenter', () => {
+                const rect = itemEl.getBoundingClientRect();
+                console.log('鼠标进入子文件夹:', item.name, rect);
+
+                // 延迟显示子菜单，避免快速移动时闪烁
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                }
+
+                hoverTimeout = setTimeout(() => {
+                    console.log('发送子菜单显示请求1:');
+                    ipcRenderer.send('show-folder-dropdown-next', null, item, folderData.id);
+                }, 100); // 100ms 延迟
+
+                // 添加激活状态样式
+                itemEl.classList.add('active');
+            });
+
+            itemEl.addEventListener('mouseleave', () => {
+                // 鼠标离开时移除激活状态
+                itemEl.classList.remove('active');
+
+                // 清除延时器
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
+                }
+            });
 
             // 点击书签：直接打开网址
             itemEl.addEventListener('click', () => {
