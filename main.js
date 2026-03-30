@@ -1444,6 +1444,9 @@ function newWindow() {
     myWindow.on('blur', () => {
         console.log('窗口失去焦点，注销快捷键');
         unregisterAppShortcuts();
+
+        // myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
+        // hideFolderDropdown(myWindow);
     });
 
     // 监听窗口关闭
@@ -2010,6 +2013,7 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds,isMouseenter
     console.log('收到显示文件夹下拉菜单请求:', folderData.name, folderBounds);
 
     const window = BrowserWindow.fromWebContents(event.sender);
+    console.log('收到显示文件夹下拉菜单请求.aa:',  window.getURL());
     if (!window) {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
@@ -2046,14 +2050,14 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds,isMouseenter
             }
         });
 
-        event.reply('show-folder-dropdown-reply', true);
+        event.reply('show-folder-dropdown-mouseenter', true);
     } else {
         if (isMouseenter) {
             return;
         }
         // 隐藏书签栏下拉菜单
         hideFolderDropdown(window);
-        event.reply('show-folder-dropdown-reply', false);
+        event.reply('show-folder-dropdown-mouseenter', false);
     }
 
 });
@@ -2073,6 +2077,7 @@ let subDropdownViews = [];
 // IPC 处理器：下级文件夹下拉菜单, parentId:有可能不是按顺序的一级一级操作,所以需要传parentId
 ipcMain.on('show-folder-dropdown-next', (event, nextBounds, item, parentId) => {
     const window = BrowserWindow.fromWebContents(event.sender);
+    console.log('收到显示下级文件夹菜单请求:', window);
     if (!window) {
         throw new Error('下拉菜单。无法获取窗口实例');
     }

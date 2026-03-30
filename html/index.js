@@ -1,9 +1,10 @@
 const { ipcRenderer } = require('electron');
 
-const DEFAULT_URL ="https://www.baidu.com"// "file:///F:/DEV/Code/gitee.com/eleBrowser/html/bookmarks/bookmarks.html"//https://www.baidu.com"//'https://wx.mail.qq.com/';
+const DEFAULT_URL = "https://www.baidu.com"// "file:///F:/DEV/Code/gitee.com/eleBrowser/html/bookmarks/bookmarks.html"//https://www.baidu.com"//'https://wx.mail.qq.com/';
 const tabsContainer = document.getElementById('tabs');
 const addTabBtn = document.getElementById('add-tab');
 const addressInput = document.getElementById('address-input');
+const bookmarkBarContainer = document.getElementById('bookmarkBarContainer');
 const goBtn = document.getElementById('address-go');
 const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
@@ -19,7 +20,7 @@ const refreshBtn = document.getElementById('nav-refresh');
 var appUrlMap = {
 };
 
-const appUrlStart="dxbrowser://"//应用URL前缀协议，如：dxbrowser://bookmarks/
+const appUrlStart = "dxbrowser://"//应用URL前缀协议，如：dxbrowser://bookmarks/
 
 
 let currentTabId = null;
@@ -53,27 +54,27 @@ function formatUrl(input) {
 let lastUrl = '';//事件等更新到地址栏的最新地址，而非手动输入的
 function updateAddressBar(url) {
     if (currentTabId == null) return;
-    lastUrl=url||'';
+    lastUrl = url || '';
 
     // console.log('updateAddressBar.url:', lastUrl,addressInput.value,appUrlMap,appUrlMap[lastUrl]);
     if (appUrlMap[lastUrl]) {
         lastUrl = appUrlMap[lastUrl];
         // console.log('updateAddressBar.appUrlMap:', lastUrl);
     }
-    addressInput.value =lastUrl;
+    addressInput.value = lastUrl;
 }
 
 async function loadAddressForCurrentTab() {
     const inputValue = addressInput.value.trim();
 
     // 检查是否是 dxbrowser://bookmarks/ 协议
-    if (inputValue === appUrlStart+'bookmarks/' || inputValue.startsWith(appUrlStart+'bookmarks')) {
+    if (inputValue === appUrlStart + 'bookmarks/' || inputValue.startsWith(appUrlStart + 'bookmarks')) {
         await openBookmarksTab();
         return;
     }
 
     // 检查是否是 dxbrowser://history/ 协议
-    if (inputValue === appUrlStart+'history/' || inputValue.startsWith(appUrlStart+'history')) {
+    if (inputValue === appUrlStart + 'history/' || inputValue.startsWith(appUrlStart + 'history')) {
         await openHistoryTab();
         return;
     }
@@ -175,7 +176,7 @@ async function openBookmarksTab() {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
 
-        const appUrl = appUrlStart+'bookmarks/';
+        const appUrl = appUrlStart + 'bookmarks/';
         appUrlMap[bookmarksUrl] = appUrl;
 
         updateAddressBar('dxbrowser://bookmarks/');
@@ -268,9 +269,9 @@ async function openHistoryTab() {
         });
 
 
-        appUrlMap[historyUrl] = appUrlStart+'history/';
+        appUrlMap[historyUrl] = appUrlStart + 'history/';
 
-        updateAddressBar(appUrlStart+'history/');
+        updateAddressBar(appUrlStart + 'history/');
     } catch (error) {
         console.error('创建历史记录标签页失败:', error);
     }
@@ -357,9 +358,9 @@ async function openUnderlineTab() {
             tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
         });
 
-        const appUrl = appUrlStart+'underline/';
+        const appUrl = appUrlStart + 'underline/';
 
-        appUrlMap[underlineUrl] =appUrl;
+        appUrlMap[underlineUrl] = appUrl;
 
         updateAddressBar(appUrl);
     } catch (error) {
@@ -611,7 +612,7 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
 
 async function activateTab(id) {
     if (id === currentTabId) return;
-    
+
     currentTabId = id;
     // 切换 tab 样式
     document.querySelectorAll('.tab').forEach(tab => {
@@ -1044,8 +1045,15 @@ addressInput.addEventListener('blur', () => {
 //点击页面其他地方隐藏自动匹配
 document.addEventListener('click', (e) => {
     if (!addressInput.contains(e.target)) {
-        console.log('点击页面其他地方，隐藏自动匹配');
+        console.log('点击页面其他地方，隐藏地址下拉');
         hideAutocomplete();
+    }
+
+
+    if (!bookmarkBarContainer.contains(e.target)) {
+        console.log('点击页面其他地方，隐藏书签栏下拉');
+        hideFolderDropdown();
+        canMouseenter = false;
     }
 });
 
@@ -1078,7 +1086,7 @@ ipcRenderer.on('history-autocomplete-selected-default', (event, selectedItem) =>
 
             console.log('接收到默认选中:', hostname.startsWith(currentValue), hostname, selectedItem.url);
             // 检查域名是否以用户输入开头
-            if (hostname.startsWith(currentValue)||hostname.startsWith('www.'+currentValue)) {
+            if (hostname.startsWith(currentValue) || hostname.startsWith('www.' + currentValue)) {
                 addressInputPreviousValue = selectedItem.url
                 console.log("修改地址为：", addressInputPreviousValue)
                 addressInput.value = selectedItem.url;
@@ -1192,7 +1200,7 @@ addressInput.addEventListener('dragstart', (e) => {
 tabsContainer.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
-    
+
     // 检测是否拖动到了具体的标签上
     const targetTab = e.target.closest('.tab');
     if (targetTab) {
@@ -1350,7 +1358,7 @@ function findFolderById(folder, id) {
 // 收集所有书签和文件夹（扁平化展示）
 function collectAllItems(folder, results = []) {
     if (!folder.items) return results;
-    
+
     folder.items.forEach(item => {
         if (item.type === 'folder') {
             results.push({
@@ -1366,7 +1374,7 @@ function collectAllItems(folder, results = []) {
             });
         }
     });
-    
+
     return results;
 }
 
@@ -1382,35 +1390,35 @@ let canMouseenter = false;
 // 渲染书签栏
 async function renderBookmarkBar() {
     if (!bookmarkBarContent) return;
-    
+
     try {
         // 加载书签数据
         bookmarksTreeData = await loadBookmarkBarData();
-        
+
         // 收集所有项目
         // const allItems = collectAllItems(bookmarksTreeData);
         const allItems = bookmarksTreeData.items;
-        
+
         // 清空书签栏
         bookmarkBarContent.innerHTML = '';
-        
+
         if (allItems.length === 0) {
             bookmarkBarContent.innerHTML = '<div style="color:#999;padding:10px;">暂无书签</div>';
             return;
         }
-        
+
         // 渲染每个项目
         allItems.forEach(item => {
             console.log('渲染书签栏项目:', item);
             const itemEl = document.createElement('div');
             itemEl.className = `bookmark-bar-item ${item.type === 'folder' ? 'folder-item' : 'bookmark-item'}`;
-            
+
             if (item.type === 'folder') {
                 itemEl.innerHTML = `
                     <div class="bookmark-bar-icon">📁</div>
                     <div class="bookmark-bar-label">${escapeHtml(item.name)}</div>
                 `;
-                
+
                 // 点击文件夹：显示下拉菜单
                 itemEl.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1420,15 +1428,15 @@ async function renderBookmarkBar() {
                 itemEl.addEventListener('mouseenter', (e) => {
                     if (!canMouseenter) return;
                     e.stopPropagation();
-                    isMouseenter=true;
-                    showFolderDropdown(item.id, item.name, itemEl,isMouseenter);
+                    isMouseenter = true;
+                    showFolderDropdown(item.id, item.name, itemEl, isMouseenter);
                 });
             } else {
                 itemEl.innerHTML = `
                     <div class="bookmark-bar-icon">${item.favicon || '🔗'}</div>
                     <div class="bookmark-bar-label">${escapeHtml(item.title)}</div>
                 `;
-                
+
                 // 点击书签：直接打开网址
                 itemEl.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1441,17 +1449,17 @@ async function renderBookmarkBar() {
                     }
                 });
             }
-            
+
             bookmarkBarContent.appendChild(itemEl);
         });
-        
+
     } catch (error) {
         console.error('渲染书签栏失败:', error);
     }
 }
 
 // 显示文件夹下拉菜单
-function showFolderDropdown(folderId, folderName, folderElement,isMouseenter) {
+function showFolderDropdown(folderId, folderName, folderElement, isMouseenter) {
 
     const folderData = findFolderById(bookmarksTreeData, folderId);
     console.log('找到的目标文件夹:', folderData);
@@ -1464,23 +1472,25 @@ function showFolderDropdown(folderId, folderName, folderElement,isMouseenter) {
         x: rect.left,
         y: rect.bottom, // 下拉菜单应该出现在文件夹下方
         width: 300,
-        height:41*(folderData.items.length||1)+16+2
+        height: 41 * (folderData.items.length || 1) + 16 + 2
     };
-    
+
     // 发送消息到下拉菜单 WebContentsView
     ipcRenderer.send('show-folder-dropdown', folderData, folderBounds, isMouseenter);
-    ipcRenderer.once('show-folder-dropdown-reply', (event, show) => {
-        canMouseenter = show;
-    });
-    
+
     // 给当前文件夹添加激活状态
     folderElement.classList.add('dropdown-active');
 }
 
+ipcRenderer.on('show-folder-dropdown-mouseenter', (event, show) => {
+    console.log('收到显示文件夹下拉菜单鼠标移入请求:', show);
+    canMouseenter = show;
+});
+
 // 隐藏文件夹下拉菜单
 function hideFolderDropdown() {
     ipcRenderer.send('hide-folder-dropdown');
-    
+
     // 移除所有文件夹的激活状态
     document.querySelectorAll('.bookmark-bar-item.folder-item.dropdown-active').forEach(el => {
         el.classList.remove('dropdown-active');
@@ -1489,13 +1499,21 @@ function hideFolderDropdown() {
 
 // 全局点击事件监听 - 点击其他地方关闭下拉菜单
 document.addEventListener('click', () => {
+    console.log('点击页面其他地方，隐藏文件夹下拉菜单');
     hideFolderDropdown();
+    canMouseenter = false;
 });
 
-document.addEventListener('blur', () => {
-    console.log('窗口失焦');
-    hideFolderDropdown();
-});
+// document.addEventListener('blur', () => {
+//     console.log('窗口失焦');
+//     hideFolderDropdown();
+// });
+
+// document.getElementById('bookmarkBarContainer').addEventListener('blur', () => {
+//     console.log('书签栏鼠标移出');
+//     hideFolderDropdown();
+//     canMouseenter = false;
+// });
 
 // 初始化书签栏
 renderBookmarkBar();
