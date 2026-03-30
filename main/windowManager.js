@@ -62,8 +62,8 @@ module.exports = function createWindowManager(deps) {
         myWindow.on('blur', () => {
             console.log('窗口失去焦点，注销快捷键');
             unregisterAppShortcuts();
-            myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
-            hideFolderDropdown(myWindow);
+            // myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
+            // hideFolderDropdown(myWindow);
         });
 
         myWindow.on('closed', () => {

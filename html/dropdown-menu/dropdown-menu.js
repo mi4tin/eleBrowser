@@ -93,7 +93,7 @@ function showFolderDropdown() {
             itemEl.innerHTML = `
                 <span class="icon folder-icon">📁</span>
                 <span class="label">${escapeHtml(item.name)}</span>
-                <span class="arrow">›</span>
+                <span class="arrow">❯</span>
             `;
             
             itemEl.addEventListener('mouseenter', () => {
