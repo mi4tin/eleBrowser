@@ -1504,10 +1504,10 @@ document.addEventListener('click', () => {
     canMouseenter = false;
 });
 
-// document.addEventListener('blur', () => {
-//     console.log('窗口失焦');
-//     hideFolderDropdown();
-// });
+document.addEventListener('blur', () => {
+    console.log('窗口失焦');
+    // hideFolderDropdown();
+});
 
 // document.getElementById('bookmarkBarContainer').addEventListener('blur', () => {
 //     console.log('书签栏鼠标移出');
