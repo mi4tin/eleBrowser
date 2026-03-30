@@ -32,6 +32,7 @@
     },
     "files": [
       "main.js",
+      "main/**/*",
       "preload-browserview.js",
       "preload-search-panel.js",
       "preload-history-autocomplete.js",
