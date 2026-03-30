@@ -1042,7 +1042,7 @@ addressInput.addEventListener('blur', () => {
     }, 150);
 });
 
-//点击页面其他地方隐藏自动匹配
+//点击页面其他地方隐藏自动匹配；点击书签栏以外关闭文件夹下拉（下拉在独立 WebContentsView 内，不会冒泡到此处）
 document.addEventListener('click', (e) => {
     if (!addressInput.contains(e.target)) {
         console.log('点击页面其他地方，隐藏地址下拉');
@@ -1050,11 +1050,11 @@ document.addEventListener('click', (e) => {
     }
 
 
-    // if (!bookmarkBarContainer.contains(e.target)) {
-    //     console.log('点击页面其他地方，隐藏书签栏下拉');
-    //     hideFolderDropdown();
-    //     canMouseenter = false;
-    // }
+    if (!bookmarkBarContainer.contains(e.target)) {
+        console.log('点击页面其他地方，隐藏书签栏下拉');
+        hideFolderDropdown();
+        canMouseenter = false;
+    }
 });
 
 //接收历史记录自动匹配选择结果
@@ -1496,13 +1496,6 @@ function hideFolderDropdown() {
         el.classList.remove('dropdown-active');
     });
 }
-
-// 全局点击事件监听 - 点击其他地方关闭下拉菜单
-document.addEventListener('click', () => {
-    console.log('点击页面其他地方，隐藏文件夹下拉菜单');
-    hideFolderDropdown();
-    canMouseenter = false;
-});
 
 document.addEventListener('blur', () => {
     console.log('窗口失焦');
