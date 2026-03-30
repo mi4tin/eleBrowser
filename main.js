@@ -425,6 +425,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 console.warn(`[WebContentsView tabId=${tabId}] 主框架加载失败: ${errorCode} ${errorDescription} ${validatedURL}`);
             }
         });
+      
         v.webContents.on('console-message', (_event, level, message) => {
             if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
         });
@@ -1435,11 +1436,11 @@ function newWindow() {
     }
 
     // 监听窗口焦点变化
-    myWindow.on('focus', () => {
+    myWindow.on('focus', (e) => {
         console.log('窗口获得焦点，注册快捷键');
         registerAppShortcuts();
     });
-
+    
     //整个窗口有效,包含标签网页等
     myWindow.on('blur', () => {
         console.log('窗口失去焦点，注销快捷键');
@@ -2031,7 +2032,7 @@ ipcMain.on('show-folder-dropdown', (event, folderData, folderBounds,isMouseenter
         // 监听页面加载完成
         bookmarkDropdownView.webContents.once('did-finish-load', () => {
             if (window && !window.isDestroyed()) {
-                window.webContents.focus();
+                // window.webContents.focus();
 
                 if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
                     console.log('bookmarkDropdownView.webContents.isLoading()2.1:', bookmarkDropdownView.webContents.isLoading());

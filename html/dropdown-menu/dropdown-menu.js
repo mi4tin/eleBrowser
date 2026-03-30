@@ -33,6 +33,7 @@ if (typeof window !== 'undefined' && window.electronAPI) {
 
 const folderDropdown = document.getElementById('folderDropdown');
 const folderDropdownContent = document.getElementById('folderDropdownContent');
+const folderDropdownContainer = document.getElementById('folderDropdownContainer');
 
 // HTML 转义函数
 function escapeHtml(text) {
@@ -337,6 +338,19 @@ document.addEventListener('click', (e) => {
         hideFolderDropdown();
     }
 });
+
+folderDropdownContainer.addEventListener('focus', () => {
+    console.log('书签栏鼠标移入',new Date());
+    // hideFolderDropdown();
+    // canMouseenter = false;
+});
+
+folderDropdownContainer.addEventListener('blur', () => {
+    console.log('书签栏鼠标移出',new Date());
+    // hideFolderDropdown();
+    // canMouseenter = false;
+});
+
 
 // 窗口大小改变时关闭下拉菜单
 window.addEventListener('resize', hideFolderDropdown);

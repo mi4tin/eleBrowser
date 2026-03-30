@@ -1050,11 +1050,11 @@ document.addEventListener('click', (e) => {
     }
 
 
-    if (!bookmarkBarContainer.contains(e.target)) {
-        console.log('点击页面其他地方，隐藏书签栏下拉');
-        hideFolderDropdown();
-        canMouseenter = false;
-    }
+    // if (!bookmarkBarContainer.contains(e.target)) {
+    //     console.log('点击页面其他地方，隐藏书签栏下拉');
+    //     hideFolderDropdown();
+    //     canMouseenter = false;
+    // }
 });
 
 //接收历史记录自动匹配选择结果
@@ -1509,11 +1509,18 @@ document.addEventListener('blur', () => {
     // hideFolderDropdown();
 });
 
-// document.getElementById('bookmarkBarContainer').addEventListener('blur', () => {
-//     console.log('书签栏鼠标移出');
-//     hideFolderDropdown();
-//     canMouseenter = false;
-// });
+bookmarkBarContainer.addEventListener('blur', () => {
+    console.log('书签栏鼠标移出',new Date());
+    // hideFolderDropdown();
+    // canMouseenter = false;
+});
+
+
+bookmarkBarContainer.addEventListener('focus', () => {
+    console.log('书签栏鼠标移入',new Date());
+    // hideFolderDropdown();
+    // canMouseenter = false;
+});
 
 // 初始化书签栏
 renderBookmarkBar();
