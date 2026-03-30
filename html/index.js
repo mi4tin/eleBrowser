@@ -1487,6 +1487,13 @@ ipcRenderer.on('show-folder-dropdown-mouseenter', (event, show) => {
     canMouseenter = show;
 });
 
+// 点击标签页内网页时主进程会发此消息：同步移除书签激活态并隐藏地址栏历史浮层状态
+ipcRenderer.on('browser-view-interacted', () => {
+    hideFolderDropdown();
+    void hideAutocomplete();
+    canMouseenter = false;
+});
+
 // 隐藏文件夹下拉菜单
 function hideFolderDropdown() {
     ipcRenderer.send('hide-folder-dropdown');

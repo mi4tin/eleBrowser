@@ -1,5 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// 标签页内点击网页时通知主进程，用于关闭书签下拉、地址栏历史浮层（主界面收不到这些点击）
+window.addEventListener(
+    'mousedown',
+    () => {
+        try {
+            ipcRenderer.send('dismiss-overlays-from-browser-view');
+        } catch (_e) {
+            /* ignore */
+        }
+    },
+    true
+);
+
 // 暴露一个受限的 API 给 BrowserView 中的页面，避免开启 nodeIntegration
 contextBridge.exposeInMainWorld('electronAPI', {
     send: (channel, ...args) => ipcRenderer.send(channel, ...args),

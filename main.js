@@ -1446,8 +1446,9 @@ function newWindow() {
         console.log('窗口失去焦点，注销快捷键');
         unregisterAppShortcuts();
 
-        // myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
-        // hideFolderDropdown(myWindow);
+        //焦点失去时，隐藏书签栏下拉菜单
+        myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
+        hideFolderDropdown(myWindow);
     });
 
     // 监听窗口关闭
@@ -2070,7 +2071,29 @@ ipcMain.on('hide-folder-dropdown', (event) => {
         throw new Error('下拉菜单.无法获取窗口实例');
     }
     hideFolderDropdown(window);
-})
+});
+
+// 标签页网页内按下鼠标时关闭浮层（与 index 里 document 点击逻辑一致，此处补全 WebContentsView 内点击）
+ipcMain.on('dismiss-overlays-from-browser-view', (event) => {
+    const wc = event.sender;
+    let fromTab = false;
+    for (const v of browserViews.values()) {
+        if (v.webContents && !v.webContents.isDestroyed() && v.webContents.id === wc.id) {
+            fromTab = true;
+            break;
+        }
+    }
+    if (!fromTab) return;
+
+    const win = BrowserWindow.fromWebContents(wc);
+    if (win && !win.isDestroyed()) {
+        hideFolderDropdown(win);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        hideHistoryAutocomplete(mainWindow);
+        mainWindow.webContents.send('browser-view-interacted');
+    }
+});
 
 // 记录当前显示的子菜单，用于清理非直接上级菜单
 let subDropdownViews = [];
