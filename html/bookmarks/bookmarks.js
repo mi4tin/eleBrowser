@@ -498,6 +498,7 @@ function insertBookmarkAtPosition(url, card, isTop) {
 // 移动项目到新位置（内部拖拽排序）
 function moveItemToPosition(data, card, isTop) {
     const items = currentFolder.items || [];
+    console.log("contentGrid.drop.1", items)
     const allCards = Array.from(contentGrid.children);
     const targetIndex = allCards.indexOf(card);
 
@@ -510,6 +511,8 @@ function moveItemToPosition(data, card, isTop) {
     } else if (data.itemType === 'bookmark') {
         sourceIndex = items.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
     }
+
+    console.log("contentGrid.drop", data, card,sourceIndex, targetIndex)
 
     if (sourceIndex === -1) return;
 
