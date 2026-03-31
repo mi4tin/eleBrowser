@@ -19,6 +19,8 @@ module.exports = function createWindowManager(deps) {
         const myWindow = new BrowserWindow({
             width: 1000,
             height: 700,
+            // x: 0,
+            // y: 100,
             icon: iconPath,
             webPreferences: {
                 nodeIntegration: true,

@@ -24,7 +24,23 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     function createBookmarkDropdownView(window, bounds) {
         try {
-            bookmarkDropdownView = new WebContentsView({
+            const windowBounds = window.getBounds();
+            const contentBounds = window.getContentBounds();
+
+            console.log('contentBounds:', contentBounds, bounds, {
+                x: contentBounds.x + bounds.x,
+                y: contentBounds.y + bounds.y
+            });
+            
+            const dropdownWindow = new BrowserWindow({
+                width: bounds.width,
+                height: bounds.height,
+                frame: false,
+                transparent: true,
+                alwaysOnTop: true,
+                skipTaskbar: true,
+                focusable: false,
+                show: false,
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true,
@@ -32,28 +48,69 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 }
             });
 
-            window.contentView.addChildView(bookmarkDropdownView);
-            bookmarkDropdownView.setBounds({
-                x: bounds.x,
-                y: bounds.y,
-                width: bounds.width,
-                height: bounds.height
+            dropdownWindow.setAlwaysOnTop(false);
+            dropdownWindow.loadURL(getDropdownUrl());
+            
+            bookmarkDropdownView = {
+                webContents: dropdownWindow.webContents,
+                window: dropdownWindow,
+                getBounds: () => {
+                    const bounds = dropdownWindow.getBounds();
+                    console.log('bounds:', bounds, contentBounds,{ 
+                        x: bounds.x - contentBounds.x,
+                        y: bounds.y - contentBounds.y,});
+                    return {
+                        // x: bounds.x - contentBounds.x,
+                        // y: bounds.y - contentBounds.y,
+                            x: bounds.x ,
+                        y: bounds.y - contentBounds.x,
+                        width: bounds.width,
+                        height: bounds.height
+                    };
+                },
+                setBounds: (newBounds) => {
+                    dropdownWindow.setBounds({
+                        x: contentBounds.x + newBounds.x,
+                        y: contentBounds.y + newBounds.y,
+                        width: newBounds.width,
+                        height: newBounds.height
+                    });
+                },
+                destroy: () => {
+                    if (!dropdownWindow.isDestroyed()) {
+                        dropdownWindow.close();
+                        dropdownWindow.destroy();
+                    }
+                }
+            };
+
+            dropdownWindow.once('ready-to-show', () => {
+                dropdownWindow.setBounds({
+                    x: contentBounds.x + bounds.x,
+                    y: contentBounds.y + bounds.y,
+                    width: bounds.width,
+                    height: bounds.height
+                });
+                dropdownWindow.show();
+                console.log('书签栏下拉菜单 BrowserWindow 创建成功');
             });
-            bookmarkDropdownView.webContents.loadURL(getDropdownUrl());
-            console.log('书签栏下拉菜单 WebContentsView 创建成功');
+
             return bookmarkDropdownView;
         } catch (error) {
-            console.error('创建书签栏下拉菜单 WebContentsView 失败:', error);
+            console.error('创建书签栏下拉菜单 BrowserWindow 失败:', error);
             return null;
         }
     }
 
     function updateBookmarkDropdownBounds(window) {
-        if (!bookmarkDropdownView || bookmarkDropdownView.webContents.isDestroyed()) return;
+        console.log('更新书签栏下拉菜单 bounds');
+        if (!bookmarkDropdownView || !bookmarkDropdownView.window || bookmarkDropdownView.window.isDestroyed()) return;
+        const windowBounds = window.getBounds();
         const contentBounds = window.getContentBounds();
-        bookmarkDropdownView.setBounds({
-            x: 0,
-            y: 0,
+        const dropdownBounds = bookmarkDropdownView.window.getBounds();
+        bookmarkDropdownView.window.setBounds({
+            x: contentBounds.x,
+            y: contentBounds.y,
             width: contentBounds.width,
             height: contentBounds.height
         });
@@ -64,11 +121,11 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         for (let i = 0; i < deleteSubs.length; i++) {
             const oldSubMenu = deleteSubs[i];
             try {
-                if (window && !window.isDestroyed()) {
-                    window.contentView.removeChildView(oldSubMenu.view);
-                }
-                if (oldSubMenu.view.webContents && !oldSubMenu.view.webContents.isDestroyed()) {
-                    oldSubMenu.view.webContents.destroy();
+                if (oldSubMenu.destroy) {
+                    oldSubMenu.destroy();
+                } else if (oldSubMenu.window && !oldSubMenu.window.isDestroyed()) {
+                    oldSubMenu.window.close();
+                    oldSubMenu.window.destroy();
                 }
             } catch (e) {
                 console.error('删除旧子菜单失败:', oldSubMenu.folderId, e.message);
@@ -79,14 +136,14 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     function hideFolderDropdown(window) {
         if (bookmarkDropdownView) {
             try {
-                if (window && !window.isDestroyed()) {
-                    window.contentView.removeChildView(bookmarkDropdownView);
-                }
-                if (bookmarkDropdownView.webContents && !bookmarkDropdownView.webContents.isDestroyed()) {
-                    bookmarkDropdownView.webContents.destroy();
+                if (bookmarkDropdownView.destroy) {
+                    bookmarkDropdownView.destroy();
+                } else if (bookmarkDropdownView.window && !bookmarkDropdownView.window.isDestroyed()) {
+                    bookmarkDropdownView.window.close();
+                    bookmarkDropdownView.window.destroy();
                 }
             } catch (e) {
-                console.error('销毁主下拉菜单 WebContentsView 失败:', e);
+                console.error('销毁主下拉菜单 BrowserWindow 失败:', e);
             }
             bookmarkDropdownView = null;
         }
@@ -94,14 +151,14 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         if (subDropdownViews.length > 0) {
             for (const subMenu of subDropdownViews) {
                 try {
-                    if (window && !window.isDestroyed()) {
-                        window.contentView.removeChildView(subMenu.view);
-                    }
-                    if (subMenu.view.webContents && !subMenu.view.webContents.isDestroyed()) {
-                        subMenu.view.webContents.destroy();
+                    if (subMenu.destroy) {
+                        subMenu.destroy();
+                    } else if (subMenu.window && !subMenu.window.isDestroyed()) {
+                        subMenu.window.close();
+                        subMenu.window.destroy();
                     }
                 } catch (e) {
-                    console.error('销毁子下拉菜单 WebContentsView 失败:', e);
+                    console.error('销毁子下拉菜单 BrowserWindow 失败:', e);
                 }
             }
             subDropdownViews = [];
@@ -147,19 +204,30 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         if (!bookmarkDropdownView) {
             createBookmarkDropdownView(window, folderBounds);
             dropdownFolderId = folderData.id;
-            console.log('bookmarkDropdownView.webContents.isLoading():', bookmarkDropdownView.webContents.isLoading());
+            console.log('bookmarkDropdownView.window:', bookmarkDropdownView.window);
 
-            bookmarkDropdownView.webContents.once('did-finish-load', () => {
+            const closeDropdownOnWindowChange = () => {
+                if (bookmarkDropdownView && bookmarkDropdownView.window && !bookmarkDropdownView.window.isDestroyed()) {
+                    hideFolderDropdown(window);
+                }
+            };
+
+            window.once('moved', closeDropdownOnWindowChange);
+            window.once('resize', closeDropdownOnWindowChange);
+            window.once('closed', closeDropdownOnWindowChange);
+
+            bookmarkDropdownView.window.webContents.once('did-finish-load', () => {
                 if (window && !window.isDestroyed()) {
-                    if (bookmarkDropdownView && !bookmarkDropdownView.webContents.isDestroyed()) {
-                        console.log('bookmarkDropdownView.webContents.isLoading()2.1:', bookmarkDropdownView.webContents.isLoading());
+                    if (bookmarkDropdownView && !bookmarkDropdownView.window.isDestroyed()) {
                         console.log('发送到下拉菜单:', folderData, folderBounds);
-                        bookmarkDropdownView.webContents.send('show-folder-dropdown', folderData, folderBounds);
+                        bookmarkDropdownView.window.webContents.send('show-folder-dropdown', folderData, folderBounds);
 
                         const subMenuInfo = {
                             folderId: folderData.id,
                             folderData,
-                            view: bookmarkDropdownView
+                            view: bookmarkDropdownView,
+                            window: bookmarkDropdownView.window,
+                            destroy: bookmarkDropdownView.destroy
                         };
                         subDropdownViews.push(subMenuInfo);
                     }
@@ -247,46 +315,94 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             return;
         }
 
+        console.log('parentBounds:', parentFolder,parentFolder.view);
         const parentBounds = parentFolder.view.getBounds();
         deleteSubMenus(parentIndex + 1, window);
 
-        const subDropdownView = new WebContentsView({
+        const windowBounds = window.getBounds();
+        const contentBounds = window.getContentBounds();
+        const subDropdownWindow = new BrowserWindow({
+            width: nextBounds.width,
+            height: nextBounds.height,
+            frame: false,
+            transparent: true,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            focusable: false,
+            show: false,
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
                 preload: getPreloadPath('preload-browserview.js')
             }
         });
-        window.contentView.addChildView(subDropdownView);
-        subDropdownView.setBounds({
-            x: parentBounds.x + nextBounds.x,
-            y: parentBounds.y + nextBounds.y,
-            width: nextBounds.width,
-            height: nextBounds.height
-        });
-        subDropdownView.webContents.loadURL(getDropdownUrl());
+        
+        subDropdownWindow.setAlwaysOnTop(true, 'screen-saver');
+        subDropdownWindow.loadURL(getDropdownUrl());
+
+        const subDropdownView = {
+            webContents: subDropdownWindow.webContents,
+            window: subDropdownWindow,
+            getBounds: () => {
+                const bounds = subDropdownWindow.getBounds();
+                return {
+                    x: bounds.x - contentBounds.x,
+                    y: bounds.y - contentBounds.y,
+                    width: bounds.width,
+                    height: bounds.height
+                };
+            },
+            destroy: () => {
+                if (!subDropdownWindow.isDestroyed()) {
+                    subDropdownWindow.close();
+                    subDropdownWindow.destroy();
+                }
+            }
+        };
 
         const subMenuInfo = {
             folderId: item.id,
             folderData: item,
-            view: subDropdownView
+            view: subDropdownView,
+            window: subDropdownWindow,
+            destroy: subDropdownView.destroy
         };
 
-        subDropdownView.webContents.once('did-finish-load', () => {
-            if (window && !window.isDestroyed() && subDropdownView && !subDropdownView.webContents.isDestroyed()) {
+        subDropdownWindow.once('ready-to-show', () => {
+            console.log('subDropdownWindow.getBounds:', { x: contentBounds.x + parentBounds.x + nextBounds.x,
+                y: contentBounds.y + parentBounds.y + nextBounds.y,});
+                //todo:子级下拉显示位置
+            subDropdownWindow.setBounds({
+                x:  parentBounds.x + nextBounds.x,
+                y: parentBounds.y + nextBounds.y,
+                width: nextBounds.width,
+                height: nextBounds.height
+            });
+            subDropdownWindow.show();
+            if (window && !window.isDestroyed() && subDropdownWindow && !subDropdownWindow.isDestroyed()) {
                 window.webContents.focus();
                 console.log('子菜单加载完成，发送数据:', item);
-                subDropdownView.webContents.send('show-folder-dropdown', item, {
+                subDropdownWindow.webContents.send('show-folder-dropdown', item, {
                     x: nextBounds.x,
                     y: nextBounds.y,
                     width: 300,
                     height: Math.max(200, 41 * ((item.items && item.items.length) || 1) + 16 + 2)
                 });
-                if (!subDropdownView.webContents.isDestroyed()) {
+                if (!subDropdownWindow.isDestroyed()) {
                     subDropdownViews.push(subMenuInfo);
                 }
             }
         });
+
+        const closeSubMenuOnWindowChange = () => {
+            if (subMenuInfo.destroy) {
+                subMenuInfo.destroy();
+            }
+        };
+
+        window.once('moved', closeSubMenuOnWindowChange);
+        window.once('resize', closeSubMenuOnWindowChange);
+        window.once('closed', closeSubMenuOnWindowChange);
     });
 
     ipcMain.on('open-bookmark-url', (event, url) => {
