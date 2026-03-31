@@ -495,48 +495,56 @@ function insertBookmarkAtPosition(url, card, isTop) {
     showNotification('书签添加成功');
 }
 
-// 移动项目到新位置（内部拖拽排序）
+// 移动项目到新位置（内部拖拽排序或跨文件夹移动）
 function moveItemToPosition(data, card, isTop) {
-    const items = currentFolder.items || [];
-    console.log("contentGrid.drop.1", items)
     const allCards = Array.from(contentGrid.children);
     const targetIndex = allCards.indexOf(card);
 
     if (targetIndex === -1) return;
 
-    // 找到被拖拽的项目在当前数组中的索引
+    // 找到源文件夹
+    const sourceRes = findFolderById(bookmarksTree, data.sourceFolderId);
+    if (!sourceRes) return;
+
+    const sourceItems = sourceRes.folder.items || [];
+    
+    // 找到被拖拽的项目在源文件夹中的索引
     let sourceIndex = -1;
     if (data.itemType === 'folder') {
-        sourceIndex = items.findIndex(item => item.type === 'folder' && item.id === data.id);
+        sourceIndex = sourceItems.findIndex(item => item.type === 'folder' && item.id === data.id);
     } else if (data.itemType === 'bookmark') {
-        sourceIndex = items.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
+        sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
     }
 
-    console.log("contentGrid.drop", data, card,sourceIndex, targetIndex)
+    console.log("contentGrid.drop", data, card, sourceIndex, targetIndex)
 
     if (sourceIndex === -1) return;
 
-    // 计算目标索引
+    // console.log("contentGrid.drop.a1", data, card, sourceIndex, targetIndex)
+    // 如果是相同的索引，不处理
+    if (sourceIndex === targetIndex) return;
+
+    // 从源位置移除项目
+    const [movedItem] = sourceItems.splice(sourceIndex, 1);
+
+    // 计算目标文件夹的插入索引
+    const targetItems = currentFolder.items || [];
     let targetInsertIndex = isTop ? targetIndex : targetIndex + 1;
-
-    // 如果拖拽到自身或相邻位置，不需要移动
-    if (sourceIndex === targetInsertIndex || sourceIndex === targetInsertIndex - 1) {
-        clearDragStyles();
-        return;
-    }
-
-    // 调整目标索引（考虑移除源项目后的偏移）
-    if (sourceIndex < targetInsertIndex) {
+    
+    // 如果是同一文件夹内的拖拽，需要调整索引（因为已经从原位置移除了）
+    if (sourceRes.folder.id === currentFolder.id && sourceIndex < targetInsertIndex) {
         targetInsertIndex--;
     }
 
-    // 从原位置移除
-    const [movedItem] = items.splice(sourceIndex, 1);
-    // 插入到新位置
-    items.splice(targetInsertIndex, 0, movedItem);
+    // 插入到目标位置
+    targetItems.splice(targetInsertIndex, 0, movedItem);
 
     // 重新渲染内容
     renderContent(currentFolder);
+    // 如果源文件夹和当前文件夹不同，需要重新渲染树形结构
+    if (sourceRes.folder.id !== currentFolder.id) {
+        renderTree();
+    }
     // 保存书签
     saveBookmarks();
 
@@ -715,7 +723,8 @@ function createFolderCard(folder) {
         e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
             type: 'internal',
             itemType: 'folder',
-            id: folder.id
+            id: folder.id,
+            sourceFolderId: currentFolder.id
         }));
         e.dataTransfer.effectAllowed = 'move';
         card.classList.add('dragging');
@@ -782,7 +791,8 @@ function createBookmarkCard(bookmark) {
         e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
             type: 'internal',
             itemType: 'bookmark',
-            id: bookmark.id || bookmark.url
+            id: bookmark.id || bookmark.url,
+            sourceFolderId: currentFolder.id
         }));
         e.dataTransfer.effectAllowed = 'move';
         card.classList.add('dragging');
