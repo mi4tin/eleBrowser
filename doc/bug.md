@@ -1,3 +1,6 @@
+==主bug==
++拖动网页里的链接，没有获取对应标题
+
 ==待修复==
 + https://juejin.cn/post/7559385680842883099   U3RheV9UaGlua2luZw==:q75.awebp" parse error 报错
 +无法加载 https://console.cucloud.cn/login?returnUrl=https%3A%2F%2Fconsole.cucloud.cn%2Fconsole%2Fcuig%2FsubscribePlan%2Fcreate

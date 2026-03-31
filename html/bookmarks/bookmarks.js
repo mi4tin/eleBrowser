@@ -379,6 +379,35 @@ function setupDragEvents() {
         e.preventDefault();
         e.stopPropagation();
 
+        // 检查是否是内部拖拽
+        const internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        if (internalData) {
+            try {
+                const data = JSON.parse(internalData);
+                if (data.type === 'internal') {
+                    // 找到被拖拽到的卡片
+                    const card = e.target.closest('.folder-card, .bookmark-card');
+                    if (card) {
+                        // 确定插入位置
+                        const rect = card.getBoundingClientRect();
+                        const y = e.clientY - rect.top;
+                        const zone = rect.height / 6;
+                        const isTop = y < zone;
+
+                        // 移动项目到新位置
+                        moveItemToPosition(data, card, isTop);
+                    } else {
+                        // 拖拽到空白区域，不处理
+                    }
+                    clearDragStyles();
+                    return;
+                }
+            } catch (err) {
+                console.error('解析内部拖拽数据失败:', err);
+            }
+        }
+
+        // 外部链接拖拽
         const url = e.dataTransfer.getData('text/plain');
         if (!url) return;
 
@@ -461,6 +490,51 @@ function insertBookmarkAtPosition(url, card, isTop) {
     showNotification('书签添加成功');
 }
 
+// 移动项目到新位置（内部拖拽排序）
+function moveItemToPosition(data, card, isTop) {
+    const items = currentFolder.items || [];
+    const allCards = Array.from(contentGrid.children);
+    const targetIndex = allCards.indexOf(card);
+
+    if (targetIndex === -1) return;
+
+    // 找到被拖拽的项目在当前数组中的索引
+    let sourceIndex = -1;
+    if (data.itemType === 'folder') {
+        sourceIndex = items.findIndex(item => item.type === 'folder' && item.id === data.id);
+    } else if (data.itemType === 'bookmark') {
+        sourceIndex = items.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
+    }
+
+    if (sourceIndex === -1) return;
+
+    // 计算目标索引
+    let targetInsertIndex = isTop ? targetIndex : targetIndex + 1;
+
+    // 如果拖拽到自身或相邻位置，不需要移动
+    if (sourceIndex === targetInsertIndex || sourceIndex === targetInsertIndex - 1) {
+        clearDragStyles();
+        return;
+    }
+
+    // 调整目标索引（考虑移除源项目后的偏移）
+    if (sourceIndex < targetInsertIndex) {
+        targetInsertIndex--;
+    }
+
+    // 从原位置移除
+    const [movedItem] = items.splice(sourceIndex, 1);
+    // 插入到新位置
+    items.splice(targetInsertIndex, 0, movedItem);
+
+    // 重新渲染内容
+    renderContent(currentFolder);
+    // 保存书签
+    saveBookmarks();
+
+    showNotification('位置已调整');
+}
+
 // 添加书签到指定文件夹
 function addBookmarkToFolder(folder, url) {
     if (!url) return;
@@ -470,7 +544,7 @@ function addBookmarkToFolder(folder, url) {
         const urlObj = new URL(url);
         title = urlObj.hostname;
     } catch (e) {
-        // URL解析失败，使用原始URL作为标题
+        // URL 解析失败，使用原始 URL 作为标题
     }
 
     folder.items = folder.items || [];
@@ -612,6 +686,7 @@ function createFolderCard(folder) {
     const card = document.createElement('div');
     card.className = 'folder-card';
     card.dataset.id = folder.id;
+    card.draggable = true;
 
     // 计算文件夹中的项目数量
     const items = folder.items || [];
@@ -625,6 +700,22 @@ function createFolderCard(folder) {
 
     card.addEventListener('click', () => {
         selectFolder(folder);
+    });
+
+    // 拖拽事件
+    card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
+            type: 'internal',
+            itemType: 'folder',
+            id: folder.id
+        }));
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('dragging');
+    });
+
+    card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        clearDragStyles();
     });
 
     // 右键菜单：重命名、删除
@@ -650,6 +741,7 @@ function createFolderCard(folder) {
 function createBookmarkCard(bookmark) {
     const card = document.createElement('div');
     card.className = 'bookmark-card';
+    card.draggable = true;
 
     card.innerHTML = `
         <div class="bookmark-favicon">${bookmark.favicon || '🔗'}</div>
@@ -675,6 +767,22 @@ function createBookmarkCard(bookmark) {
         if (url) {
             ipcRenderer.send('open-bookmark', url);
         }
+    });
+
+    // 拖拽事件
+    card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
+            type: 'internal',
+            itemType: 'bookmark',
+            id: bookmark.id || bookmark.url
+        }));
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('dragging');
+    });
+
+    card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        clearDragStyles();
     });
 
     // 右键菜单：修改、删除
