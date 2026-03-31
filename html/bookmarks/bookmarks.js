@@ -378,9 +378,11 @@ function setupDragEvents() {
     contentGrid.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        
 
         // 检查是否是内部拖拽
         const internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        console.log("contentGrid.drop",internalData)
         if (internalData) {
             try {
                 const data = JSON.parse(internalData);
@@ -396,7 +398,10 @@ function setupDragEvents() {
 
                         // 移动项目到新位置
                         moveItemToPosition(data, card, isTop);
+                        console.log("拖拽到文件夹")
                     } else {
+                        console.log("拖拽到空白区域")
+                        // addBookmarkToFolder(currentFolder, data.url);
                         // 拖拽到空白区域，不处理
                     }
                     clearDragStyles();
@@ -434,18 +439,18 @@ function setupDragEvents() {
 
         clearDragStyles();
     });
+}
 
-    function clearDragStyles() {
-        // 移除所有拖拽样式
-        document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
-            el.classList.remove('drag-over-top', 'drag-over-bottom');
-        });
+function clearDragStyles() {
+    // 移除所有拖拽样式
+    document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+        el.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
 
-        // 移除文件夹的背景色
-        document.querySelectorAll('.folder-card').forEach(card => {
-            card.style.backgroundColor = '';
-        });
-    }
+    // 移除文件夹的背景色
+    document.querySelectorAll('.folder-card').forEach(card => {
+        card.style.backgroundColor = '';
+    });
 }
 
 // 在指定位置插入书签
