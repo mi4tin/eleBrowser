@@ -101,7 +101,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     }
 
     function updateBookmarkDropdownBounds(window) {
-        console.log('更新书签栏下拉菜单 bounds');
+        // console.log('更新书签栏下拉菜单 bounds');
         if (!bookmarkDropdownView || !bookmarkDropdownView.window || bookmarkDropdownView.window.isDestroyed()) return;
         const windowBounds = window.getBounds();
         const contentBounds = window.getContentBounds();
@@ -425,7 +425,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     });
 
     ipcMain.on('load-bookmarks', (event, folderId) => {
-        console.log('收到加载书签请求', bookmarksFilePath, folderId);
+        // console.log('收到加载书签请求', bookmarksFilePath, folderId);
         try {
             const bookmarks = loadBookmarksData(folderId);
             event.reply('load-bookmarks-reply', bookmarks);

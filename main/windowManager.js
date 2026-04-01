@@ -41,7 +41,7 @@ module.exports = function createWindowManager(deps) {
         });
 
         myWindow.on('resize', () => {
-            console.log('窗口大小改变，调整BrowserView尺寸');
+            // console.log('窗口大小改变，调整BrowserView尺寸');
             resizeBrowserViews(myWindow);
         });
 
