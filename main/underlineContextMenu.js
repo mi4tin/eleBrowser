@@ -13,9 +13,9 @@ module.exports = function createUnderlineContextMenu(deps) {
 
     const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
     const webviewContentsMap = new Map();
-    const underlineMode = 1;
-    let resetUnerlineNameIndexMap = {};
-    let underlineNameIndex = 1;
+    const underlineMode = 1;// 划线模式，1、只加载指定出现次数的文本划线(即选中处文本的划线)，2、加载所有匹配文本的划线
+    let resetUnerlineNameIndexMap = {};//用于同一页面的不同下划线的命名标识重置映射，key为url,value为underlineNameIndex
+    let underlineNameIndex = 1;//用于同一页面的不同下划线的命名标识，即同一命名标识表示同一划线。而occurrenceIndex表示同一划线内容的不同匹配的位置
 
     function ensureUserDataDir() {
         const userDataPath = app.getPath('userData');

@@ -162,7 +162,7 @@ function hideHistoryAutocomplete(window) {
         if (window && !window.isDestroyed()) {
             window.contentView.removeChildView(historyAutocompleteView);
         }
-        console.log('隐藏历史记录自动匹配 WebContentsView');
+        // console.log('隐藏历史记录自动匹配 WebContentsView');
     } catch (error) {
         console.error('隐藏历史记录自动匹配 WebContentsView 失败:', error);
     }
