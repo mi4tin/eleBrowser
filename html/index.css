@@ -209,13 +209,14 @@ body {
     border-bottom: 1px solid #e0e0e0;
     overflow: hidden;
     display: flex;
-    flex-direction: column;
+    flex-direction: row; /* 改为水平排列 */
+    align-items: center;
 }
 
 .bookmark-bar-scroll {
-    flex: 1;
-    overflow-x: auto;
-    overflow-y: hidden;
+    flex: 1; /* 占据剩余空间 */
+    overflow: hidden; /* 隐藏溢出内容 */
+    height: 100%;
 }
 
 .bookmark-bar-content {
@@ -223,7 +224,8 @@ body {
     align-items: center;
     gap: 8px;
     padding: 5px 10px;
-    min-width: max-content;
+    min-width: max-content; /* 确保内容不会换行 */
+    height: 100%;
 }
 
 .bookmark-bar-item {
@@ -289,22 +291,40 @@ body {
     font-weight: 500;
 }
 
-/* 书签栏滚动条样式 */
-.bookmark-bar-scroll::-webkit-scrollbar {
-    height: 6px;
+/* 书签栏箭头按钮 */
+.bookmark-bar-arrow {
+    flex-shrink: 0;
+    width: 40px;
+    height: 50px;
+    background: #fafafa;
+    border: none;
+    border-left: 1px solid #e0e0e0;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    display: none; /* 默认隐藏，只在需要时显示 */
 }
 
-.bookmark-bar-scroll::-webkit-scrollbar-track {
-    background: #f1f1f1;
+.bookmark-bar-arrow.visible {
+    display: flex; /* 添加 visible 类时显示 */
 }
 
-.bookmark-bar-scroll::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
+.bookmark-bar-arrow:hover {
+    background: #f0f0f0;
+    color: #4b8bff;
 }
 
-.bookmark-bar-scroll::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+.bookmark-bar-arrow:active {
+    transform: scale(0.95);
+}
+
+.bookmark-bar-arrow.dropdown-active {
+    background: #e8f0fe;
+    color: #4b8bff;
 }
 
 #webviews {

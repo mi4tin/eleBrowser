@@ -1231,6 +1231,14 @@ tabsContainer.addEventListener('drop', (e) => {
 // ========== 书签栏功能 ==========
 
 const bookmarkBarContent = document.getElementById('bookmarkBarContent');
+const bookmarkBarArrow = document.getElementById('bookmarkBarArrow');
+
+// 添加箭头按钮点击事件
+if (bookmarkBarArrow) {
+    bookmarkBarArrow.addEventListener('click', () => {
+        showAllBookmarksDropdown();
+    });
+}
 
 // 默认书签数据
 const defaultBookmarksTree = {
@@ -1387,9 +1395,72 @@ function escapeHtml(text) {
 
 
 let canMouseenter = false;
+
+// 检测书签栏是否溢出，并更新箭头按钮状态
+function updateBookmarkBarArrow() {
+    if (!bookmarkBarContent || !bookmarkBarArrow) {
+        console.log('书签栏元素不存在');
+        return;
+    }
+    
+    const scrollContainer = bookmarkBarContent.parentElement;
+    const containerWidth = scrollContainer.clientWidth;
+    const arrowWidth = bookmarkBarArrow.offsetWidth;
+    const availableWidth = containerWidth - arrowWidth - 20;
+    
+    console.log('书签栏检测:', {
+        containerWidth,
+        availableWidth,
+        arrowWidth,
+        hiddenCount: hiddenBookmarks.length
+    });
+    
+    // 只有当有隐藏的书签时才显示箭头按钮
+    if (hiddenBookmarks.length > 0) {
+        bookmarkBarArrow.classList.add('visible');
+        console.log('显示箭头按钮，隐藏书签数:', hiddenBookmarks.length);
+    } else {
+        bookmarkBarArrow.classList.remove('visible');
+        console.log('隐藏箭头按钮');
+    }
+}
+
+// 存储隐藏的书签
+let hiddenBookmarks = [];
+
+// 计算哪些书签被隐藏了（仅用于窗口大小改变时重新计算）
+function updateHiddenBookmarks() {
+    if (!bookmarkBarContent || !bookmarkBarArrow) return;
+    
+    // 清空现有的隐藏书签列表
+    hiddenBookmarks = [];
+    
+    const scrollContainer = bookmarkBarContent.parentElement;
+    const containerWidth = scrollContainer.clientWidth;
+    const arrowWidth = bookmarkBarArrow.offsetWidth;
+    const availableWidth = containerWidth - arrowWidth - 20;
+    
+    let currentWidth = 0;
+    
+    const items = bookmarkBarContent.querySelectorAll('.bookmark-bar-item');
+    
+    // 计算可见书签的宽度
+    items.forEach((item, index) => {
+        const itemWidth = item.offsetWidth;
+        currentWidth += itemWidth;
+    });
+    
+    // 如果当前渲染的书签宽度超过可用宽度，说明窗口变小了，需要重新计算
+    if (currentWidth > availableWidth) {
+        console.log('窗口变小，重新计算隐藏书签');
+        // 重新渲染书签栏
+        renderBookmarkBar();
+    }
+}
+
 // 渲染书签栏
 async function renderBookmarkBar() {
-    if (!bookmarkBarContent) return;
+    if (!bookmarkBarContent || !bookmarkBarArrow) return;
 
     try {
         // 加载书签数据
@@ -1401,13 +1472,25 @@ async function renderBookmarkBar() {
 
         // 清空书签栏
         bookmarkBarContent.innerHTML = '';
+        
+        // 清空隐藏书签列表
+        hiddenBookmarks = [];
 
         if (allItems.length === 0) {
             bookmarkBarContent.innerHTML = '<div style="color:#999;padding:10px;">暂无书签</div>';
             return;
         }
 
-        // 渲染每个项目
+        // 计算可用宽度
+        const scrollContainer = bookmarkBarContent.parentElement;
+        const containerWidth = scrollContainer.clientWidth;
+        const arrowWidth = bookmarkBarArrow.offsetWidth;
+        const availableWidth = containerWidth - arrowWidth - 20;
+        
+        let currentWidth = 0;
+        let visibleCount = 0;
+        
+        // 只渲染能显示的书签
         allItems.forEach(item => {
             console.log('渲染书签栏项目:', item);
             const itemEl = document.createElement('div');
@@ -1450,8 +1533,34 @@ async function renderBookmarkBar() {
                 });
             }
 
+            // 计算宽度，决定是否渲染
             bookmarkBarContent.appendChild(itemEl);
+            const itemWidth = itemEl.offsetWidth;
+            currentWidth += itemWidth;
+            
+            if (currentWidth <= availableWidth) {
+                visibleCount++;
+                console.log(`渲染书签 ${visibleCount}:`, item.name, currentWidth, '<=', availableWidth);
+            } else {
+                // 超出宽度，从 DOM 中移除
+                bookmarkBarContent.removeChild(itemEl);
+                console.log(`移除书签（超出宽度）:`, item.name, currentWidth, '>', availableWidth);
+                
+                // 添加到隐藏书签列表
+                hiddenBookmarks.push({
+                    index: visibleCount + hiddenBookmarks.length,
+                    element: null, // 没有渲染，所以是 null
+                    data: item
+                });
+            }
         });
+        
+        console.log('总书签数:', allItems.length, '可见书签数:', visibleCount, '隐藏书签数:', hiddenBookmarks.length);
+        
+        // 等待 DOM 渲染完成后检测是否需要显示箭头按钮
+        setTimeout(() => {
+            updateBookmarkBarArrow();
+        }, 0);
 
     } catch (error) {
         console.error('渲染书签栏失败:', error);
@@ -1502,6 +1611,42 @@ function hideFolderDropdown() {
     document.querySelectorAll('.bookmark-bar-item.folder-item.dropdown-active').forEach(el => {
         el.classList.remove('dropdown-active');
     });
+    
+    // 移除箭头按钮的激活状态
+    if (bookmarkBarArrow) {
+        bookmarkBarArrow.classList.remove('dropdown-active');
+    }
+}
+
+// 显示所有书签下拉菜单
+function showAllBookmarksDropdown() {
+    console.log('显示隐藏书签下拉菜单，隐藏数量:', hiddenBookmarks.length);
+    
+    if (!bookmarkBarArrow || hiddenBookmarks.length === 0) return;
+    
+    // 获取箭头按钮的位置
+    const rect = bookmarkBarArrow.getBoundingClientRect();
+    
+    // 使用隐藏的书签数据
+    const hiddenBookmarksData = {
+        id: 'hidden-bookmarks',
+        name: '更多书签',
+        type: 'folder',
+        items: hiddenBookmarks.map(item => item.data)
+    };
+    
+    const folderBounds = {
+        x: rect.left - 250, // 让菜单在箭头左侧显示
+        y: rect.bottom,
+        width: 300,
+        height: 41 * (hiddenBookmarksData.items.length || 1) + 16 + 2
+    };
+    
+    // 发送消息到下拉菜单
+    ipcRenderer.send('show-folder-dropdown', hiddenBookmarksData, folderBounds, false);
+    
+    // 给箭头添加激活状态
+    bookmarkBarArrow.classList.add('dropdown-active');
 }
 
 document.addEventListener('blur', () => {
@@ -1521,6 +1666,13 @@ bookmarkBarContainer.addEventListener('focus', () => {
     // hideFolderDropdown();
     // canMouseenter = false;
 });
+
+// 监听窗口大小改变和书签栏滚动，更新箭头按钮状态
+window.addEventListener('resize', updateBookmarkBarArrow);
+const scrollContainer = bookmarkBarContent?.parentElement;
+if (scrollContainer) {
+    scrollContainer.addEventListener('scroll', updateBookmarkBarArrow);
+}
 
 // 初始化书签栏
 renderBookmarkBar();
