@@ -1402,16 +1402,45 @@ function updateBookmarkBarArrow() {
         console.log('书签栏元素不存在');
         return;
     }
+
+    // console.log('书签栏检测开始');
     
     const scrollContainer = bookmarkBarContent.parentElement;
     const containerWidth = scrollContainer.clientWidth;
     const arrowWidth = bookmarkBarArrow.offsetWidth;
     const availableWidth = containerWidth - arrowWidth - 20;
     
+    // 重新计算可见书签和隐藏书签
+    const items = bookmarkBarContent.querySelectorAll('.bookmark-bar-item');
+    let currentWidth = 0;
+    let visibleCount = 0;
+    
+    items.forEach((item) => {
+        const itemWidth = item.offsetWidth;
+        currentWidth += itemWidth;
+        if (currentWidth <= availableWidth) {
+            visibleCount++;
+        }
+    });
+    
+    // 重新构建 hiddenBookmarks 数组
+    hiddenBookmarks = [];
+    const allItems = bookmarksTreeData?.items || [];
+    
+    // 从可见书签之后的书签都是隐藏的
+    for (let i = visibleCount; i < allItems.length; i++) {
+        hiddenBookmarks.push({
+            index: i,
+            element: null,
+            data: allItems[i]
+        });
+    }
+    
     console.log('书签栏检测:', {
         containerWidth,
         availableWidth,
         arrowWidth,
+        visibleCount,
         hiddenCount: hiddenBookmarks.length
     });
     
@@ -1427,36 +1456,6 @@ function updateBookmarkBarArrow() {
 
 // 存储隐藏的书签
 let hiddenBookmarks = [];
-
-// 计算哪些书签被隐藏了（仅用于窗口大小改变时重新计算）
-function updateHiddenBookmarks() {
-    if (!bookmarkBarContent || !bookmarkBarArrow) return;
-    
-    // 清空现有的隐藏书签列表
-    hiddenBookmarks = [];
-    
-    const scrollContainer = bookmarkBarContent.parentElement;
-    const containerWidth = scrollContainer.clientWidth;
-    const arrowWidth = bookmarkBarArrow.offsetWidth;
-    const availableWidth = containerWidth - arrowWidth - 20;
-    
-    let currentWidth = 0;
-    
-    const items = bookmarkBarContent.querySelectorAll('.bookmark-bar-item');
-    
-    // 计算可见书签的宽度
-    items.forEach((item, index) => {
-        const itemWidth = item.offsetWidth;
-        currentWidth += itemWidth;
-    });
-    
-    // 如果当前渲染的书签宽度超过可用宽度，说明窗口变小了，需要重新计算
-    if (currentWidth > availableWidth) {
-        console.log('窗口变小，重新计算隐藏书签');
-        // 重新渲染书签栏
-        renderBookmarkBar();
-    }
-}
 
 // 渲染书签栏
 async function renderBookmarkBar() {
@@ -1668,7 +1667,10 @@ bookmarkBarContainer.addEventListener('focus', () => {
 });
 
 // 监听窗口大小改变和书签栏滚动，更新箭头按钮状态
-window.addEventListener('resize', updateBookmarkBarArrow);
+window.addEventListener('resize', () => {
+    console.log('窗口大小改变，重新计算书签栏');
+    renderBookmarkBar();
+});
 const scrollContainer = bookmarkBarContent?.parentElement;
 if (scrollContainer) {
     scrollContainer.addEventListener('scroll', updateBookmarkBarArrow);
