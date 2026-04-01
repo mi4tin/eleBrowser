@@ -206,6 +206,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
             const closeDropdownOnWindowChange = () => {
                 if (bookmarkDropdownView && bookmarkDropdownView.window && !bookmarkDropdownView.window.isDestroyed()) {
+                    console.log('窗口大小改变，关闭下拉菜单');
+                    window.webContents.send('show-folder-dropdown-mouseenter', false);
                     hideFolderDropdown(window);
                 }
             };
