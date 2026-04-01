@@ -24,10 +24,10 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     function createBookmarkDropdownView(window, bounds) {
         try {
-            const windowBounds = window.getBounds();
+            // const windowBounds = window.getBounds();
             const contentBounds = window.getContentBounds();
 
-            console.log('contentBounds:', contentBounds, bounds, {
+            console.log('contentBounds:',  {
                 x: contentBounds.x + bounds.x,
                 y: contentBounds.y + bounds.y
             });
@@ -48,7 +48,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 }
             });
 
-            dropdownWindow.setAlwaysOnTop(false);
+            dropdownWindow.setAlwaysOnTop(true, 'screen-saver');// 确保在屏幕顶部
             dropdownWindow.loadURL(getDropdownUrl());
             
             bookmarkDropdownView = {
