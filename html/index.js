@@ -1608,6 +1608,12 @@ ipcRenderer.on('browser-view-interacted', () => {
     canMouseenter = false;
 });
 
+// 书签管理器保存书签后，通知主窗口更新书签栏
+ipcRenderer.on('bookmarks-saved', () => {
+    console.log('收到书签保存通知，更新书签栏');
+    renderBookmarkBar();
+});
+
 // 隐藏文件夹下拉菜单
 function hideFolderDropdown() {
     ipcRenderer.send('hide-folder-dropdown');

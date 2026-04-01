@@ -442,6 +442,12 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         try {
             fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
             event.reply('save-bookmarks-reply', { success: true });
+            // 通知主窗口更新书签栏
+            const mainWindow = getMainWindow();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('bookmarks-saved');
+                console.log('发送书签保存通知到主窗口');
+            }
         } catch (e) {
             console.error('保存书签数据失败:', e);
             event.reply('save-bookmarks-reply', { success: false, error: e.message });
