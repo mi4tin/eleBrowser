@@ -56,26 +56,24 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 window: dropdownWindow,
                 getBounds: () => {
                     const bounds = dropdownWindow.getBounds();
-                    console.log('bounds:', bounds, contentBounds,{ 
+                    console.log('bounds.aa:', bounds, contentBounds,{ 
                         x: bounds.x - contentBounds.x,
                         y: bounds.y - contentBounds.y,});
                     return {
-                        // x: bounds.x - contentBounds.x,
-                        // y: bounds.y - contentBounds.y,
-                            x: bounds.x ,
-                        y: bounds.y - contentBounds.x,
+                        x: bounds.x ,
+                        y: bounds.y,
                         width: bounds.width,
                         height: bounds.height
                     };
                 },
-                setBounds: (newBounds) => {
-                    dropdownWindow.setBounds({
-                        x: contentBounds.x + newBounds.x,
-                        y: contentBounds.y + newBounds.y,
-                        width: newBounds.width,
-                        height: newBounds.height
-                    });
-                },
+                // setBounds: (newBounds) => {
+                //     dropdownWindow.setBounds({
+                //         x: contentBounds.x + newBounds.x,
+                //         y: contentBounds.y + newBounds.y,
+                //         width: newBounds.width,
+                //         height: newBounds.height
+                //     });
+                // },
                 destroy: () => {
                     if (!dropdownWindow.isDestroyed()) {
                         dropdownWindow.close();
@@ -204,7 +202,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         if (!bookmarkDropdownView) {
             createBookmarkDropdownView(window, folderBounds);
             dropdownFolderId = folderData.id;
-            console.log('bookmarkDropdownView.window:', bookmarkDropdownView.window);
+            // console.log('bookmarkDropdownView.window:', bookmarkDropdownView.window);
 
             const closeDropdownOnWindowChange = () => {
                 if (bookmarkDropdownView && bookmarkDropdownView.window && !bookmarkDropdownView.window.isDestroyed()) {
@@ -219,7 +217,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             bookmarkDropdownView.window.webContents.once('did-finish-load', () => {
                 if (window && !window.isDestroyed()) {
                     if (bookmarkDropdownView && !bookmarkDropdownView.window.isDestroyed()) {
-                        console.log('发送到下拉菜单:', folderData, folderBounds);
+                        // console.log('发送到下拉菜单:', folderData, folderBounds);
                         bookmarkDropdownView.window.webContents.send('show-folder-dropdown', folderData, folderBounds);
 
                         const subMenuInfo = {
@@ -275,7 +273,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     ipcMain.on('show-folder-dropdown-next', (event, nextBounds, item, parentId) => {
         const window = BrowserWindow.fromWebContents(event.sender);
-        console.log('收到显示下级文件夹菜单请求:', window);
+        // console.log('收到显示下级文件夹菜单请求:', window);
         if (!window) {
             throw new Error('下拉菜单。无法获取窗口实例');
         }
@@ -315,7 +313,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             return;
         }
 
-        console.log('parentBounds:', parentFolder,parentFolder.view);
+        // console.log('parentBounds:', parentFolder,parentFolder.view);
         const parentBounds = parentFolder.view.getBounds();
         deleteSubMenus(parentIndex + 1, window);
 
@@ -369,8 +367,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         };
 
         subDropdownWindow.once('ready-to-show', () => {
-            console.log('subDropdownWindow.getBounds:', { x: contentBounds.x + parentBounds.x + nextBounds.x,
-                y: contentBounds.y + parentBounds.y + nextBounds.y,});
+            console.log('subDropdownWindow.getBounds:', parentBounds,nextBounds,{ x: parentBounds.x + nextBounds.x,
+                y: parentBounds.y + nextBounds.y,});
                 //todo:子级下拉显示位置
             subDropdownWindow.setBounds({
                 x:  parentBounds.x + nextBounds.x,
@@ -381,7 +379,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             subDropdownWindow.show();
             if (window && !window.isDestroyed() && subDropdownWindow && !subDropdownWindow.isDestroyed()) {
                 window.webContents.focus();
-                console.log('子菜单加载完成，发送数据:', item);
+                // console.log('子菜单加载完成，发送数据:', item);
                 subDropdownWindow.webContents.send('show-folder-dropdown', item, {
                     x: nextBounds.x,
                     y: nextBounds.y,
