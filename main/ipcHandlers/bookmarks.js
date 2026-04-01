@@ -344,8 +344,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             getBounds: () => {
                 const bounds = subDropdownWindow.getBounds();
                 return {
-                    x: bounds.x - contentBounds.x,
-                    y: bounds.y - contentBounds.y,
+                    x: bounds.x,
+                    y: bounds.y,
                     width: bounds.width,
                     height: bounds.height
                 };
@@ -372,7 +372,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 //todo:子级下拉显示位置
             subDropdownWindow.setBounds({
                 x:  parentBounds.x + nextBounds.x,
-                y: parentBounds.y + nextBounds.y,
+                y: parentBounds.y + nextBounds.y,//再-8可以让第一排保持对齐，但后面对齐又会有视觉偏差，先放弃
                 width: nextBounds.width,
                 height: nextBounds.height
             });
@@ -380,6 +380,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             if (window && !window.isDestroyed() && subDropdownWindow && !subDropdownWindow.isDestroyed()) {
                 window.webContents.focus();
                 // console.log('子菜单加载完成，发送数据:', item);
+
                 subDropdownWindow.webContents.send('show-folder-dropdown', item, {
                     x: nextBounds.x,
                     y: nextBounds.y,
