@@ -1238,6 +1238,11 @@ if (bookmarkBarArrow) {
     bookmarkBarArrow.addEventListener('click', () => {
         showAllBookmarksDropdown();
     });
+
+    bookmarkBarArrow.addEventListener('mouseenter', () => {
+        if (!canMouseenter) return;
+        showAllBookmarksDropdown();
+    });
 }
 
 // 默认书签数据
