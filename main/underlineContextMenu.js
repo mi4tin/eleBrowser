@@ -291,6 +291,7 @@ module.exports = function createUnderlineContextMenu(deps) {
             underlineNameIndex++;
             addUnderlinePromise.then((result) => {
                 if (mode === 1) {
+                    console.log('添加下划线成功:', result);
                     underlineInfo.occurrenceIndex = result.occurrenceIndex;
                 }
                 saveUnderlineDirect(url, underlineInfo);
