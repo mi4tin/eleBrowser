@@ -69,6 +69,8 @@ module.exports = function createUnderlineContextMenu(deps) {
                 underlineNameIndexP = underlineNameIndex;
             }
 
+            console.log('划线信息.aa:', underlineInfo);
+
             var underlineCount = await contents.executeJavaScript(
             `(function(text, mode, occurrenceIndex) {
 
@@ -116,7 +118,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                 /**
                  * 包裹单个文本节点中的一段
                  */
-                function wrapTextNodeSegment(node, start, end, index) {
+                function wrapTextNodeSegment(node, start, end) {
                 const parent = node.parentNode;
                 if (!parent) return;
                 if (parent.classList && parent.classList.contains('underline-fb3b780f')) return;
@@ -131,7 +133,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                 const span = document.createElement('span');
                 span.className = 'underline-fb3b780f';
                 span.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndexP}');
-                span.setAttribute('data-occurrence-index', index);
+                span.setAttribute('data-occurrence-index', ${underlineInfo.occurrenceIndex});
                 
                 span.textContent = content.substring(start, end);
                 fragment.appendChild(span);
@@ -147,7 +149,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                 /**
                  * 处理跨文本节点的范围
                  */
-                function handleMultiNodeRange(startNode, startOffset, endNode, endOffset, index) {
+                function handleMultiNodeRange(startNode, startOffset, endNode, endOffset) {
                 // 1. 处理起始节点（保留后半部分）
                 const startParent = startNode.parentNode;
                 if (startParent) {
@@ -158,7 +160,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                     const underlineSpan = document.createElement('span');
                     underlineSpan.className = 'underline-fb3b780f';
                     underlineSpan.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndexP}');
-                    underlineSpan.setAttribute('data-occurrence-index', index);
+                    underlineSpan.setAttribute('data-occurrence-index', ${underlineInfo.occurrenceIndex});
                     underlineSpan.textContent = startContent.substring(startOffset);
                     startFrag.appendChild(underlineSpan);
                     
@@ -271,7 +273,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                     } else {
                         handleMultiNodeRange(
                         startInfo.node, startInfo.offset,
-                        endInfo.node, endInfo.offset + 1,index
+                        endInfo.node, endInfo.offset + 1
                         );
                     }
                     } catch (e) {
