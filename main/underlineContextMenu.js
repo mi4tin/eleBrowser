@@ -183,7 +183,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                     const underlineSpan = document.createElement('span');
                     underlineSpan.className = 'underline-fb3b780f';
                     underlineSpan.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndexP}');
-                    underlineSpan.setAttribute('data-occurrence-index', index);
+                    underlineSpan.setAttribute('data-occurrence-index',  ${underlineInfo.occurrenceIndex});
                     underlineSpan.textContent = endContent.substring(0, endOffset);
                     endFrag.appendChild(underlineSpan);
                     
@@ -206,7 +206,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                         const span = document.createElement('span');
                         span.className = 'underline-fb3b780f';
                         span.setAttribute('name', 'underline-fb3b780f-name${underlineNameIndexP}');
-                        span.setAttribute('data-occurrence-index', index);
+                        span.setAttribute('data-occurrence-index',  ${underlineInfo.occurrenceIndex});
                         span.textContent = content;
                         parent.replaceChild(span, currentNode);
                     }
@@ -269,7 +269,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                     const endInfo = getTextNodeAtPosition(container, match.end - 1);
                     
                     if (startInfo.node === endInfo.node) {
-                        wrapTextNodeSegment(startInfo.node, startInfo.offset, endInfo.offset + 1,index);
+                        wrapTextNodeSegment(startInfo.node, startInfo.offset, endInfo.offset + 1);
                     } else {
                         handleMultiNodeRange(
                         startInfo.node, startInfo.offset,
