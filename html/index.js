@@ -1614,6 +1614,12 @@ ipcRenderer.on('bookmarks-saved', () => {
     renderBookmarkBar();
 });
 
+// 粘贴板内容更新
+ipcRenderer.on('clipboard-updated', (event, text) => {
+    console.log('粘贴板内容更新:', text);
+    // 可以在这里处理粘贴板内容，例如自动填充到地址栏等
+});
+
 // 隐藏文件夹下拉菜单
 function hideFolderDropdown() {
     ipcRenderer.send('hide-folder-dropdown');
