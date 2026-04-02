@@ -733,7 +733,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 // 精确匹配
                                 if (item.text === selectedText ) {
                                     if(result.occurrenceIndex==-1||item.occurrenceIndex == result.occurrenceIndex){
-                                        console.log("删除匹配记录:", item);
+                                        console.log("删除匹配记录:", item);//todo:多个匹配加载的occurrenceIndex都一样了
                                         return false;//返回false，表示不要该记录，即删除
                                     }else{
                                         return true;
