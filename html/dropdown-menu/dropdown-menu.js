@@ -82,16 +82,18 @@ function showFolderDropdown() {
    
 
     // 渲染每个项目
-    items.forEach(item => {
+    items.forEach((item, index) => {
         const itemEl = document.createElement('div');
         itemEl.className = 'folder-dropdown-item';
         itemEl.dataset.itemType = item.type;
+        itemEl.dataset.index = index;
         if (item.type === 'folder') {
             itemEl.dataset.id = item.id;
             itemEl.dataset.itemCount = (item.items && item.items.length) || 0;
         } else {
             itemEl.dataset.id = item.id || item.url;
         }
+        itemEl.draggable = true;
 
          // 鼠标悬停在子文件夹上：显示下级菜单
             let hoverTimeout = null;
@@ -146,11 +148,9 @@ function showFolderDropdown() {
                 <span class="label">${escapeHtml(item.title)}</span>
             `;
 
-
-
             itemEl.addEventListener('mouseenter', () => {
                 const rect = itemEl.getBoundingClientRect();
-                console.log('鼠标进入子文件夹:', item.name, rect);
+                console.log('鼠标进入书签:', item.title, rect);
 
                 // 延迟显示子菜单，避免快速移动时闪烁
                 if (hoverTimeout) {
@@ -191,6 +191,9 @@ function showFolderDropdown() {
             });
         }
 
+        // 添加拖拽事件
+        addDragEventsToItem(itemEl, item, index);
+
         folderDropdownContent.appendChild(itemEl);
     });
 
@@ -205,6 +208,47 @@ function showFolderDropdown() {
 // 隐藏文件夹下拉菜单
 function hideFolderDropdown() {
     folderDropdown.classList.remove('show');
+}
+
+// 为项目添加拖拽事件
+function addDragEventsToItem(itemEl, item, index) {
+    // 拖拽开始
+    itemEl.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        let dragData;
+        if (item.type === 'folder') {
+            dragData = {
+                type: 'internal',
+                itemType: 'folder',
+                id: item.id,
+                name: item.name
+            };
+        } else {
+            dragData = {
+                type: 'internal',
+                itemType: 'bookmark',
+                id: item.id || item.url,
+                title: item.title,
+                url: item.url,
+                favicon: item.favicon
+            };
+        }
+        e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify(dragData));
+        e.dataTransfer.effectAllowed = 'move';
+        itemEl.classList.add('dragging');
+    });
+
+    // 拖拽结束
+    itemEl.addEventListener('dragend', () => {
+        itemEl.classList.remove('dragging');
+        document.querySelectorAll('.folder-dropdown-item').forEach(el => {
+            el.classList.remove('drag-over-folder', 'drag-over-top', 'drag-over-bottom');
+        });
+        folderDropdownContent.classList.remove('drag-over-empty');
+        clearTimeout(dragSubMenuTimeout);
+        dragSubMenuTimeout = null;
+        currentDragHoverItem = null;
+    });
 }
 
 // 书签数据（从主进程接收）

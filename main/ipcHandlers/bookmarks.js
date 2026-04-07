@@ -437,17 +437,32 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         }
     });
 
+    // 向所有窗口发送书签保存通知
+    function notifyAllWindowsBookmarksSaved() {
+
+        getBrowserViews().values().forEach(tabView => {
+            console.log('tabView:', tabView);
+            tabView.webContents.send('bookmarks-saved');
+        });
+
+        console.log('向所有窗口发送书签保存通知，窗口数:', getBrowserViews().values().length);
+
+        getMainWindow().webContents.send('bookmarks-saved');
+        // const allWindows = BrowserWindow.getAllWindows();
+        // allWindows.forEach(window => {
+        //     if (window && !window.isDestroyed()) {
+        //         window.webContents.send('bookmarks-saved');
+        //     }
+        // });
+    }
+
     ipcMain.on('save-bookmarks', (event, bookmarks) => {
         console.log('收到保存书签请求');
         try {
             fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
             event.reply('save-bookmarks-reply', { success: true });
-            // 通知主窗口更新书签栏
-            const mainWindow = getMainWindow();
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('bookmarks-saved');
-                console.log('发送书签保存通知到主窗口');
-            }
+            // 通知所有窗口更新
+            notifyAllWindowsBookmarksSaved();
         } catch (e) {
             console.error('保存书签数据失败:', e);
             event.reply('save-bookmarks-reply', { success: false, error: e.message });
@@ -505,11 +520,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 // 保存书签数据
                 fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
 
-                // 通知主窗口更新书签栏
-                const mainWindow = getMainWindow();
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('bookmarks-saved');
-                }
+                // 通知所有窗口更新
+                notifyAllWindowsBookmarksSaved();
 
                 // 关闭所有下拉菜单
                 const window = BrowserWindow.fromWebContents(event.sender);
@@ -572,11 +584,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             // 保存书签数据
             fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
 
-            // 通知主窗口更新书签栏
-            const mainWindow = getMainWindow();
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('bookmarks-saved');
-            }
+            // 通知所有窗口更新
+            notifyAllWindowsBookmarksSaved();
 
             // 关闭所有下拉菜单
             const window = BrowserWindow.fromWebContents(event.sender);
@@ -585,6 +594,30 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             }
         } catch (e) {
             console.error('排序失败:', e);
+        }
+    });
+
+    // 添加URL到指定文件夹
+    ipcMain.on('add-url-to-folder', (event, bookmark, folderId) => {
+        console.log('收到添加URL到文件夹请求:', bookmark, folderId);
+        try {
+            const bookmarks = loadBookmarksData(null);
+            if (!bookmarks) return;
+
+            const targetFolder = findFolderById(bookmarks, folderId);
+            if (!targetFolder) return;
+            if (!targetFolder.items) {
+                targetFolder.items = [];
+            }
+            targetFolder.items.push(bookmark);
+
+            // 保存书签数据
+            fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
+
+            // 通知所有窗口更新
+            notifyAllWindowsBookmarksSaved();
+        } catch (e) {
+            console.error('添加URL到文件夹失败:', e);
         }
     });
 

@@ -96,6 +96,11 @@ body {
     position: relative;
 }
 
+.folder-dropdown-item.dragging {
+    opacity: 0.5;
+    background: #e3f2fd !important;
+}
+
 .folder-dropdown-item.drag-over-folder {
     background: #e8f4ff;
 }

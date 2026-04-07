@@ -168,6 +168,21 @@ async function init() {
     renderContent(currentFolder);
     setupEventListeners();
 
+    // 监听书签保存事件，刷新显示
+    ipcRenderer.on('bookmarks-saved', async () => {
+        console.log('收到书签保存通知，刷新显示');
+        bookmarksTree = await loadBookmarks();
+        // 保持当前选中的文件夹，如果不存在则回到根目录
+        const currentFolderCheck = findFolderById(bookmarksTree, currentFolder.id);
+        if (currentFolderCheck) {
+            currentFolder = currentFolderCheck.folder;
+        } else {
+            currentFolder = bookmarksTree;
+        }
+        renderTree();
+        renderContent(currentFolder);
+    });
+
     // 监听从主窗口发送的添加书签消息
     // ipcRenderer.on('add-bookmark-from-drag', (event, url) => {
     //     console.log('收到从主窗口拖动的URL:', url);
@@ -724,6 +739,7 @@ function createFolderCard(folder) {
             type: 'internal',
             itemType: 'folder',
             id: folder.id,
+            name: folder.name,
             sourceFolderId: currentFolder.id
         }));
         e.dataTransfer.effectAllowed = 'move';
@@ -792,6 +808,9 @@ function createBookmarkCard(bookmark) {
             type: 'internal',
             itemType: 'bookmark',
             id: bookmark.id || bookmark.url,
+            title: bookmark.title,
+            url: bookmark.url,
+            favicon: bookmark.favicon,
             sourceFolderId: currentFolder.id
         }));
         e.dataTransfer.effectAllowed = 'move';

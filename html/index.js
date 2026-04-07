@@ -1817,6 +1817,7 @@ if (bookmarkBarContent) {
         e.preventDefault();
         e.stopPropagation();
 
+        // 1. 优先处理书签栏内部数据
         const internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
         if (internalData) {
             try {
@@ -1877,9 +1878,146 @@ if (bookmarkBarContent) {
                 clearTimeout(dragFolderDropdownTimeout);
                 dragFolderDropdownTimeout = null;
                 currentDragHoverFolder = null;
+                return;
             } catch (err) {
                 console.error('解析书签栏拖拽数据失败:', err);
             }
+        }
+
+        // 2. 处理书签管理器和下拉菜单的数据
+        const bookmarkManagerData = e.dataTransfer.getData('application/x-bookmark-item');
+        if (bookmarkManagerData) {
+            try {
+                const data = JSON.parse(bookmarkManagerData);
+                const targetItem = e.target.closest('.bookmark-bar-item');
+
+                // 先检查项目是否已经在书签栏根目录
+                let isInRoot = false;
+                if (bookmarksTreeData && bookmarksTreeData.items) {
+                    isInRoot = bookmarksTreeData.items.some(item => {
+                        if (item.type === 'folder' && data.itemType === 'folder') {
+                            return item.id === data.id;
+                        } else if (item.type === 'bookmark' && data.itemType === 'bookmark') {
+                            return item.id === data.id || item.url === data.id;
+                        }
+                        return false;
+                    });
+                }
+
+                if (targetItem) {
+                    const targetItemType = targetItem.dataset.itemType;
+                    const rect = targetItem.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    
+                    if (targetItemType === 'folder') {
+                        const isLeft = mouseX < rect.width * 0.2;
+                        const isRight = mouseX > rect.width * 0.8;
+                        
+                        if (isLeft || isRight) {
+                            // 拖到左右边缘
+                            let targetIndex = parseInt(targetItem.dataset.index);
+                            if (isRight) {
+                                targetIndex++;
+                            }
+                            if (isInRoot) {
+                                // 已经在根目录：在根目录内排序
+                                moveExternalBookmarkInRoot(data, targetIndex);
+                            } else {
+                                // 不在根目录：移动到根目录指定位置
+                                ipcRenderer.send('reorder-bookmark-in-folder', data, bookmarksTreeData.id, targetIndex);
+                            }
+                        } else {
+                            // 拖到中间区域：移动到该文件夹内
+                            const targetFolderId = targetItem.dataset.id;
+                            ipcRenderer.send('move-bookmark-to-folder', data, targetFolderId);
+                        }
+                    } else {
+                        // 书签：添加到指定位置
+                        const isLeft = mouseX < rect.width / 2;
+                        let targetIndex = parseInt(targetItem.dataset.index);
+                        if (!isLeft) {
+                            targetIndex++;
+                        }
+                        if (isInRoot) {
+                            // 已经在根目录：在根目录内排序
+                            moveExternalBookmarkInRoot(data, targetIndex);
+                        } else {
+                            // 不在根目录：移动到根目录指定位置
+                            ipcRenderer.send('reorder-bookmark-in-folder', data, bookmarksTreeData.id, targetIndex);
+                        }
+                    }
+                } else {
+                    // 拖到空白区域
+                    if (isInRoot) {
+                        // 已经在根目录：不做任何事
+                    } else {
+                        // 不在根目录：移动到根目录末尾
+                        ipcRenderer.send('reorder-bookmark-in-folder', data, bookmarksTreeData.id, -1);
+                    }
+                }
+
+                // 清除样式
+                document.querySelectorAll('.bookmark-bar-item').forEach(el => {
+                    el.classList.remove('dragging', 'drag-left', 'drag-right', 'drag-hover-folder');
+                });
+                // 清除计时器
+                clearTimeout(dragFolderDropdownTimeout);
+                dragFolderDropdownTimeout = null;
+                currentDragHoverFolder = null;
+                return;
+            } catch (err) {
+                console.error('解析书签管理器拖拽数据失败:', err);
+            }
+        }
+
+        // 3. 处理外部链接（从浏览器或其他应用拖入）
+        const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+        if (url && isUrlValid(url)) {
+            const targetItem = e.target.closest('.bookmark-bar-item');
+            
+            if (targetItem) {
+                const targetItemType = targetItem.dataset.itemType;
+                const rect = targetItem.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                
+                if (targetItemType === 'folder') {
+                    const isLeft = mouseX < rect.width * 0.2;
+                    const isRight = mouseX > rect.width * 0.8;
+                    
+                    if (isLeft || isRight) {
+                        // 拖到左右边缘：添加到书签栏根目录的指定位置
+                        let targetIndex = parseInt(targetItem.dataset.index);
+                        if (isRight) {
+                            targetIndex++;
+                        }
+                        addUrlToBookmarkBar(url, targetIndex);
+                    } else {
+                        // 拖到中间区域：添加到该文件夹内
+                        const targetFolderId = targetItem.dataset.id;
+                        addUrlToFolder(url, targetFolderId);
+                    }
+                } else {
+                    // 书签：添加到指定位置
+                    const isLeft = mouseX < rect.width / 2;
+                    let targetIndex = parseInt(targetItem.dataset.index);
+                    if (!isLeft) {
+                        targetIndex++;
+                    }
+                    addUrlToBookmarkBar(url, targetIndex);
+                }
+            } else {
+                // 拖到空白区域：添加到书签栏末尾
+                addUrlToBookmarkBar(url, -1);
+            }
+
+            // 清除样式
+            document.querySelectorAll('.bookmark-bar-item').forEach(el => {
+                el.classList.remove('dragging', 'drag-left', 'drag-right', 'drag-hover-folder');
+            });
+            // 清除计时器
+            clearTimeout(dragFolderDropdownTimeout);
+            dragFolderDropdownTimeout = null;
+            currentDragHoverFolder = null;
         }
     });
 }
@@ -1911,6 +2049,142 @@ function saveBookmarkBarData() {
     if (!bookmarksTreeData) return;
     console.log('保存书签栏数据:', bookmarksTreeData);
     ipcRenderer.send('save-bookmarks', bookmarksTreeData);
+}
+
+// 验证URL是否有效
+function isUrlValid(url) {
+    try {
+        const pattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/i;
+        return pattern.test(url.trim());
+    } catch {
+        return false;
+    }
+}
+
+// 从URL提取标题
+function extractTitleFromUrl(url) {
+    try {
+        const urlObj = new URL(url.startsWith('http') ? url : 'https://' + url);
+        return urlObj.hostname;
+    } catch {
+        return url;
+    }
+}
+
+// 生成唯一ID
+function generateUniqueId() {
+    return 'bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// 添加URL到书签栏
+function addUrlToBookmarkBar(url, targetIndex) {
+    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
+    
+    const cleanUrl = url.trim();
+    const title = extractTitleFromUrl(cleanUrl);
+    
+    const newBookmark = {
+        id: generateUniqueId(),
+        type: 'bookmark',
+        title: title,
+        url: cleanUrl,
+        favicon: '',
+        addedAt: Date.now()
+    };
+    
+    if (targetIndex === -1) {
+        bookmarksTreeData.items.push(newBookmark);
+    } else {
+        bookmarksTreeData.items.splice(targetIndex, 0, newBookmark);
+    }
+    
+    saveBookmarkBarData();
+    renderBookmarkBar();
+}
+
+// 添加URL到指定文件夹
+function addUrlToFolder(url, folderId) {
+    const cleanUrl = url.trim();
+    const title = extractTitleFromUrl(cleanUrl);
+    
+    const newBookmark = {
+        id: generateUniqueId(),
+        type: 'bookmark',
+        title: title,
+        url: cleanUrl,
+        favicon: '',
+        addedAt: Date.now()
+    };
+    
+    ipcRenderer.send('add-url-to-folder', newBookmark, folderId);
+}
+
+// 在根目录内移动外部书签
+function moveExternalBookmarkInRoot(data, targetIndex) {
+    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
+    
+    // 找到源索引
+    const sourceIndex = bookmarksTreeData.items.findIndex(item => {
+        if (item.type === 'folder' && data.itemType === 'folder') {
+            return item.id === data.id;
+        } else if (item.type === 'bookmark' && data.itemType === 'bookmark') {
+            return item.id === data.id || item.url === data.id;
+        }
+        return false;
+    });
+    
+    if (sourceIndex === -1) return;
+    
+    // 从源位置移除
+    const [movedItem] = bookmarksTreeData.items.splice(sourceIndex, 1);
+    
+    // 计算目标索引
+    let finalTargetIndex = targetIndex;
+    if (targetIndex === -1) {
+        finalTargetIndex = bookmarksTreeData.items.length;
+    } else if (sourceIndex < finalTargetIndex) {
+        finalTargetIndex--;
+    }
+    
+    // 插入到目标位置
+    bookmarksTreeData.items.splice(finalTargetIndex, 0, movedItem);
+    
+    saveBookmarkBarData();
+    renderBookmarkBar();
+}
+
+// 添加外部书签（来自书签管理器或下拉菜单）到书签栏
+function addExternalBookmarkToBookmarkBar(data, targetIndex) {
+    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
+    
+    let newItem;
+    
+    if (data.itemType === 'folder') {
+        newItem = {
+            id: data.id,
+            type: 'folder',
+            name: data.name || '新建文件夹',
+            items: []
+        };
+    } else {
+        newItem = {
+            id: data.id || generateUniqueId(),
+            type: 'bookmark',
+            title: data.title || extractTitleFromUrl(data.url),
+            url: data.url,
+            favicon: data.favicon || '',
+            addedAt: Date.now()
+        };
+    }
+    
+    if (targetIndex === -1) {
+        bookmarksTreeData.items.push(newItem);
+    } else {
+        bookmarksTreeData.items.splice(targetIndex, 0, newItem);
+    }
+    
+    saveBookmarkBarData();
+    renderBookmarkBar();
 }
 
 // 初始化书签栏
