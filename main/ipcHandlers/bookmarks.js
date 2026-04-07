@@ -454,6 +454,140 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         }
     });
 
+    // 递归查找并移除项目
+    function findAndRemoveItem(folder, itemData) {
+        if (!folder.items) return null;
+        
+        const sourceIndex = folder.items.findIndex(item => {
+            if (item.type === 'folder' && itemData.itemType === 'folder') {
+                return item.id === itemData.id;
+            } else if (item.type === 'bookmark' && itemData.itemType === 'bookmark') {
+                return item.id === itemData.id || item.url === itemData.id;
+            }
+            return false;
+        });
+        
+        if (sourceIndex !== -1) {
+            return folder.items.splice(sourceIndex, 1)[0];
+        }
+        
+        // 递归查找子文件夹
+        for (const item of folder.items) {
+            if (item.type === 'folder') {
+                const found = findAndRemoveItem(item, itemData);
+                if (found) return found;
+            }
+        }
+        
+        return null;
+    }
+
+    // 移动书签到文件夹
+    ipcMain.on('move-bookmark-to-folder', (event, itemData, targetFolderId) => {
+        console.log('收到移动书签到文件夹请求:', itemData, targetFolderId);
+        try {
+            const bookmarks = loadBookmarksData(null);
+            if (!bookmarks) return;
+
+            // 从任意源文件夹中移除项目
+            const movedItem = findAndRemoveItem(bookmarks, itemData);
+
+            if (movedItem) {
+                // 找到目标文件夹并添加项目
+                const targetFolder = findFolderById(bookmarks, targetFolderId);
+                if (targetFolder) {
+                    if (!targetFolder.items) {
+                        targetFolder.items = [];
+                    }
+                    targetFolder.items.push(movedItem);
+                }
+
+                // 保存书签数据
+                fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
+
+                // 通知主窗口更新书签栏
+                const mainWindow = getMainWindow();
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('bookmarks-saved');
+                }
+
+                // 关闭所有下拉菜单
+                const window = BrowserWindow.fromWebContents(event.sender);
+                if (window) {
+                    hideFolderDropdown(window);
+                }
+            }
+        } catch (e) {
+            console.error('移动书签到文件夹失败:', e);
+        }
+    });
+
+    // 同一文件夹内排序或跨文件夹移动到指定位置
+    ipcMain.on('reorder-bookmark-in-folder', (event, itemData, folderId, targetIndex) => {
+        console.log('收到排序请求:', itemData, folderId, targetIndex);
+        try {
+            const bookmarks = loadBookmarksData(null);
+            if (!bookmarks) return;
+
+            const targetFolder = findFolderById(bookmarks, folderId);
+            if (!targetFolder) return;
+            if (!targetFolder.items) {
+                targetFolder.items = [];
+            }
+
+            // 先检查项目是否已经在目标文件夹中
+            let sourceIndex = targetFolder.items.findIndex(item => {
+                if (item.type === 'folder' && itemData.itemType === 'folder') {
+                    return item.id === itemData.id;
+                } else if (item.type === 'bookmark' && itemData.itemType === 'bookmark') {
+                    return item.id === itemData.id || item.url === itemData.id;
+                }
+                return false;
+            });
+
+            let movedItem;
+            if (sourceIndex !== -1) {
+                // 同一文件夹内：从源位置移除
+                [movedItem] = targetFolder.items.splice(sourceIndex, 1);
+            } else {
+                // 跨文件夹：从源位置移除
+                movedItem = findAndRemoveItem(bookmarks, itemData);
+                if (!movedItem) return;
+                // 跨文件夹移动时，sourceIndex 设为 -1，不需要调整 targetIndex
+                sourceIndex = -1;
+            }
+
+            // 计算目标索引（如果同一文件夹且源索引小于目标索引，移除后目标索引需要减1）
+            let finalTargetIndex = targetIndex;
+            if (sourceIndex !== -1 && sourceIndex < finalTargetIndex) {
+                finalTargetIndex--;
+            }
+
+            // 确保索引不越界
+            finalTargetIndex = Math.max(0, Math.min(finalTargetIndex, targetFolder.items.length));
+
+            // 插入到目标位置
+            targetFolder.items.splice(finalTargetIndex, 0, movedItem);
+
+            // 保存书签数据
+            fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
+
+            // 通知主窗口更新书签栏
+            const mainWindow = getMainWindow();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('bookmarks-saved');
+            }
+
+            // 关闭所有下拉菜单
+            const window = BrowserWindow.fromWebContents(event.sender);
+            if (window) {
+                hideFolderDropdown(window);
+            }
+        } catch (e) {
+            console.error('排序失败:', e);
+        }
+    });
+
     return {
         updateBookmarkDropdownBounds,
         hideFolderDropdown

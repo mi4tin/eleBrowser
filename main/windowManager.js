@@ -74,8 +74,8 @@ module.exports = function createWindowManager(deps) {
             unregisterAppShortcuts();
             
             //测试注释
-            myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
-            hideFolderDropdown(myWindow);
+            // myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
+            // hideFolderDropdown(myWindow);
         });
 
         myWindow.on('closed', () => {

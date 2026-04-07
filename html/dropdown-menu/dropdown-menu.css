@@ -91,3 +91,24 @@ body {
     color: #999;
 }
 
+/* 拖拽样式 */
+.folder-dropdown-item {
+    position: relative;
+}
+
+.folder-dropdown-item.drag-over-folder {
+    background: #e8f4ff;
+}
+
+.folder-dropdown-item.drag-over-top {
+    border-top: 2px solid #4b8bff !important;
+}
+
+.folder-dropdown-item.drag-over-bottom {
+    border-bottom: 2px solid #4b8bff !important;
+}
+
+.folder-dropdown-content.drag-over-empty {
+    background: #f0f8ff;
+}
+

@@ -1495,10 +1495,18 @@ async function renderBookmarkBar() {
         let visibleCount = 0;
         
         // 只渲染能显示的书签
-        allItems.forEach(item => {
+        allItems.forEach((item, index) => {
             console.log('渲染书签栏项目:', item);
             const itemEl = document.createElement('div');
             itemEl.className = `bookmark-bar-item ${item.type === 'folder' ? 'folder-item' : 'bookmark-item'}`;
+            itemEl.draggable = true;
+            itemEl.dataset.index = index;
+            itemEl.dataset.itemType = item.type;
+            if (item.type === 'folder') {
+                itemEl.dataset.id = item.id;
+            } else {
+                itemEl.dataset.id = item.id || item.url;
+            }
 
             if (item.type === 'folder') {
                 itemEl.innerHTML = `
@@ -1537,6 +1545,30 @@ async function renderBookmarkBar() {
                 });
             }
 
+            // 拖拽开始
+            itemEl.addEventListener('dragstart', (e) => {
+                e.stopPropagation();
+                e.dataTransfer.setData('application/x-bookmark-bar-item', JSON.stringify({
+                    index: index,
+                    itemType: item.type,
+                    id: item.type === 'folder' ? item.id : (item.id || item.url)
+                }));
+                e.dataTransfer.effectAllowed = 'move';
+                itemEl.classList.add('dragging');
+            });
+
+            // 拖拽结束
+            itemEl.addEventListener('dragend', () => {
+                itemEl.classList.remove('dragging');
+                document.querySelectorAll('.bookmark-bar-item').forEach(el => {
+                    el.classList.remove('drag-left', 'drag-right', 'drag-hover-folder');
+                });
+                // 清除计时器
+                clearTimeout(dragFolderDropdownTimeout);
+                dragFolderDropdownTimeout = null;
+                currentDragHoverFolder = null;
+            });
+
             // 计算宽度，决定是否渲染
             bookmarkBarContent.appendChild(itemEl);
             const itemWidth = itemEl.offsetWidth;
@@ -1544,11 +1576,11 @@ async function renderBookmarkBar() {
             
             if (currentWidth <= availableWidth) {
                 visibleCount++;
-                console.log(`渲染书签 ${visibleCount}:`, item.name, currentWidth, '<=', availableWidth);
+                console.log(`渲染书签 ${visibleCount}:`, item.name || item.title, currentWidth, '<=', availableWidth);
             } else {
                 // 超出宽度，从 DOM 中移除
                 bookmarkBarContent.removeChild(itemEl);
-                console.log(`移除书签（超出宽度）:`, item.name, currentWidth, '>', availableWidth);
+                console.log(`移除书签（超出宽度）:`, item.name || item.title, currentWidth, '>', availableWidth);
                 
                 // 添加到隐藏书签列表
                 hiddenBookmarks.push({
@@ -1692,6 +1724,193 @@ window.addEventListener('resize', () => {
 const scrollContainer = bookmarkBarContent?.parentElement;
 if (scrollContainer) {
     scrollContainer.addEventListener('scroll', updateBookmarkBarArrow);
+}
+
+// ========== 书签栏拖拽排序功能 ==========
+
+// 拖拽时显示文件夹下拉菜单的计时器
+let dragFolderDropdownTimeout = null;
+let currentDragHoverFolder = null;
+
+// 书签栏拖拽事件处理
+if (bookmarkBarContent) {
+    // dragover 事件
+    bookmarkBarContent.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        // 找到拖拽到的目标项目
+        const targetItem = e.target.closest('.bookmark-bar-item');
+        if (targetItem && !targetItem.classList.contains('dragging')) {
+            const targetItemType = targetItem.dataset.itemType;
+            
+            // 如果是文件夹，延时显示下拉菜单
+            if (targetItemType === 'folder') {
+                if (currentDragHoverFolder !== targetItem) {
+                    currentDragHoverFolder = targetItem;
+                    clearTimeout(dragFolderDropdownTimeout);
+                    dragFolderDropdownTimeout = setTimeout(() => {
+                        const folderId = targetItem.dataset.id;
+                        const folderName = targetItem.querySelector('.bookmark-bar-label').textContent;
+                        console.log('拖拽到文件夹:', folderId, folderName);
+                        showFolderDropdown(folderId, folderName, targetItem, true);
+                    }, 500); // 500ms 延时显示
+                }
+            } else {
+                // 不是文件夹，清除计时器
+                currentDragHoverFolder = null;
+                clearTimeout(dragFolderDropdownTimeout);
+            }
+
+            // 清除之前的样式
+            document.querySelectorAll('.bookmark-bar-item').forEach(el => {
+                el.classList.remove('drag-left', 'drag-right', 'drag-hover-folder');
+            });
+
+            // 判断鼠标在目标项的左侧/右侧/中间
+            const rect = targetItem.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const isLeft = mouseX < rect.width * 0.2;
+            const isRight = mouseX > rect.width * 0.8;
+
+            // 对于文件夹，只有在左右边缘区域才显示竖线
+            if (targetItemType === 'folder') {
+                if (isLeft) {
+                    targetItem.classList.add('drag-left');
+                } else if (isRight) {
+                    targetItem.classList.add('drag-right');
+                } else {
+                    // 在中间区域，显示 hover 样式
+                    targetItem.classList.add('drag-hover-folder');
+                }
+            } else {
+                // 书签的逻辑保持不变
+                const isLeftBookmark = mouseX < rect.width / 2;
+                if (isLeftBookmark) {
+                    targetItem.classList.add('drag-left');
+                } else {
+                    targetItem.classList.add('drag-right');
+                }
+            }
+        } else {
+            // 没有目标项目，清除计时器
+            currentDragHoverFolder = null;
+            clearTimeout(dragFolderDropdownTimeout);
+        }
+    });
+
+    // dragleave 事件
+    bookmarkBarContent.addEventListener('dragleave', (e) => {
+        if (!bookmarkBarContent.contains(e.relatedTarget)) {
+            document.querySelectorAll('.bookmark-bar-item').forEach(el => {
+                el.classList.remove('drag-left', 'drag-right', 'drag-hover-folder');
+            });
+            // 清除计时器
+            clearTimeout(dragFolderDropdownTimeout);
+            dragFolderDropdownTimeout = null;
+            currentDragHoverFolder = null;
+        }
+    });
+
+    // drop 事件
+    bookmarkBarContent.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+        if (internalData) {
+            try {
+                const data = JSON.parse(internalData);
+                const targetItem = e.target.closest('.bookmark-bar-item');
+
+                if (targetItem) {
+                    const targetItemType = targetItem.dataset.itemType;
+                    
+                    // 判断鼠标在目标项的位置
+                    const rect = targetItem.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    
+                    if (targetItemType === 'folder') {
+                        const isLeft = mouseX < rect.width * 0.2;
+                        const isRight = mouseX > rect.width * 0.8;
+                        
+                        if (isLeft || isRight) {
+                            // 拖到左右边缘：在同一层级排序
+                            let targetIndex = parseInt(targetItem.dataset.index);
+                            const sourceIndex = data.index;
+
+                            // 只有在不同位置才移动
+                            if (sourceIndex !== targetIndex) {
+                                // 如果是在右侧插入，目标索引需要 +1
+                                if (isRight) {
+                                    targetIndex++;
+                                }
+                                moveBookmarkBarItem(sourceIndex, targetIndex);
+                            }
+                        } else {
+                            // 拖到中间区域：移动到该文件夹内
+                            const targetFolderId = targetItem.dataset.id;
+                            ipcRenderer.send('move-bookmark-to-folder', data, targetFolderId);
+                        }
+                    } else {
+                        // 书签的逻辑保持不变
+                        const isLeft = mouseX < rect.width / 2;
+                        let targetIndex = parseInt(targetItem.dataset.index);
+                        const sourceIndex = data.index;
+
+                        // 只有在不同位置才移动
+                        if (sourceIndex !== targetIndex) {
+                            // 如果是在右侧插入，目标索引需要 +1
+                            if (!isLeft) {
+                                targetIndex++;
+                            }
+                            moveBookmarkBarItem(sourceIndex, targetIndex);
+                        }
+                    }
+                }
+
+                // 清除样式
+                document.querySelectorAll('.bookmark-bar-item').forEach(el => {
+                    el.classList.remove('dragging', 'drag-left', 'drag-right', 'drag-hover-folder');
+                });
+                // 清除计时器
+                clearTimeout(dragFolderDropdownTimeout);
+                dragFolderDropdownTimeout = null;
+                currentDragHoverFolder = null;
+            } catch (err) {
+                console.error('解析书签栏拖拽数据失败:', err);
+            }
+        }
+    });
+}
+
+// 移动书签栏项目
+function moveBookmarkBarItem(sourceIndex, targetIndex) {
+    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
+
+    const items = bookmarksTreeData.items;
+    const [movedItem] = items.splice(sourceIndex, 1);
+
+    // 计算插入位置（考虑移除源项目后的索引变化）
+    let insertIndex = targetIndex;
+    if (sourceIndex < targetIndex) {
+        insertIndex = targetIndex - 1;
+    }
+
+    items.splice(insertIndex, 0, movedItem);
+
+    // 保存书签数据
+    saveBookmarkBarData();
+
+    // 重新渲染书签栏
+    renderBookmarkBar();
+}
+
+// 保存书签栏数据
+function saveBookmarkBarData() {
+    if (!bookmarksTreeData) return;
+    console.log('保存书签栏数据:', bookmarksTreeData);
+    ipcRenderer.send('save-bookmarks', bookmarksTreeData);
 }
 
 // 初始化书签栏

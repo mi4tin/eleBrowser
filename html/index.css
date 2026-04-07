@@ -243,10 +243,39 @@ body {
     height: 36px;
 }
 
-.bookmark-bar-item:hover {
+.bookmark-bar-item:hover,
+.bookmark-bar-item.drag-hover-folder {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
-    border-color: #4b8bff;
+    /* transform: translateY(-1px); */
+    /* border-color: #4b8bff; */
+}
+
+/* 拖拽样式 */
+.bookmark-bar-item.dragging {
+    opacity: 0.5;
+}
+
+.bookmark-bar-item {
+    position: relative;
+}
+
+.bookmark-bar-item.drag-left::before,
+.bookmark-bar-item.drag-right::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    width: 3px;
+    background: #4b8bff;
+    border-radius: 2px;
+}
+
+.bookmark-bar-item.drag-left::before {
+    left: -1.5px;
+}
+
+.bookmark-bar-item.drag-right::after {
+    right: -1.5px;
 }
 
 .bookmark-bar-item.folder-item {

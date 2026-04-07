@@ -85,6 +85,13 @@ function showFolderDropdown() {
     items.forEach(item => {
         const itemEl = document.createElement('div');
         itemEl.className = 'folder-dropdown-item';
+        itemEl.dataset.itemType = item.type;
+        if (item.type === 'folder') {
+            itemEl.dataset.id = item.id;
+            itemEl.dataset.itemCount = (item.items && item.items.length) || 0;
+        } else {
+            itemEl.dataset.id = item.id || item.url;
+        }
 
          // 鼠标悬停在子文件夹上：显示下级菜单
             let hoverTimeout = null;
@@ -351,6 +358,173 @@ folderDropdownContainer.addEventListener('blur', () => {
     // canMouseenter = false;
 });
 
+
+// ========== 下拉菜单拖拽功能 ==========
+
+// 拖拽时显示子菜单的计时器
+let dragSubMenuTimeout = null;
+let currentDragHoverItem = null;
+
+// dragover 事件
+folderDropdownContent.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetItem = e.target.closest('.folder-dropdown-item');
+    
+    // 清除所有样式
+    document.querySelectorAll('.folder-dropdown-item').forEach(el => {
+        el.classList.remove('drag-over-folder', 'drag-over-top', 'drag-over-bottom');
+    });
+    folderDropdownContent.classList.remove('drag-over-empty');
+
+    if (targetItem) {
+        const targetItemType = targetItem.dataset.itemType;
+        const rect = targetItem.getBoundingClientRect();
+        const mouseY = e.clientY - rect.top;
+
+        if (targetItemType === 'folder') {
+            // 文件夹：上1/6显示上方横线，下1/6显示下方横线，中间显示拖入样式
+            const zone = rect.height / 6;
+            if (mouseY < zone) {
+                targetItem.classList.add('drag-over-top');
+            } else if (mouseY > rect.height - zone) {
+                targetItem.classList.add('drag-over-bottom');
+            } else {
+                targetItem.classList.add('drag-over-folder');
+            }
+            
+            // 只有在中间区域才延时显示子菜单
+            if (mouseY >= zone && mouseY <= rect.height - zone) {
+                if (currentDragHoverItem !== targetItem) {
+                    currentDragHoverItem = targetItem;
+                    clearTimeout(dragSubMenuTimeout);
+                    dragSubMenuTimeout = setTimeout(() => {
+                        const bounds = {
+                            x: rect.right,
+                            y: rect.top,
+                            width: 300,
+                            height: 41 * ((targetItem.dataset.itemCount || 0) || 1) + 16 + 2
+                        };
+                        
+                        const itemIndex = Array.from(folderDropdownContent.children).indexOf(targetItem);
+                        if (folderData.items && folderData.items[itemIndex]) {
+                            const item = folderData.items[itemIndex];
+                            ipcRenderer.send('show-folder-dropdown-next', bounds, item, folderData.id);
+                        }
+                    }, 500);
+                }
+            } else {
+                currentDragHoverItem = null;
+                clearTimeout(dragSubMenuTimeout);
+            }
+        } else {
+            // 书签：按高度的1/2划分
+            if (mouseY < rect.height / 2) {
+                targetItem.classList.add('drag-over-top');
+            } else {
+                targetItem.classList.add('drag-over-bottom');
+            }
+            currentDragHoverItem = null;
+            clearTimeout(dragSubMenuTimeout);
+        }
+    } else if (!targetItem) {
+        folderDropdownContent.classList.add('drag-over-empty');
+        currentDragHoverItem = null;
+        clearTimeout(dragSubMenuTimeout);
+    } else {
+        currentDragHoverItem = null;
+        clearTimeout(dragSubMenuTimeout);
+    }
+});
+
+// dragleave 事件
+folderDropdownContent.addEventListener('dragleave', (e) => {
+    if (!folderDropdownContent.contains(e.relatedTarget)) {
+        document.querySelectorAll('.folder-dropdown-item').forEach(el => {
+            el.classList.remove('drag-over-folder', 'drag-over-top', 'drag-over-bottom');
+        });
+        folderDropdownContent.classList.remove('drag-over-empty');
+        // 清除计时器
+        clearTimeout(dragSubMenuTimeout);
+        dragSubMenuTimeout = null;
+        currentDragHoverItem = null;
+    }
+});
+
+// drop 事件
+folderDropdownContent.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+    if (internalData) {
+        try {
+            const data = JSON.parse(internalData);
+            const targetItem = e.target.closest('.folder-dropdown-item');
+            
+            if (targetItem) {
+                const targetItemType = targetItem.dataset.itemType;
+                const rect = targetItem.getBoundingClientRect();
+                const mouseY = e.clientY - rect.top;
+                const allItems = Array.from(folderDropdownContent.children);
+                const targetIndexInList = allItems.indexOf(targetItem);
+                
+                if (targetItemType === 'folder') {
+                    const zone = rect.height / 6;
+                    if (mouseY >= zone && mouseY <= rect.height - zone) {
+                        // 中间区域：移动到该文件夹内
+                        const targetFolderId = targetItem.dataset.id;
+                        console.log('移动项目到文件夹:', data, '目标文件夹:', targetFolderId);
+                        ipcRenderer.send('move-bookmark-to-folder', data, targetFolderId);
+                    } else {
+                        // 上/下边缘：在同一文件夹内排序
+                        const isTop = mouseY < zone;
+                        let finalTargetIndex = isTop ? targetIndexInList : targetIndexInList + 1;
+                        console.log('同一文件夹内排序1:', data, '目标索引:', finalTargetIndex);
+                        ipcRenderer.send('reorder-bookmark-in-folder', data, folderData.id, finalTargetIndex);
+                    }
+                } else {
+                    // 书签的上/下边缘：在同一文件夹内排序
+                    const isTop = mouseY < rect.height / 2;
+                    let finalTargetIndex = isTop ? targetIndexInList : targetIndexInList + 1;
+                    console.log('同一文件夹内排序2:', data, '目标索引:', finalTargetIndex);
+                    ipcRenderer.send('reorder-bookmark-in-folder', data, folderData.id, finalTargetIndex);
+                }
+            } else {
+                // 拖到空白区域：添加到当前文件夹
+                console.log('添加到当前文件夹:', data, folderData.id);
+                ipcRenderer.send('move-bookmark-to-folder', data, folderData.id);
+            }
+
+            // 清除样式
+            document.querySelectorAll('.folder-dropdown-item').forEach(el => {
+                el.classList.remove('drag-over-folder', 'drag-over-top', 'drag-over-bottom');
+            });
+            folderDropdownContent.classList.remove('drag-over-empty');
+            // 清除计时器
+            clearTimeout(dragSubMenuTimeout);
+            dragSubMenuTimeout = null;
+            currentDragHoverItem = null;
+            
+        } catch (err) {
+            console.error('解析拖拽数据失败:', err);
+        }
+    }
+});
+
+// 拖拽结束事件
+document.addEventListener('dragend', () => {
+    // 清除计时器
+    clearTimeout(dragSubMenuTimeout);
+    dragSubMenuTimeout = null;
+    currentDragHoverItem = null;
+    // 清除样式
+    document.querySelectorAll('.folder-dropdown-item').forEach(el => {
+        el.classList.remove('drag-over-folder', 'drag-over-top', 'drag-over-bottom');
+    });
+    folderDropdownContent.classList.remove('drag-over-empty');
+});
 
 // 窗口大小改变时关闭下拉菜单
 window.addEventListener('resize', hideFolderDropdown);
