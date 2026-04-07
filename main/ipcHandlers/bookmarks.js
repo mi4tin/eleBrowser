@@ -439,21 +439,13 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     // 向所有窗口发送书签保存通知
     function notifyAllWindowsBookmarksSaved() {
-
         getBrowserViews().values().forEach(tabView => {
             console.log('tabView:', tabView);
             tabView.webContents.send('bookmarks-saved');
         });
-
-        console.log('向所有窗口发送书签保存通知，窗口数:', getBrowserViews().values().length);
+        console.log('向所有窗口发送书签保存通知');
 
         getMainWindow().webContents.send('bookmarks-saved');
-        // const allWindows = BrowserWindow.getAllWindows();
-        // allWindows.forEach(window => {
-        //     if (window && !window.isDestroyed()) {
-        //         window.webContents.send('bookmarks-saved');
-        //     }
-        // });
     }
 
     ipcMain.on('save-bookmarks', (event, bookmarks) => {
