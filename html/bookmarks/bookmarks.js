@@ -446,7 +446,7 @@ function setupDragEvents() {
                         moveItemToPosition(data, card, isTop, e);
                         console.log("拖拽到文件夹",data,card,isTop);
                     } else {
-                        console.log("拖拽到空白区域");
+                        console.log("拖拽到空白区域.1");
                         // 拖拽到空白区域，移动项目到当前文件夹
                         // 找到源文件夹
                         const sourceFolderId = data.sourceFolderId || 'root';
@@ -463,6 +463,17 @@ function setupDragEvents() {
                             }
 
                             if (sourceIndex !== -1) {
+
+                                // 检查是否是拖到自己身上或自己的子文件夹中,currentFolder相当于目标文件夹
+                                const isSelfDrag = data.id === currentFolder.id;
+                                const isChildDrag = isDescendantFolder(sourceItems[sourceIndex],currentFolder.id);
+                                
+                                console.log("isSelfDrag.3", isSelfDrag, "isChildDrag", isChildDrag,data,currentFolder)
+                                if (isSelfDrag || isChildDrag) {
+                                    showNotification('不能将文件夹拖到自身或其子文件夹中');
+                                    return;
+                                }
+
                                 // 从源位置移除项目
                                 const [movedItem] = sourceItems.splice(sourceIndex, 1);
                                 
@@ -488,7 +499,7 @@ function setupDragEvents() {
                     return;
                 }
             } catch (err) {
-                console.error('解析内部拖拽数据失败:', err);
+                console.error('解析内部拖拽数据失败.1:', err);
             }
         }
 
@@ -601,11 +612,31 @@ function moveItemToPosition(data, card, isTop, e) {
 
     if (sourceIndex === -1) return;
 
+    // 检查是否是拖到自己身上或自己的子文件夹中
+    const targetCardType = card.dataset.type;
+    const targetFolderId = targetCardType === 'folder' ? card.dataset.id : null;
+    
+    const isSelfDrag = data.itemType === 'folder' && targetFolderId === data.id;
+    let isChildDrag = false;
+    
+    if (data.itemType === 'folder' && targetFolderId) {
+        const targetFolderRes = findFolderById(bookmarksTree, targetFolderId);
+        if (targetFolderRes) {
+            isChildDrag = isDescendantFolder(data.id,targetFolderRes.folder);
+        }
+    }
+    
+    if (isSelfDrag || isChildDrag) {
+        console.log("isSelfDrag.2", isSelfDrag, "isChildDrag", isChildDrag)
+        showNotification('不能将文件夹拖到自身或其子文件夹中');
+        return;
+    }
+
     // 从源位置移除项目
     const [movedItem] = sourceItems.splice(sourceIndex, 1);
 
     // 检查目标卡片是否是文件夹
-    const targetCardType = card.dataset.type;
+    targetCardType = card.dataset.type;
     if (targetCardType === 'folder') {
         // 检查是拖到文件夹的哪个位置
         const rect = card.getBoundingClientRect();
@@ -751,6 +782,28 @@ function renderTreeItem(item, level) {
         ]);
     });
 
+    // 使文件夹可拖动
+    treeItem.draggable = true;
+    
+    // 拖拽开始事件
+    treeItem.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
+            type: 'internal',
+            itemType: 'folder',
+            id: item.id,
+            sourceFolderId: findParentFolderId(bookmarksTree, item.id)
+        }));
+        e.dataTransfer.effectAllowed = 'move';
+        treeItem.classList.add('dragging');
+    });
+    
+    // 拖拽结束事件
+    treeItem.addEventListener('dragend', (e) => {
+        e.stopPropagation();
+        treeItem.classList.remove('dragging');
+    });
+
     // 拖拽事件：允许拖入文件夹
     contentEl.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -812,15 +865,47 @@ function renderTreeItem(item, level) {
                         sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
                     }
 
+                    console.log("contentGrid.drop.1", data,sourceItems[sourceIndex], sourceIndex);
                     if (sourceIndex !== -1) {
+                        // 检查是否是拖到自己身上或自己的子文件夹中,item是目标文件夹
+                        const isSelfDrag = data.id === item.id;
+                        const isChildDrag = isDescendantFolder(sourceItems[sourceIndex],item.id);
+                        
+                        console.log("isSelfDrag.1", isSelfDrag, "isChildDrag", isChildDrag,data,item)
+                        if (isSelfDrag || isChildDrag) {
+                            showNotification('不能将文件夹拖到自身或其子文件夹中');
+                            return;
+                        }
+                        
                         // 从源位置移除项目
                         const [movedItem] = sourceItems.splice(sourceIndex, 1);
 
-                        // 添加到目标文件夹
-                        if (!item.items) {
-                            item.items = [];
+                        // 检查拖拽位置，决定是移到文件夹内还是插入到文件夹上下方
+                        const rect = contentEl.getBoundingClientRect();
+                        const y = e.clientY - rect.top;
+                        const zone = rect.height / 6;
+
+                        if (y < zone || y > rect.height - zone) {
+                            // 拖到文件夹上方或下方，插入到父文件夹中
+                            const folderRes = findFolderById(bookmarksTree, item.id);
+                            if (folderRes && folderRes.parent) {
+                                const parentFolder = folderRes.parent;
+                                const parentItems = parentFolder.items || [];
+                                const targetIndex = parentItems.findIndex(child => child.id === item.id);
+                                
+                                if (targetIndex !== -1) {
+                                    // 计算插入位置
+                                    const insertIndex = y < zone ? targetIndex : targetIndex + 1;
+                                    parentItems.splice(insertIndex, 0, movedItem);
+                                }
+                            }
+                        } else {
+                            // 拖到文件夹中间，添加到目标文件夹
+                            if (!item.items) {
+                                item.items = [];
+                            }
+                            item.items.push(movedItem);
                         }
-                        item.items.push(movedItem);
 
                         // 重新渲染树形结构和内容
                         renderTree();
@@ -832,7 +917,7 @@ function renderTreeItem(item, level) {
                     }
                 }
             } catch (err) {
-                console.error('解析内部拖拽数据失败:', err);
+                console.error('解析内部拖拽数据失败.2:', err);
             }
         }
     });
@@ -1358,6 +1443,26 @@ function findFolderById(folder, id, parent = null) {
         }
     }
     return null;
+}
+
+// 辅助函数：获取文件夹的父文件夹ID
+function findParentFolderId(tree, folderId) {
+    const result = findFolderById(tree, folderId);
+    return result && result.parent ? result.parent.id : 'root';
+}
+
+// 辅助函数：检查文件夹是否是另一个文件夹的子文件夹
+function isDescendantFolder(parentFolder, childFolderId) {
+    if (!parentFolder.items) return false;
+    
+    for (const item of parentFolder.items) {
+        if (item.type === 'folder') {
+            if (item.id === childFolderId) return true;
+            if (isDescendantFolder(item, childFolderId)) return true;
+        }
+    }
+    
+    return false;
 }
 
 // 转义 HTML
