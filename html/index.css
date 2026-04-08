@@ -271,11 +271,11 @@ body {
 }
 
 .bookmark-bar-item.drag-left::before {
-    left: -1.5px;
+    left: -6px;
 }
 
 .bookmark-bar-item.drag-right::after {
-    right: -1.5px;
+    right: -5px;
 }
 
 .bookmark-bar-item.folder-item {

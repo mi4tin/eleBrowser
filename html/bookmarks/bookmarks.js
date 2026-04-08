@@ -334,17 +334,22 @@ function setupDragEvents() {
             if (card.classList.contains('folder-card')) {
                 // 根据鼠标位置决定是在上方还是下方显示横线
                 if (y < zone) {
+                    card.style.backgroundColor = ''
                     clearTimeout(lastDragTimeOut)//清理上次计时器
                     lastDragFolderId = ''//重置
                     console.log("文件夹上")
                     card.classList.add('drag-over-top');
+                    console.log("文件夹上",card)
                 } else if (y > rect.height - zone) {
+                    card.style.backgroundColor = ''
                     clearTimeout(lastDragTimeOut)//清理上次计时器
                     lastDragFolderId = ''//重置
                     console.log("文件夹下")
                     card.classList.add('drag-over-bottom');
+                    console.log("文件夹下",card)
                 } else {
-                    card.style.backgroundColor = '#e8f4ff';
+                    card.style.backgroundColor = '#dddddd'//'#e8f4ff';
+                    console.log("文件夹中间",card)
 
                     const folderId = card.dataset.id;
                     if (folderId == lastDragFolderId) {
@@ -397,13 +402,37 @@ function setupDragEvents() {
         e.stopPropagation();
         
 
-        // 检查是否是内部拖拽
-        const internalData = e.dataTransfer.getData('application/x-bookmark-item');
-        console.log("contentGrid.drop",internalData)
+        // 检查是否是内部拖拽（支持多种数据格式）
+        let internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        let data = null;
+        let isBookmarkBarItem = false;
+        
+        // 如果没有找到，尝试书签栏格式
+        if (!internalData) {
+            internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+            isBookmarkBarItem = true;
+        }
+        
+        console.log("contentGrid.drop.internalData", internalData, isBookmarkBarItem);
+        console.log("contentGrid.drop.internalData1", e.dataTransfer.types);
+        
         if (internalData) {
             try {
-                const data = JSON.parse(internalData);
-                if (data.type === 'internal') {
+                data = JSON.parse(internalData);
+                
+                // 处理书签栏项目
+                if (isBookmarkBarItem) {
+                    // 构建标准的内部数据格式
+                    const bookmarkBarData = data;
+                    data = {
+                        type: 'internal',
+                        itemType: bookmarkBarData.itemType,
+                        id: bookmarkBarData.id,
+                        sourceFolderId: 'root' // 书签栏项目默认在根目录
+                    };
+                }
+                
+                if (data.type === 'internal' || isBookmarkBarItem) {
                     // 找到被拖拽到的卡片
                     const card = e.target.closest('.folder-card, .bookmark-card');
                     if (card) {
@@ -414,13 +443,14 @@ function setupDragEvents() {
                         const isTop = y < zone;
 
                         // 移动项目到新位置
-                        moveItemToPosition(data, card, isTop);
-                        console.log("拖拽到文件夹")
+                        moveItemToPosition(data, card, isTop, e);
+                        console.log("拖拽到文件夹",data,card,isTop);
                     } else {
-                        console.log("拖拽到空白区域")
+                        console.log("拖拽到空白区域");
                         // 拖拽到空白区域，移动项目到当前文件夹
                         // 找到源文件夹
-                        const sourceRes = findFolderById(bookmarksTree, data.sourceFolderId);
+                        const sourceFolderId = data.sourceFolderId || 'root';
+                        const sourceRes = findFolderById(bookmarksTree, sourceFolderId);
                         if (sourceRes) {
                             const sourceItems = sourceRes.folder.items || [];
                             
@@ -546,14 +576,15 @@ function insertBookmarkAtPosition(url, card, isTop) {
 }
 
 // 移动项目到新位置（内部拖拽排序或跨文件夹移动）
-function moveItemToPosition(data, card, isTop) {
+function moveItemToPosition(data, card, isTop, e) {
     const allCards = Array.from(contentGrid.children);
     const targetIndex = allCards.indexOf(card);
 
     if (targetIndex === -1) return;
 
     // 找到源文件夹
-    const sourceRes = findFolderById(bookmarksTree, data.sourceFolderId);
+    const sourceFolderId = data.sourceFolderId || 'root';
+    const sourceRes = findFolderById(bookmarksTree, sourceFolderId);
     if (!sourceRes) return;
 
     const sourceItems = sourceRes.folder.items || [];
@@ -566,7 +597,7 @@ function moveItemToPosition(data, card, isTop) {
         sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
     }
 
-    console.log("contentGrid.drop", data, card, sourceIndex, targetIndex)
+    console.log("contentGrid.drop", data, card, sourceIndex, targetIndex);
 
     if (sourceIndex === -1) return;
 
@@ -576,27 +607,47 @@ function moveItemToPosition(data, card, isTop) {
     // 检查目标卡片是否是文件夹
     const targetCardType = card.dataset.type;
     if (targetCardType === 'folder') {
-        // 拖到了文件夹上，将项目移动到该文件夹内
-        const targetFolderId = card.dataset.id;
-        const targetFolderRes = findFolderById(bookmarksTree, targetFolderId);
-        if (targetFolderRes) {
-            const targetFolder = targetFolderRes.folder;
-            if (!targetFolder.items) {
-                targetFolder.items = [];
-            }
-            targetFolder.items.push(movedItem);
+        // 检查是拖到文件夹的哪个位置
+        const rect = card.getBoundingClientRect();
+        const y = e ? e.clientY - rect.top : 0;
+        const zone = rect.height / 6;
+        
+        if (y < zone || y > rect.height - zone) {
+            // 拖到文件夹上方或下方，在当前文件夹内插入
+            const targetItems = currentFolder.items || [];
+            let targetInsertIndex = isTop ? targetIndex : targetIndex + 1;
             
-            // 重新渲染内容（如果当前显示的是目标文件夹，就渲染它）
-            if (currentFolder.id === targetFolderId) {
-                renderContent(targetFolder);
-            } else {
-                renderContent(currentFolder);
+            // 如果是同一文件夹内的拖拽，需要调整索引（因为已经从原位置移除了）
+            if (sourceRes.folder.id === currentFolder.id && sourceIndex < targetInsertIndex) {
+                targetInsertIndex--;
+            }
+
+            // 插入到目标位置
+            targetItems.splice(targetInsertIndex, 0, movedItem);
+
+            // 重新渲染内容
+            renderContent(currentFolder);
+        } else {
+            // 拖到文件夹中间，将项目移动到该文件夹内
+            const targetFolderId = card.dataset.id;
+            const targetFolderRes = findFolderById(bookmarksTree, targetFolderId);
+            if (targetFolderRes) {
+                const targetFolder = targetFolderRes.folder;
+                if (!targetFolder.items) {
+                    targetFolder.items = [];
+                }
+                targetFolder.items.push(movedItem);
+                
+                // 重新渲染内容（如果当前显示的是目标文件夹，就渲染它）
+                if (currentFolder.id === targetFolderId) {
+                    renderContent(targetFolder);
+                } else {
+                    renderContent(currentFolder);
+                }
             }
         }
     } else {
         // 拖到了书签上，在当前文件夹内排序
-        // 如果是相同的索引，不处理
-        if (sourceIndex === targetIndex) return;
         
         // 计算目标文件夹的插入索引
         const targetItems = currentFolder.items || [];
@@ -718,14 +769,37 @@ function renderTreeItem(item, level) {
         e.stopPropagation();
         contentEl.classList.remove('drag-over');
 
-        // 检查是否是内部拖拽
-        const internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        // 检查是否是内部拖拽（支持多种数据格式）
+        let internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        let data = null;
+        let isBookmarkBarItem = false;
+        
+        // 如果没有找到，尝试书签栏格式
+        if (!internalData) {
+            internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+            isBookmarkBarItem = true;
+        }
+
         if (internalData) {
             try {
-                const data = JSON.parse(internalData);
-                if (data.type === 'internal') {
+                data = JSON.parse(internalData);
+                
+                // 处理书签栏项目
+                if (isBookmarkBarItem) {
+                    // 构建标准的内部数据格式
+                    const bookmarkBarData = data;
+                    data = {
+                        type: 'internal',
+                        itemType: bookmarkBarData.itemType,
+                        id: bookmarkBarData.id,
+                        sourceFolderId: 'root' // 书签栏项目默认在根目录
+                    };
+                }
+                
+                if (data.type === 'internal' || isBookmarkBarItem) {
                     // 找到源文件夹
-                    const sourceRes = findFolderById(bookmarksTree, data.sourceFolderId);
+                    const sourceFolderId = data.sourceFolderId || 'root';
+                    const sourceRes = findFolderById(bookmarksTree, sourceFolderId);
                     if (!sourceRes) return;
 
                     const sourceItems = sourceRes.folder.items || [];
@@ -738,24 +812,24 @@ function renderTreeItem(item, level) {
                         sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
                     }
 
-                    if (sourceIndex === -1) return;
+                    if (sourceIndex !== -1) {
+                        // 从源位置移除项目
+                        const [movedItem] = sourceItems.splice(sourceIndex, 1);
 
-                    // 从源位置移除项目
-                    const [movedItem] = sourceItems.splice(sourceIndex, 1);
+                        // 添加到目标文件夹
+                        if (!item.items) {
+                            item.items = [];
+                        }
+                        item.items.push(movedItem);
 
-                    // 添加到目标文件夹
-                    if (!item.items) {
-                        item.items = [];
+                        // 重新渲染树形结构和内容
+                        renderTree();
+                        renderContent(currentFolder);
+                        
+                        // 保存书签
+                        saveBookmarks();
+                        showNotification('已移动到文件夹');
                     }
-                    item.items.push(movedItem);
-
-                    // 重新渲染树形结构和内容
-                    renderTree();
-                    renderContent(currentFolder);
-                    
-                    // 保存书签
-                    saveBookmarks();
-                    showNotification('已移动到文件夹');
                 }
             } catch (err) {
                 console.error('解析内部拖拽数据失败:', err);
