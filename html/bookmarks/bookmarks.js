@@ -244,8 +244,10 @@ function setupDragEvents() {
                         console.log('文件夹已切换')
                         return
                     }
+                    console.log('文件夹已切换.1')
+                    // return
                     selectFolder(res.folder);
-                    toggleFolder(folderId)
+                    toggleFolder(folderId, true)
                     // addBookmarkToFolder(res.folder, url);
                 }
             }, 1500)
@@ -782,11 +784,17 @@ function renderTreeItem(item, level) {
 }
 
 // 切换树形文件夹展开/折叠
-function toggleFolder(folderId) {
+// onlyOpen: 是否只展开, 默认自行判断是否展开
+function toggleFolder(folderId, onlyOpen=false) {
     if (expandedFolders.has(folderId)) {
+        if (onlyOpen) {
+            return
+        }
         expandedFolders.delete(folderId);
+        console.log('文件夹已折叠')
     } else {
         expandedFolders.add(folderId);
+        console.log('文件夹已展开')
     }
     renderTree();
 }
