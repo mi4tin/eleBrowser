@@ -390,7 +390,7 @@ function setupDragEvents() {
         }
     });
 
-    contentGrid.addEventListener('drop', (e) => {
+    content.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
         
@@ -416,8 +416,41 @@ function setupDragEvents() {
                         console.log("拖拽到文件夹")
                     } else {
                         console.log("拖拽到空白区域")
-                        // addBookmarkToFolder(currentFolder, data.url);
-                        // 拖拽到空白区域，不处理
+                        // 拖拽到空白区域，移动项目到当前文件夹
+                        // 找到源文件夹
+                        const sourceRes = findFolderById(bookmarksTree, data.sourceFolderId);
+                        if (sourceRes) {
+                            const sourceItems = sourceRes.folder.items || [];
+                            
+                            // 找到被拖拽的项目在源文件夹中的索引
+                            let sourceIndex = -1;
+                            if (data.itemType === 'folder') {
+                                sourceIndex = sourceItems.findIndex(item => item.type === 'folder' && item.id === data.id);
+                            } else if (data.itemType === 'bookmark') {
+                                sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
+                            }
+
+                            if (sourceIndex !== -1) {
+                                // 从源位置移除项目
+                                const [movedItem] = sourceItems.splice(sourceIndex, 1);
+                                
+                                // 添加到当前文件夹
+                                if (!currentFolder.items) {
+                                    currentFolder.items = [];
+                                }
+                                currentFolder.items.push(movedItem);
+                                
+                                // 重新渲染内容
+                                renderContent(currentFolder);
+                                // 如果源文件夹和当前文件夹不同，需要重新渲染树形结构
+                                if (sourceRes.folder.id !== currentFolder.id) {
+                                    renderTree();
+                                }
+                                // 保存书签
+                                saveBookmarks();
+                                showNotification('已移动到当前文件夹');
+                            }
+                        }
                     }
                     clearDragStyles();
                     return;
@@ -535,29 +568,52 @@ function moveItemToPosition(data, card, isTop) {
 
     if (sourceIndex === -1) return;
 
-    // console.log("contentGrid.drop.a1", data, card, sourceIndex, targetIndex)
-    // 如果是相同的索引，不处理
-    if (sourceIndex === targetIndex) return;
-
     // 从源位置移除项目
     const [movedItem] = sourceItems.splice(sourceIndex, 1);
 
-    // 计算目标文件夹的插入索引
-    const targetItems = currentFolder.items || [];
-    let targetInsertIndex = isTop ? targetIndex : targetIndex + 1;
-    
-    // 如果是同一文件夹内的拖拽，需要调整索引（因为已经从原位置移除了）
-    if (sourceRes.folder.id === currentFolder.id && sourceIndex < targetInsertIndex) {
-        targetInsertIndex--;
+    // 检查目标卡片是否是文件夹
+    const targetCardType = card.dataset.type;
+    if (targetCardType === 'folder') {
+        // 拖到了文件夹上，将项目移动到该文件夹内
+        const targetFolderId = card.dataset.id;
+        const targetFolderRes = findFolderById(bookmarksTree, targetFolderId);
+        if (targetFolderRes) {
+            const targetFolder = targetFolderRes.folder;
+            if (!targetFolder.items) {
+                targetFolder.items = [];
+            }
+            targetFolder.items.push(movedItem);
+            
+            // 重新渲染内容（如果当前显示的是目标文件夹，就渲染它）
+            if (currentFolder.id === targetFolderId) {
+                renderContent(targetFolder);
+            } else {
+                renderContent(currentFolder);
+            }
+        }
+    } else {
+        // 拖到了书签上，在当前文件夹内排序
+        // 如果是相同的索引，不处理
+        if (sourceIndex === targetIndex) return;
+        
+        // 计算目标文件夹的插入索引
+        const targetItems = currentFolder.items || [];
+        let targetInsertIndex = isTop ? targetIndex : targetIndex + 1;
+        
+        // 如果是同一文件夹内的拖拽，需要调整索引（因为已经从原位置移除了）
+        if (sourceRes.folder.id === currentFolder.id && sourceIndex < targetInsertIndex) {
+            targetInsertIndex--;
+        }
+
+        // 插入到目标位置
+        targetItems.splice(targetInsertIndex, 0, movedItem);
+
+        // 重新渲染内容
+        renderContent(currentFolder);
     }
-
-    // 插入到目标位置
-    targetItems.splice(targetInsertIndex, 0, movedItem);
-
-    // 重新渲染内容
-    renderContent(currentFolder);
-    // 如果源文件夹和当前文件夹不同，需要重新渲染树形结构
-    if (sourceRes.folder.id !== currentFolder.id) {
+    
+    // 如果源文件夹和目标文件夹不同，需要重新渲染树形结构
+    if (sourceRes.folder.id !== (targetCardType === 'folder' ? card.dataset.id : currentFolder.id)) {
         renderTree();
     }
     // 保存书签
@@ -616,7 +672,7 @@ function renderTreeItem(item, level) {
 
     const indent = level * 20;
     treeItem.innerHTML = `
-        <div class="tree-item-content" style="padding-left: ${indent}px;">
+        <div class="tree-item-content" style="margin-left: ${indent}px;">
             <span class="tree-toggle ${hasChildren ? (isExpanded ? 'expanded' : 'collapsed') : 'empty'}"></span>
             <span class="tree-icon">📁</span>
             <span class="tree-label">${escapeHtml(item.name)}</span>
@@ -640,6 +696,69 @@ function renderTreeItem(item, level) {
             { label: '重命名文件夹', action: () => renameFolder(item.id) },
             { label: '删除文件夹', action: () => deleteFolder(item.id) }
         ]);
+    });
+
+    // 拖拽事件：允许拖入文件夹
+    contentEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        contentEl.classList.add('drag-over');
+    });
+
+    contentEl.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        contentEl.classList.remove('drag-over');
+    });
+
+    contentEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        contentEl.classList.remove('drag-over');
+
+        // 检查是否是内部拖拽
+        const internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        if (internalData) {
+            try {
+                const data = JSON.parse(internalData);
+                if (data.type === 'internal') {
+                    // 找到源文件夹
+                    const sourceRes = findFolderById(bookmarksTree, data.sourceFolderId);
+                    if (!sourceRes) return;
+
+                    const sourceItems = sourceRes.folder.items || [];
+                    
+                    // 找到被拖拽的项目在源文件夹中的索引
+                    let sourceIndex = -1;
+                    if (data.itemType === 'folder') {
+                        sourceIndex = sourceItems.findIndex(item => item.type === 'folder' && item.id === data.id);
+                    } else if (data.itemType === 'bookmark') {
+                        sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
+                    }
+
+                    if (sourceIndex === -1) return;
+
+                    // 从源位置移除项目
+                    const [movedItem] = sourceItems.splice(sourceIndex, 1);
+
+                    // 添加到目标文件夹
+                    if (!item.items) {
+                        item.items = [];
+                    }
+                    item.items.push(movedItem);
+
+                    // 重新渲染树形结构和内容
+                    renderTree();
+                    renderContent(currentFolder);
+                    
+                    // 保存书签
+                    saveBookmarks();
+                    showNotification('已移动到文件夹');
+                }
+            } catch (err) {
+                console.error('解析内部拖拽数据失败:', err);
+            }
+        }
     });
 
     // 添加展开/折叠事件
@@ -717,6 +836,7 @@ function createFolderCard(folder) {
     const card = document.createElement('div');
     card.className = 'folder-card';
     card.dataset.id = folder.id;
+    card.dataset.type = 'folder';
     card.draggable = true;
 
     // 计算文件夹中的项目数量
@@ -774,6 +894,8 @@ function createFolderCard(folder) {
 function createBookmarkCard(bookmark) {
     const card = document.createElement('div');
     card.className = 'bookmark-card';
+    card.dataset.id = bookmark.id || bookmark.url;
+    card.dataset.type = 'bookmark';
     card.draggable = true;
 
     card.innerHTML = `

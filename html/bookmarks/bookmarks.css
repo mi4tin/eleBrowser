@@ -127,6 +127,18 @@ body {
     align-items: center;
     flex: 1;
     min-width: 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.tree-item-content:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tree-item-content.drag-over {
+    background-color: rgba(76, 175, 80, 0.1);
+    border: 1px solid #4CAF50;
 }
 
 .tree-indent {
