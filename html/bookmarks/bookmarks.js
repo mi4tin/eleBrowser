@@ -348,7 +348,7 @@ function setupDragEvents() {
                     card.classList.add('drag-over-bottom');
                     console.log("文件夹下",card)
                 } else {
-                    card.style.backgroundColor = '#dddddd'//'#e8f4ff';
+                    card.style.backgroundColor ='#e8f4ff';
                     console.log("文件夹中间",card)
 
                     const folderId = card.dataset.id;
