@@ -1019,8 +1019,8 @@ module.exports = function createUnderlineContextMenu(deps) {
                 });
             })()
         `).then((result) => {
-            console.log('获取图片数据:', result);
-            console.log("复制图片.b", result.src);
+            // console.log('获取图片数据:', result);
+            // console.log("复制图片.b", result.src);
             
             if (result.src.startsWith('data:image')) {
                 console.log('使用 Canvas 方法');
@@ -1030,7 +1030,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                     const buffer = Buffer.from(base64Data, 'base64');
                     console.log('Buffer 长度:', buffer.length);
                     const image = nativeImage.createFromBuffer(buffer);
-                    console.log('Image 对象:', image);
+                    // console.log('Image 对象:', image);
                     console.log('Image 是否为空:', image.isEmpty());
                     if (!image.isEmpty()) {
                         console.log('Image 尺寸:', image.getSize());
@@ -1322,7 +1322,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                                     }
                                 }
                             }, {
-                                label: '复制图片2',
+                                label: '复制图片',
                                 click: () => {
                                     copyImageToClipboard(contents, elementCheckResult.imageSrc, params.x, params.y);
                                 }
@@ -1331,27 +1331,72 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 click: () => {
                                     const { dialog } = require('electron');
                                     const path = require('path');
-                                    const url = new URL(elementCheckResult.imageSrc);
-                                    const filename = path.basename(url.pathname) || 'image';
+                                    const https = require('https');
+                                    const http = require('http');
+                                    const fs = require('fs');
+                                    const url = require('url');
+                                    
+                                    let filename = 'image';
+                                    try {
+                                        const parsedUrl = new URL(elementCheckResult.imageSrc);
+                                        const pathname = parsedUrl.pathname;
+                                        let baseName = path.basename(pathname);
+                                        
+                                        if (baseName && baseName !== '/') {
+                                            filename = baseName;
+                                        }
+                                    } catch (e) {
+                                        console.error('解析 URL 失败:', e);
+                                    }
+                                    
+                                    const sanitizeFilename = (name) => {
+                                        const invalidChars = /[<>:"/\\|?*~]/g;
+                                        let sanitized = name.replace(invalidChars, '_');
+                                        
+                                        if (!sanitized || sanitized === '.') {
+                                            return 'image';
+                                        }
+                                        
+                                        const ext = path.extname(sanitized).toLowerCase();
+                                        const validExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+                                        if (!validExts.includes(ext)) {
+                                            sanitized = sanitized + '.png';
+                                        }
+                                        
+                                        return sanitized;
+                                    };
+                                    
+                                    const safeFilename = sanitizeFilename(filename);
+                                    console.log('保存图片，原始文件名:', filename, '安全文件名:', safeFilename);
+                                    
                                     dialog.showSaveDialog({
-                                        defaultPath: filename,
+                                        defaultPath: safeFilename,
                                         filters: [{
                                             name: 'Images',
                                             extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
                                         }]
                                     }).then((result) => {
                                         if (!result.canceled && result.filePath) {
-                                            const https = require('https');
-                                            const fs = require('fs');
+                                            console.log('保存到:', result.filePath);
+                                            
+                                            const parsedUrl = url.parse(elementCheckResult.imageSrc);
+                                            const protocol = parsedUrl.protocol === 'https:' ? https : http;
+                                            
                                             const file = fs.createWriteStream(result.filePath);
-                                            https.get(elementCheckResult.imageSrc, (response) => {
+                                            protocol.get(elementCheckResult.imageSrc, (response) => {
+                                                console.log('下载响应状态码:', response.statusCode);
                                                 response.pipe(file);
                                                 file.on('finish', () => {
                                                     file.close();
+                                                    console.log('图片保存成功');
                                                 });
                                             }).on('error', (err) => {
-                                                fs.unlink(result.filePath);
                                                 console.error('保存图片失败:', err);
+                                                try {
+                                                    fs.unlink(result.filePath, () => {});
+                                                } catch (unlinkErr) {
+                                                    console.error('删除临时文件失败:', unlinkErr);
+                                                }
                                             });
                                         }
                                     });
