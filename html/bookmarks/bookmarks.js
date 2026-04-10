@@ -349,11 +349,11 @@ function setupDragEvents() {
                     console.log("文件夹下",card)
                 } else {
                     card.style.backgroundColor ='#e8f4ff';
-                    console.log("文件夹中间",card)
+                    // console.log("文件夹中间",card)
 
                     const folderId = card.dataset.id;
                     if (folderId == lastDragFolderId) {
-                        console.log("相同的文件夹")
+                        // console.log("相同的文件夹")
                     } else {
                         clearTimeout(lastDragTimeOut)//清理上次计时器
                         lastDragFolderId = folderId
@@ -636,7 +636,7 @@ function moveItemToPosition(data, card, isTop, e) {
     const [movedItem] = sourceItems.splice(sourceIndex, 1);
 
     // 检查目标卡片是否是文件夹
-    targetCardType = card.dataset.type;
+    // targetCardType = card.dataset.type;
     if (targetCardType === 'folder') {
         // 检查是拖到文件夹的哪个位置
         const rect = card.getBoundingClientRect();
