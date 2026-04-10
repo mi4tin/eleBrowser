@@ -63,7 +63,7 @@ module.exports = function createWindowManager(deps) {
             // 读取粘贴板信息
             const clipboardText = require('electron').clipboard.readText();
             if (clipboardText) {
-                console.log('粘贴板内容:', clipboardText);
+                // console.log('粘贴板内容:', clipboardText);
                 // 可以在这里处理粘贴板内容，例如自动填充到地址栏等
                 myWindow.webContents.send('clipboard-updated', clipboardText);
             }

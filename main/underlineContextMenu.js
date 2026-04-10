@@ -909,6 +909,217 @@ module.exports = function createUnderlineContextMenu(deps) {
         });
     }
 
+    function copyImageToClipboard(contents, imageUrl, x, y) {
+        const { clipboard, nativeImage } = require('electron');
+
+        console.log("复制图片.a", imageUrl, x, y);
+        
+        contents.executeJavaScript(`
+            (function() {
+                return new Promise((resolve, reject) => {
+                    const element = document.elementFromPoint(${x}, ${y});
+                    let img = null;
+                    
+                    console.log('找到的元素:', element, element.tagName);
+                    
+                    if (element.tagName === 'IMG') {
+                        img = element;
+                    } else if (element.style && element.style.backgroundImage) {
+                        const match = element.style.backgroundImage.match(/url\\(['"]?([^'"]+)['"]?\\)/);
+                        if (match) {
+                            resolve({ src: match[1], isBackground: true });
+                            return;
+                        }
+                    }
+                    
+                    if (img) {
+                        console.log('找到 IMG 元素, src:', img.src, 'complete:', img.complete);
+                        
+                        const tryConvertWithCrossOrigin = () => {
+                            const newImg = new Image();
+                            newImg.crossOrigin = 'anonymous';
+                            
+                            newImg.onload = () => {
+                                console.log('重新加载图片成功（使用 crossOrigin）');
+                                const canvas = document.createElement('canvas');
+                                canvas.width = newImg.naturalWidth || newImg.width;
+                                canvas.height = newImg.naturalHeight || newImg.height;
+                                console.log('Canvas 尺寸:', canvas.width, 'x', canvas.height);
+                                
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(newImg, 0, 0);
+                                
+                                try {
+                                    const dataUrl = canvas.toDataURL('image/png');
+                                    console.log('Canvas 转换成功（使用 crossOrigin）, 数据长度:', dataUrl.length);
+                                    resolve({ src: dataUrl, isBackground: false });
+                                } catch (e) {
+                                    console.error('Canvas 转换失败（使用 crossOrigin）:', e);
+                                    resolve({ src: '${imageUrl}', isBackground: false, useDirect: true });
+                                }
+                            };
+                            
+                            newImg.onerror = () => {
+                                console.error('重新加载图片失败（使用 crossOrigin）');
+                                resolve({ src: '${imageUrl}', isBackground: false, useDirect: true });
+                            };
+                            
+                            newImg.src = img.src;
+                        };
+                        
+                        const isCrossOrigin = (() => {
+                            try {
+                                const imgUrl = new URL(img.src);
+                                const pageUrl = new URL(window.location.href);
+                                return imgUrl.origin !== pageUrl.origin;
+                            } catch (e) {
+                                return false;
+                            }
+                        })();
+                        
+                        console.log('是否跨域:', isCrossOrigin);
+                        
+                        if (isCrossOrigin) {
+                            console.log('检测到跨域图片，尝试使用 crossOrigin 重新加载');
+                            tryConvertWithCrossOrigin();
+                            return;
+                        }
+                        
+                        const convertImage = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.naturalWidth || img.width;
+                            canvas.height = img.naturalHeight || img.height;
+                            console.log('Canvas 尺寸:', canvas.width, 'x', canvas.height);
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            
+                            try {
+                                const dataUrl = canvas.toDataURL('image/png');
+                                console.log('Canvas 转换成功, 数据长度:', dataUrl.length);
+                                resolve({ src: dataUrl, isBackground: false });
+                            } catch (e) {
+                                console.error('Canvas 转换失败:', e);
+                                tryConvertWithCrossOrigin();
+                            }
+                        };
+                        
+                        if (img.complete) {
+                            convertImage();
+                        } else {
+                            img.onload = convertImage;
+                            img.onerror = () => {
+                                console.error('图片加载失败');
+                                tryConvertWithCrossOrigin();
+                            };
+                        }
+                    } else {
+                        resolve({ src: '${imageUrl}', isBackground: false, useDirect: true });
+                    }
+                });
+            })()
+        `).then((result) => {
+            console.log('获取图片数据:', result);
+            console.log("复制图片.b", result.src);
+            
+            if (result.src.startsWith('data:image')) {
+                console.log('使用 Canvas 方法');
+                try {
+                    const base64Data = result.src.replace(/^data:image\/(png|jpeg|jpg|gif|webp);base64,/, '');
+                    console.log('Base64 数据长度:', base64Data.length);
+                    const buffer = Buffer.from(base64Data, 'base64');
+                    console.log('Buffer 长度:', buffer.length);
+                    const image = nativeImage.createFromBuffer(buffer);
+                    console.log('Image 对象:', image);
+                    console.log('Image 是否为空:', image.isEmpty());
+                    if (!image.isEmpty()) {
+                        console.log('Image 尺寸:', image.getSize());
+                        clipboard.writeImage(image);
+                        console.log('已执行 writeImage');
+                        
+                        const availableFormats = clipboard.availableFormats();
+                        console.log('剪贴板可用格式:', availableFormats);
+                        
+                        console.log('复制图片成功（通过 canvas）');
+                    } else {
+                        console.error('创建的 Image 对象为空，无法复制');
+                    }
+                } catch (error) {
+                    console.error('处理图片数据失败:', error);
+                    console.error('错误堆栈:', error.stack);
+                }
+            } else {
+                console.log('使用网络请求方法');
+                const https = require('https');
+                const http = require('http');
+                const url = require('url');
+                
+                const parsedUrl = url.parse(result.src);
+                const protocol = parsedUrl.protocol === 'https:' ? https : http;
+                
+                console.log('发起请求:', result.src);
+                
+                protocol.get(result.src, (response) => {
+                    console.log('响应状态码:', response.statusCode);
+                    
+                    if (response.statusCode !== 200) {
+                        console.error('获取图片失败:', response.statusCode);
+                        return;
+                    }
+                    
+                    const chunks = [];
+                    let totalLength = 0;
+                    
+                    response.on('data', (chunk) => {
+                        chunks.push(chunk);
+                        totalLength += chunk.length;
+                        console.log('收到数据块:', chunk.length, '总长度:', totalLength);
+                    });
+                    
+                    response.on('end', () => {
+                        console.log('数据接收完成，总长度:', totalLength);
+                        try {
+                            const buffer = Buffer.concat(chunks);
+                            console.log('Buffer 长度:', buffer.length);
+                            
+                            let image = nativeImage.createFromBuffer(buffer);
+                            console.log('Image 对象:', image);
+                            console.log('Image 是否为空:', image.isEmpty());
+                            
+                            if (image.isEmpty()) {
+                                console.error('nativeImage.createFromBuffer 失败，尝试其他方法');
+                                image = nativeImage.createFromDataURL('data:image/png;base64,' + buffer.toString('base64'));
+                                console.log('第二次尝试，Image 是否为空:', image.isEmpty());
+                            }
+                            
+                            if (!image.isEmpty()) {
+                                console.log('Image 尺寸:', image.getSize());
+                                clipboard.writeImage(image);
+                                console.log('已执行 writeImage');
+                                
+                                const availableFormats = clipboard.availableFormats();
+                                console.log('剪贴板可用格式:', availableFormats);
+                                
+                                console.log('复制图片成功（通过网络请求）');
+                            } else {
+                                console.error('创建的 Image 对象为空，无法复制');
+                            }
+                        } catch (error) {
+                            console.error('处理图片数据失败:', error);
+                            console.error('错误堆栈:', error.stack);
+                        }
+                    });
+                }).on('error', (error) => {
+                    console.error('请求图片失败:', error);
+                    console.error('错误堆栈:', error.stack);
+                });
+            }
+        }).catch((error) => {
+            console.error('执行 JavaScript 获取图片失败:', error);
+            console.error('错误堆栈:', error.stack);
+        });
+    }
+
     function registerWebContentsHandlers() {
         app.on('web-contents-created', (event, contents) => {
             setupProtocolBlocking(contents);
@@ -950,6 +1161,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                     let selectedMenu = [];
                     let underlineMenu = [];
                     let closeTabMenu = [];
+                    let imageMenu = [];
 
                     const baseMenu = [{
                         label: '查看网页源码',
@@ -1018,9 +1230,9 @@ module.exports = function createUnderlineContextMenu(deps) {
                     contents.executeJavaScript(
                         `(function() {
                         const element = document.elementFromPoint(${params.x}, ${params.y});
-                        if (!element) return { hasUnderline: false, underlineText: '', isTab: false, hasLeftTab: false, hasRightTab: false };
+                        if (!element) return { hasUnderline: false, underlineText: '', isTab: false, hasLeftTab: false, hasRightTab: false, isImage: false, imageSrc: '' };
                         if (element.classList && element.classList.contains('underline-fb3b780f')) {
-                            return { hasUnderline: true, underlineText: element.textContent || element.innerText || '', isTab: false, hasLeftTab: false, hasRightTab: false };
+                            return { hasUnderline: true, underlineText: element.textContent || element.innerText || '', isTab: false, hasLeftTab: false, hasRightTab: false, isImage: false, imageSrc: '' };
                         }
                         let hasLeftTab = false, hasRightTab = false;
                         if ((element.previousElementSibling && element.previousElementSibling.classList.contains('tab')) ||
@@ -1028,7 +1240,20 @@ module.exports = function createUnderlineContextMenu(deps) {
                         if ((element.nextElementSibling && element.nextElementSibling.classList.contains('tab')) ||
                             (element.parentElement && element.parentElement.nextElementSibling && element.parentElement.nextElementSibling.classList.contains('tab'))) hasRightTab = true;
                         const isTab = !!(element.classList.contains('tab-text') || element.classList.contains('tab'));
-                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab };
+                        let isImage = false;
+                        let imageSrc = '';
+                        if (element.tagName === 'IMG') {
+                            isImage = true;
+                            imageSrc = element.src;
+                        } else if (element.style && element.style.backgroundImage) {
+                            isImage = true;
+                            const bgImage = element.style.backgroundImage;
+                            const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+                            if (match) {
+                                imageSrc = match[1];
+                            }
+                        }
+                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc };
                     })()`
                     ).then((elementCheckResult) => {
                         if (elementCheckResult.hasUnderline || hasSelection) {
@@ -1087,8 +1312,60 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 }
                             }];
                         }
+                        if (elementCheckResult.isImage && elementCheckResult.imageSrc) {
+                            imageMenu = [{
+                                label: '在新标签页打开图片',
+                                click: () => {
+                                    const mainWindow = getMainWindow();
+                                    if (mainWindow && !mainWindow.isDestroyed()) {
+                                        mainWindow.webContents.send('open-url-in-new-tab', elementCheckResult.imageSrc);
+                                    }
+                                }
+                            }, {
+                                label: '复制图片2',
+                                click: () => {
+                                    copyImageToClipboard(contents, elementCheckResult.imageSrc, params.x, params.y);
+                                }
+                            }, {
+                                label: '图片另存为',
+                                click: () => {
+                                    const { dialog } = require('electron');
+                                    const path = require('path');
+                                    const url = new URL(elementCheckResult.imageSrc);
+                                    const filename = path.basename(url.pathname) || 'image';
+                                    dialog.showSaveDialog({
+                                        defaultPath: filename,
+                                        filters: [{
+                                            name: 'Images',
+                                            extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+                                        }]
+                                    }).then((result) => {
+                                        if (!result.canceled && result.filePath) {
+                                            const https = require('https');
+                                            const fs = require('fs');
+                                            const file = fs.createWriteStream(result.filePath);
+                                            https.get(elementCheckResult.imageSrc, (response) => {
+                                                response.pipe(file);
+                                                file.on('finish', () => {
+                                                    file.close();
+                                                });
+                                            }).on('error', (err) => {
+                                                fs.unlink(result.filePath);
+                                                console.error('保存图片失败:', err);
+                                            });
+                                        }
+                                    });
+                                }
+                            }, {
+                                label: '复制图片链接',
+                                click: () => {
+                                    const { clipboard } = require('electron');
+                                    clipboard.writeText(elementCheckResult.imageSrc);
+                                }
+                            }, { type: 'separator' }];
+                        }
 
-                        const menu = Menu.buildFromTemplate([...underlineMenu, ...selectedMenu, ...baseMenu, ...closeTabMenu]);
+                        const menu = Menu.buildFromTemplate([...imageMenu, ...underlineMenu, ...selectedMenu, ...baseMenu, ...closeTabMenu]);
                         menu.popup();
                     }).catch(() => {
                         const menu = Menu.buildFromTemplate([...selectedMenu, ...underlineMenu, ...baseMenu]);
