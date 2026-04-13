@@ -357,18 +357,23 @@ function setupDragEvents() {
                     } else {
                         clearTimeout(lastDragTimeOut)//清理上次计时器
                         lastDragFolderId = folderId
-                        const res = findFolderById(bookmarksTree, folderId);
+                        let res = findFolderById(bookmarksTree, folderId);
+                        // if (res && res.folder) {
+                        //     res.folder.name = '新文件夹'
+                        // }
 
-                        console.log("folderCard.dragover", folderId)
+                        console.log("folderCard.dragover", res)
                         lastDragTimeOut = setTimeout(() => {
-                            if (res && res.folder) {
-                                if (lastDragFolderId != res.folder.id) {
-                                    console.log('文件夹已切换2')
-                                    return
-                                }
-                                selectFolder(res.folder);
+                            if (lastDragFolderId != folderId) {
+                                console.log('文件夹已切换2')
+                                return
+                            }
+                            let currentRes = findFolderById(bookmarksTree, folderId);//通过id从bookmarksTree获取最新的文件夹数据，防止后续操作currentFolder，无法影响bookmarksTree
+                            if (currentRes && currentRes.folder) {
+                                // currentRes.folder.name = '新文件夹1'
+                                console.log('文件夹已切换.3')
+                                selectFolder(currentRes.folder);
                                 toggleFolder(folderId)
-                                // addBookmarkToFolder(res.folder, url);
                             }
                         }, 1500)
                     }
@@ -444,7 +449,7 @@ function setupDragEvents() {
 
                         // 移动项目到新位置
                         moveItemToPosition(data, card, isTop, e);
-                        console.log("拖拽到文件夹",data,card,isTop);
+                        console.log("拖拽到书签或文件夹卡片",data,card,isTop);
                     } else {
                         console.log("拖拽到空白区域.1");
                         // 拖拽到空白区域，移动项目到当前文件夹
@@ -514,7 +519,7 @@ function setupDragEvents() {
         // 找到被拖拽到的卡片
         const card = e.target.closest('.folder-card, .bookmark-card');
         if (card) {
-            console.log("contentGrid.drop", card)  
+            console.log("contentGrid.drop.2", card)  
             // 确定插入位置
             const rect = card.getBoundingClientRect();
             const y = e.clientY - rect.top;
@@ -590,9 +595,11 @@ function insertBookmarkAtPosition(url, card, isTop) {
 function moveItemToPosition(data, card, isTop, e) {
     const allCards = Array.from(contentGrid.children);
     const targetIndex = allCards.indexOf(card);
-
+    console.log("contentGrid.drop.5", data, card, isTop, e) 
+    
     if (targetIndex === -1) return;
 
+    console.log("contentGrid.drop.4", data, card, isTop, e) 
     // 找到源文件夹
     const sourceFolderId = data.sourceFolderId || 'root';
     const sourceRes = findFolderById(bookmarksTree, sourceFolderId);
@@ -608,7 +615,7 @@ function moveItemToPosition(data, card, isTop, e) {
         sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
     }
 
-    console.log("contentGrid.drop", data, card, sourceIndex, targetIndex);
+    console.log("contentGrid.drop.3", data, card, sourceIndex, targetIndex);
 
     if (sourceIndex === -1) return;
 
@@ -638,6 +645,7 @@ function moveItemToPosition(data, card, isTop, e) {
     // 检查目标卡片是否是文件夹
     // targetCardType = card.dataset.type;
     if (targetCardType === 'folder') {
+        console.log("contentGrid.drop.6", data, card, isTop, e) 
         // 检查是拖到文件夹的哪个位置
         const rect = card.getBoundingClientRect();
         const y = e ? e.clientY - rect.top : 0;
@@ -659,6 +667,7 @@ function moveItemToPosition(data, card, isTop, e) {
             // 重新渲染内容
             renderContent(currentFolder);
         } else {
+            console.log("contentGrid.drop.7", data, card, isTop, e) 
             // 拖到文件夹中间，将项目移动到该文件夹内
             const targetFolderId = card.dataset.id;
             const targetFolderRes = findFolderById(bookmarksTree, targetFolderId);
@@ -678,6 +687,7 @@ function moveItemToPosition(data, card, isTop, e) {
             }
         }
     } else {
+        console.log("contentGrid.drop.8", JSON.stringify(sourceItems)) 
         // 拖到了书签上，在当前文件夹内排序
         
         // 计算目标文件夹的插入索引
@@ -689,8 +699,12 @@ function moveItemToPosition(data, card, isTop, e) {
             targetInsertIndex--;
         }
 
+        console.log("contentGrid.drop.9", JSON.stringify(targetItems), JSON.stringify(bookmarksTree)) 
+
         // 插入到目标位置
         targetItems.splice(targetInsertIndex, 0, movedItem);
+        console.log("contentGrid.drop.10", JSON.stringify(targetItems),JSON.stringify(bookmarksTree)) 
+
 
         // 重新渲染内容
         renderContent(currentFolder);
@@ -1318,17 +1332,18 @@ function deleteBookmark(targetBookmark) {
         if (folder.items) {
             const before = folder.items.length;
             folder.items = folder.items.filter(item => {
-                if (item.type === 'bookmark' && item === targetBookmark) {
+                if (item.type === 'bookmark'&& item.url === targetBookmark.url &&item.title === targetBookmark.title) {
                     return false;
-                } else if (item.type === 'folder' && removeFromFolder(item)) {
-                    return false;
+                } else if (item.type === 'folder') {
+                    removeFromFolder(item);
                 }
                 return true;
             });
-            if (before !== folder.items.length) return true;
+            return before !== folder.items.length;
         }
         return false;
     }
+    console.log('删除书签:', targetBookmark);
     // if (confirm('确定要删除该书签吗？')) {
     removeFromFolder(bookmarksTree);
     renderContent(currentFolder);
@@ -1435,9 +1450,9 @@ function addBookmark(parentId) {
 function findFolderById(folder, id, parent = null) {
     if (folder.id === id) return { folder, parent };
     if (folder.items) {
-        for (const item of folder.items) {
+        for (let item of folder.items) {
             if (item.type === 'folder') {
-                const res = findFolderById(item, id, folder);
+                let res = findFolderById(item, id, folder);
                 if (res) return res;
             }
         }
