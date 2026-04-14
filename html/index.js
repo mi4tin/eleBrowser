@@ -1913,8 +1913,8 @@ if (bookmarkBarContent) {
         }
 
         // 3. 处理外部链接（从浏览器或其他应用拖入）
-        const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-        if (url && isUrlValid(url)) {
+        const urlInfo =getUrlInfo(e.dataTransfer);
+        if (urlInfo.url && isUrlValid(urlInfo.url)) {
             const targetItem = e.target.closest('.bookmark-bar-item');
             
             if (targetItem) {
@@ -1932,11 +1932,11 @@ if (bookmarkBarContent) {
                         if (isRight) {
                             targetIndex++;
                         }
-                        addUrlToBookmarkBar(url, targetIndex);
+                        addUrlToBookmarkBar(urlInfo, targetIndex);
                     } else {
                         // 拖到中间区域：添加到该文件夹内
                         const targetFolderId = targetItem.dataset.id;
-                        addUrlToFolder(url, targetFolderId);
+                        addUrlToFolder(urlInfo, targetFolderId);
                     }
                 } else {
                     // 书签：添加到指定位置
@@ -1945,11 +1945,11 @@ if (bookmarkBarContent) {
                     if (!isLeft) {
                         targetIndex++;
                     }
-                    addUrlToBookmarkBar(url, targetIndex);
+                    addUrlToBookmarkBar(urlInfo, targetIndex);
                 }
             } else {
                 // 拖到空白区域：添加到书签栏末尾
-                addUrlToBookmarkBar(url, -1);
+                addUrlToBookmarkBar(urlInfo, -1);
             }
 
             // 清除样式
@@ -2019,20 +2019,26 @@ function generateUniqueId() {
 }
 
 // 添加URL到书签栏
-function addUrlToBookmarkBar(url, targetIndex) {
+function addUrlToBookmarkBar(urlInfo, targetIndex) {
     if (!bookmarksTreeData || !bookmarksTreeData.items) return;
     
-    const cleanUrl = url.trim();
-    const title = extractTitleFromUrl(cleanUrl);
+    const title = urlInfo.title||urlInfo.url;
     
     const newBookmark = {
         id: generateUniqueId(),
         type: 'bookmark',
         title: title,
-        url: cleanUrl,
+        url: urlInfo.url,
         favicon: '',
         addedAt: Date.now()
     };
+
+    // 检查是否书签已存在
+    const existingBookmark = bookmarksTreeData.items.find(item => item.url === urlInfo.url);
+    if (existingBookmark) {
+        console.log('书签已存在:', existingBookmark);
+        return;
+    }
     
     if (targetIndex === -1) {
         bookmarksTreeData.items.push(newBookmark);

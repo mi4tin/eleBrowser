@@ -62,6 +62,8 @@ module.exports = function createWindowManager(deps) {
             
             const clipboardText = require('electron').clipboard.readText();
             if (clipboardText) {
+                // console.log('粘贴板内容:', clipboardText);
+                // 可以在这里处理粘贴板内容，例如自动填充到地址栏等
                 myWindow.webContents.send('clipboard-updated', clipboardText);
             }
         };
@@ -71,6 +73,8 @@ module.exports = function createWindowManager(deps) {
             console.log('窗口失去焦点，注销快捷键');
             unregisterAppShortcuts();
             
+
+            //测试专用时，可注释
             myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
             hideFolderDropdown(myWindow);
         };
@@ -89,6 +93,7 @@ module.exports = function createWindowManager(deps) {
         myWindow.once('closed', handleClosed);
 
         myWindow.webContents.on('before-input-event', () => {
+            // 保留事件监听入口，当前无处理逻辑
         });
 
         registerAppShortcuts();

@@ -496,18 +496,29 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             const bookmarks = loadBookmarksData(null);
             if (!bookmarks) return;
 
+
+            // 找到目标文件夹并添加项目
+            const targetFolder = findFolderById(bookmarks, targetFolderId);
+            if (targetFolder) {
+                if (!targetFolder.items) {
+                    targetFolder.items = [];
+                }
+
+                //判断是否已存在
+                const existingBookmark = targetFolder.items.find(item => item.url === itemData.url);
+                if (existingBookmark) {
+                    console.log('书签已存在:', existingBookmark);
+                    return;
+                }
+                // targetFolder.items.push(movedItem);
+            }
+
             // 从任意源文件夹中移除项目
             const movedItem = findAndRemoveItem(bookmarks, itemData);
 
             if (movedItem) {
                 // 找到目标文件夹并添加项目
-                const targetFolder = findFolderById(bookmarks, targetFolderId);
-                if (targetFolder) {
-                    if (!targetFolder.items) {
-                        targetFolder.items = [];
-                    }
-                    targetFolder.items.push(movedItem);
-                }
+                targetFolder.items.push(movedItem);
 
                 // 保存书签数据
                 fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
