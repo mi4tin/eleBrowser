@@ -1824,77 +1824,7 @@ if (bookmarkBarContent) {
         // 1. 优先处理书签栏内部数据
         const internalData = e.dataTransfer.getData('application/x-bookmark-item');
         console.log("contentGrid.drop.internalData", internalData, e.dataTransfer.types);
-        if (false) {
-            try {
-                const data = JSON.parse(internalData);
-                const targetItem = e.target.closest('.bookmark-bar-item');
-
-                console.log("contentGrid.drop.data", targetItem);
-
-                if (targetItem) {
-                    const targetItemType = targetItem.dataset.itemType;
-                    
-                    // 判断鼠标在目标项的位置
-                    const rect = targetItem.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left;
-
-                    console.log("bookmarkBarContent.drop:", targetItemType);
-                    
-                    if (targetItemType === 'folder') {
-                        const isLeft = mouseX < rect.width * 0.2;
-                        const isRight = mouseX > rect.width * 0.8;
-                        
-                        if (isLeft || isRight) {
-                            // 拖到左右边缘：在同一层级排序
-                            let targetIndex = parseInt(targetItem.dataset.index);
-                            const sourceIndex = data.index;
-
-                            // 只有在不同位置才移动
-                            if (sourceIndex !== targetIndex) {
-                                // 如果是在右侧插入，目标索引需要 +1
-                                if (isRight) {
-                                    targetIndex++;
-                                }
-                                moveBookmarkBarItem(sourceIndex, targetIndex);
-                            }
-                        } else {
-                            // 拖到中间区域：移动到该文件夹内
-                            const targetFolderId = targetItem.dataset.id;
-                            ipcRenderer.send('move-bookmark-to-folder', data, targetFolderId);
-                        }
-                    } else {
-
-                        console.log("bookmarkBarContent.drop.1:", targetItemType);
-
-                        // 书签的逻辑保持不变
-                        const isLeft = mouseX < rect.width / 2;
-                        let targetIndex = parseInt(targetItem.dataset.index);
-                        const sourceIndex = data.index;
-
-                        // 只有在不同位置才移动
-                        if (sourceIndex !== targetIndex) {
-                            // 如果是在右侧插入，目标索引需要 +1
-                            if (!isLeft) {
-                                targetIndex++;
-                            }
-                            moveBookmarkBarItem(sourceIndex, targetIndex);
-                        }
-                    }
-                }
-
-                // 清除样式
-                document.querySelectorAll('.bookmark-bar-item').forEach(el => {
-                    el.classList.remove('dragging', 'drag-left', 'drag-right', 'drag-hover-folder');
-                });
-                // 清除计时器
-                clearTimeout(dragFolderDropdownTimeout);
-                dragFolderDropdownTimeout = null;
-                currentDragHoverFolder = null;
-                return;
-            } catch (err) {
-                console.error('解析书签栏拖拽数据失败:', err);
-            }
-        }
+     
 
         // 2. 处理书签管理器和下拉菜单的数据
         const bookmarkManagerData = e.dataTransfer.getData('application/x-bookmark-item');
