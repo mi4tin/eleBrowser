@@ -37,91 +37,7 @@ const defaultBookmarksTree = {
     id: 'root',
     name: '书签',
     type: 'folder',
-    items: [
-        {
-            id: 'life',
-            name: '生活',
-            type: 'folder',
-            items: [
-                {
-                    id: 'life-food',
-                    name: '美食',
-                    type: 'folder',
-                    items: []
-                },
-                {
-                    id: 'life-shopping',
-                    name: '购物',
-                    type: 'folder',
-                    items: [
-                        {
-                            type: 'bookmark',
-                            title: '淘宝',
-                            url: 'https://www.taobao.com',
-                            favicon: '🛒'
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            id: 'world-news',
-            name: '世界消息',
-            type: 'folder',
-            items: [
-                {
-                    id: 'bloomberg',
-                    name: '彭博社',
-                    type: 'folder',
-                    items: [
-                        {
-                            type: 'bookmark',
-                            title: '特朗普: 将于明年4月访华',
-                            url: 'https://baijiahao.baidu.com/s?id=123456789',
-                            favicon: '🔵'
-                        },
-                        {
-                            type: 'bookmark',
-                            title: '彭博社放风救市,地产股集体反弹!但底层数据藏着大信号...',
-                            url: 'https://mp.weixin.qq.com/s/abcdefgh',
-                            favicon: '🟢'
-                        }
-                    ]
-                },
-                {
-                    id: 'reuters',
-                    name: '路透社',
-                    type: 'folder',
-                    items: []
-                }
-            ]
-        },
-        {
-            id: 'weather',
-            name: '天气/气象',
-            type: 'folder',
-            items: [
-                {
-                    type: 'bookmark',
-                    title: '中国天气网',
-                    url: 'https://www.weather.com.cn',
-                    favicon: '☁️'
-                }
-            ]
-        },
-        {
-            id: 'travel',
-            name: '出行工具',
-            type: 'folder',
-            items: []
-        },
-        {
-            id: 'hygiene',
-            name: '家庭卫生',
-            type: 'folder',
-            items: []
-        }
-    ]
+    items: []
 };
 
 // 从本地文件加载书签数据
@@ -245,10 +161,14 @@ function setupDragEvents() {
                         return
                     }
                     console.log('文件夹已切换.1')
-                    // return
-                    selectFolder(res.folder);
-                    toggleFolder(folderId, true)
-                    // addBookmarkToFolder(res.folder, url);
+
+                    let currentRes = findFolderById(bookmarksTree, folderId);//通过id从bookmarksTree获取最新的文件夹数据，防止后续操作currentFolder，无法影响bookmarksTree
+                    if (currentRes && currentRes.folder) {
+                        // currentRes.folder.name = '新文件夹1'
+                        console.log('文件夹已切换.3')
+                        selectFolder(currentRes.folder);
+                        toggleFolder(folderId,true)
+                    }
                 }
             }, 1500)
 
@@ -264,6 +184,7 @@ function setupDragEvents() {
     });
 
     sidebar.addEventListener('drop', (e) => {
+
         return
     });
 
@@ -509,8 +430,11 @@ function setupDragEvents() {
         }
 
         // 外部链接拖拽
-        const url = e.dataTransfer.getData('text/plain');
-        if (!url) return;
+        const urlInfo = getUrlInfo(e.dataTransfer);
+        console.log("urlInfo", urlInfo)
+        if (!urlInfo.url) return;
+
+        console.log("contentGrid.drop.a1", urlInfo);
 
         const mouseY = e.clientY;
         const allCards = Array.from(contentGrid.querySelectorAll('.folder-card, .bookmark-card'));
@@ -527,10 +451,12 @@ function setupDragEvents() {
             const isTop = y < zone;
 
             // 插入书签
-            insertBookmarkAtPosition(url, card, isTop);
+            insertBookmarkAtPosition(urlInfo.url, card, isTop, e);
         } else {
+            console.log("拖拽到空白区域.2");
+            
             // 如果拖拽到空白区域，直接添加到当前文件夹
-            addBookmarkToFolder(currentFolder, url);
+            addBookmarkToFolder(currentFolder, urlInfo.url);
         }
 
         clearDragStyles();
@@ -550,7 +476,7 @@ function clearDragStyles() {
 }
 
 // 在指定位置插入书签
-function insertBookmarkAtPosition(url, card, isTop) {
+function insertBookmarkAtPosition(url, card, isTop, e) {
     // 从URL中提取标题
     let title = url;
     try {
@@ -567,24 +493,61 @@ function insertBookmarkAtPosition(url, card, isTop) {
         favicon: '🔗'
     };
 
-    // 确保当前文件夹有items数组
-    currentFolder.items = currentFolder.items || [];
-
-    // 获取contentGrid中所有子元素（文件夹卡片和书签卡片）
-    const allCards = Array.from(contentGrid.children);
-    const targetIndex = allCards.indexOf(card);
-
-    if (targetIndex === -1) {
-        // 如果找不到目标卡片，添加到末尾
-        currentFolder.items.push(newBookmark);
+    // 检查目标卡片是否是文件夹
+    const targetCardType = card.dataset.type;
+    
+    if (targetCardType === 'folder') {
+        // 检查是拖到文件夹的哪个位置
+        const rect = card.getBoundingClientRect();
+        const y = e ? e.clientY - rect.top : 0;
+        const zone = rect.height / 6;
+        
+        if (y < zone || y > rect.height - zone) {
+            // 拖到文件夹上方或下方，在当前文件夹内插入
+            currentFolder.items = currentFolder.items || [];
+            const allCards = Array.from(contentGrid.children);
+            const targetIndex = allCards.indexOf(card);
+            
+            if (targetIndex === -1) {
+                currentFolder.items.push(newBookmark);
+            } else {
+                const insertIndex = isTop ? targetIndex : targetIndex + 1;
+                currentFolder.items.splice(insertIndex, 0, newBookmark);
+            }
+            renderContent(currentFolder);
+        } else {
+            // 拖到文件夹中间，将书签添加到该文件夹内
+            const targetFolderId = card.dataset.id;
+            const targetFolderRes = findFolderById(bookmarksTree, targetFolderId);
+            if (targetFolderRes) {
+                const targetFolder = targetFolderRes.folder;
+                if (!targetFolder.items) {
+                    targetFolder.items = [];
+                }
+                targetFolder.items.push(newBookmark);
+                
+                if (currentFolder.id === targetFolderId) {
+                    renderContent(targetFolder);
+                } else {
+                    renderContent(currentFolder);
+                }
+            }
+        }
     } else {
-        // 直接在目标位置插入
-        const insertIndex = isTop ? targetIndex : targetIndex + 1;
-        currentFolder.items.splice(insertIndex, 0, newBookmark);
+        // 拖到了书签上，在当前文件夹内插入
+        currentFolder.items = currentFolder.items || [];
+        const allCards = Array.from(contentGrid.children);
+        const targetIndex = allCards.indexOf(card);
+        
+        if (targetIndex === -1) {
+            currentFolder.items.push(newBookmark);
+        } else {
+            const insertIndex = isTop ? targetIndex : targetIndex + 1;
+            currentFolder.items.splice(insertIndex, 0, newBookmark);
+        }
+        renderContent(currentFolder);
     }
 
-    // 重新渲染内容
-    renderContent(currentFolder);
     // 保存书签
     saveBookmarks();
 
@@ -652,6 +615,7 @@ function moveItemToPosition(data, card, isTop, e) {
         const zone = rect.height / 6;
         
         if (y < zone || y > rect.height - zone) {
+            console.log("拖拽到文件夹上方或下方", data, card, isTop, e) 
             // 拖到文件夹上方或下方，在当前文件夹内插入
             const targetItems = currentFolder.items || [];
             let targetInsertIndex = isTop ? targetIndex : targetIndex + 1;
@@ -846,6 +810,8 @@ function renderTreeItem(item, level) {
             internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
             isBookmarkBarItem = true;
         }
+        
+        console.log("contentEl.drop.0",internalData, e.dataTransfer.types)
 
         if (internalData) {
             try {
@@ -879,7 +845,7 @@ function renderTreeItem(item, level) {
                         sourceIndex = sourceItems.findIndex(item => item.type === 'bookmark' && (item.id === data.id || item.url === data.id));
                     }
 
-                    console.log("contentGrid.drop.1", data,sourceItems[sourceIndex], sourceIndex);
+                    console.log("contentEl.drop.1", sourceItems,data,sourceIndex);
                     if (sourceIndex !== -1) {
                         // 检查是否是拖到自己身上或自己的子文件夹中,item是目标文件夹
                         const isSelfDrag = data.id === item.id;
@@ -899,7 +865,8 @@ function renderTreeItem(item, level) {
                         const y = e.clientY - rect.top;
                         const zone = rect.height / 6;
 
-                        if (y < zone || y > rect.height - zone) {
+                        if (false) {//y < zone || y > rect.height - zone
+                            console.log("contentEl.drop.3", item);
                             // 拖到文件夹上方或下方，插入到父文件夹中
                             const folderRes = findFolderById(bookmarksTree, item.id);
                             if (folderRes && folderRes.parent) {
@@ -914,6 +881,7 @@ function renderTreeItem(item, level) {
                                 }
                             }
                         } else {
+                            console.log("contentEl.drop.2", item);//下拉书签拖不进来
                             // 拖到文件夹中间，添加到目标文件夹
                             if (!item.items) {
                                 item.items = [];

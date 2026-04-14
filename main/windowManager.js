@@ -13,7 +13,7 @@ module.exports = function createWindowManager(deps) {
     } = deps;
 
     function newWindow() {
-        const iconPath = appRootDir + '/assets/icon.ico';
+        const iconPath = appRootDir + '/assets/ico2.ico';
         console.log('icon', iconPath);
 
         const myWindow = new BrowserWindow({
@@ -73,9 +73,9 @@ module.exports = function createWindowManager(deps) {
             console.log('窗口失去焦点，注销快捷键');
             unregisterAppShortcuts();
             
-            //测试注释
-            // myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
-            // hideFolderDropdown(myWindow);
+            //测试专用注释
+            myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
+            hideFolderDropdown(myWindow);
         });
 
         myWindow.on('closed', () => {

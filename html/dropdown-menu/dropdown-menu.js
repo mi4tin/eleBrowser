@@ -80,6 +80,7 @@ function showFolderDropdown() {
     }
 
    
+    console.log('showFolderDropdown:', folderData);
 
     // 渲染每个项目
     items.forEach((item, index) => {
@@ -192,7 +193,7 @@ function showFolderDropdown() {
         }
 
         // 添加拖拽事件
-        addDragEventsToItem(itemEl, item, index);
+        addDragEventsToItem(itemEl, item, index,folderData.id);
 
         folderDropdownContent.appendChild(itemEl);
     });
@@ -211,7 +212,7 @@ function hideFolderDropdown() {
 }
 
 // 为项目添加拖拽事件
-function addDragEventsToItem(itemEl, item, index) {
+function addDragEventsToItem(itemEl, item, index,parentFolderId) {
     // 拖拽开始
     itemEl.addEventListener('dragstart', (e) => {
         e.stopPropagation();
@@ -224,13 +225,16 @@ function addDragEventsToItem(itemEl, item, index) {
                 name: item.name
             };
         } else {
+            console.log('dragstart.书签:', item,parentFolderId);
+            
             dragData = {
                 type: 'internal',
                 itemType: 'bookmark',
                 id: item.id || item.url,
                 title: item.title,
                 url: item.url,
-                favicon: item.favicon
+                favicon: item.favicon,
+                sourceFolderId: parentFolderId
             };
         }
         e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify(dragData));
