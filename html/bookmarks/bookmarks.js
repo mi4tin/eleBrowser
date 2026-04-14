@@ -122,6 +122,9 @@ function setupEventListeners() {
     setupDragEvents();
 }
 
+let lastDragFolderId = ''
+let lastDragTimeOut = 0;
+
 // 设置拖拽事件
 function setupDragEvents() {
     //清理计数器，防止延迟前的拖拽事件
@@ -182,19 +185,12 @@ function setupDragEvents() {
             treeItem.style.backgroundColor = '';
         }
     });
-
-    sidebar.addEventListener('drop', (e) => {
-
-        return
-    });
-
+    
     function resetDrag(){
         lastDragFolderId = ''
         clearTimeout(lastDragTimeOut)//清理上次计时器
     }
 
-    let lastDragFolderId = ''
-    let lastDragTimeOut = 0;
     // 内容区域拖拽事件 - 合并文件夹导航和插入功能
     contentGrid.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -331,34 +327,33 @@ function setupDragEvents() {
         // 检查是否是内部拖拽（支持多种数据格式）
         let internalData = e.dataTransfer.getData('application/x-bookmark-item');
         let data = null;
-        let isBookmarkBarItem = false;
+        // let isBookmarkBarItem = false;
         
         // 如果没有找到，尝试书签栏格式
-        if (!internalData) {
-            internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
-            isBookmarkBarItem = true;
-        }
+        // if (!internalData) {
+        //     internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+        //     isBookmarkBarItem = true;
+        // }
         
-        console.log("contentGrid.drop.internalData", internalData, isBookmarkBarItem);
-        console.log("contentGrid.drop.internalData1", e.dataTransfer.types);
+        console.log("contentGrid.drop.internalData", internalData, e.dataTransfer.types);
         
         if (internalData) {
             try {
                 data = JSON.parse(internalData);
                 
                 // 处理书签栏项目
-                if (isBookmarkBarItem) {
-                    // 构建标准的内部数据格式
-                    const bookmarkBarData = data;
-                    data = {
-                        type: 'internal',
-                        itemType: bookmarkBarData.itemType,
-                        id: bookmarkBarData.id,
-                        sourceFolderId: 'root' // 书签栏项目默认在根目录
-                    };
-                }
+                // if (isBookmarkBarItem) {
+                //     // 构建标准的内部数据格式
+                //     const bookmarkBarData = data;
+                //     data = {
+                //         type: 'internal',
+                //         itemType: bookmarkBarData.itemType,
+                //         id: bookmarkBarData.id,
+                //         sourceFolderId: 'root' // 书签栏项目默认在根目录
+                //     };
+                // }
                 
-                if (data.type === 'internal' || isBookmarkBarItem) {
+                if (data.type === 'internal') {
                     // 找到被拖拽到的卡片
                     const card = e.target.closest('.folder-card, .bookmark-card');
                     if (card) {
@@ -450,13 +445,13 @@ function setupDragEvents() {
             const zone = rect.height / 6;
             const isTop = y < zone;
 
-            // 插入书签
-            insertBookmarkAtPosition(urlInfo.url, card, isTop, e);
+            // 插入书签 todo 支持传标题
+            insertBookmarkAtPosition(urlInfo, card, isTop, e);
         } else {
             console.log("拖拽到空白区域.2");
             
             // 如果拖拽到空白区域，直接添加到当前文件夹
-            addBookmarkToFolder(currentFolder, urlInfo.url);
+            addBookmarkToFolder(currentFolder, urlInfo);
         }
 
         clearDragStyles();
@@ -475,16 +470,13 @@ function clearDragStyles() {
     });
 }
 
-// 在指定位置插入书签
-function insertBookmarkAtPosition(url, card, isTop, e) {
+// 在指定位置添加书签
+function insertBookmarkAtPosition(urlInfo, card, isTop, e) {
     // 从URL中提取标题
-    let title = url;
-    try {
-        const urlObj = new URL(url);
-        title = urlObj.hostname;
-    } catch (e) {
-        // URL解析失败，使用原始URL作为标题
-    }
+    let url = urlInfo.url;
+    let title = urlInfo.title||url;
+
+    console.log("insertBookmarkAtPosition", urlInfo, url,title)
 
     const newBookmark = {
         type: 'bookmark',
@@ -524,6 +516,15 @@ function insertBookmarkAtPosition(url, card, isTop, e) {
                 if (!targetFolder.items) {
                     targetFolder.items = [];
                 }
+
+                //判断是否已存在相同书签
+                const existingBookmark = targetFolder.items.find(item => item.type === 'bookmark' && item.url === url);
+                if (existingBookmark) {
+                    clearTimeout(lastDragTimeOut)//清理上次计时器
+                    showNotification('该书签已存在');
+                    return;
+                }
+
                 targetFolder.items.push(newBookmark);
                 
                 if (currentFolder.id === targetFolderId) {
@@ -601,13 +602,11 @@ function moveItemToPosition(data, card, isTop, e) {
         showNotification('不能将文件夹拖到自身或其子文件夹中');
         return;
     }
-
-    // 从源位置移除项目
-    const [movedItem] = sourceItems.splice(sourceIndex, 1);
-
+    
     // 检查目标卡片是否是文件夹
     // targetCardType = card.dataset.type;
     if (targetCardType === 'folder') {
+        
         console.log("contentGrid.drop.6", data, card, isTop, e) 
         // 检查是拖到文件夹的哪个位置
         const rect = card.getBoundingClientRect();
@@ -625,12 +624,16 @@ function moveItemToPosition(data, card, isTop, e) {
                 targetInsertIndex--;
             }
 
+            // 从源位置移除项目
+            const [movedItem] = sourceItems.splice(sourceIndex, 1);
+
             // 插入到目标位置
             targetItems.splice(targetInsertIndex, 0, movedItem);
 
             // 重新渲染内容
             renderContent(currentFolder);
         } else {
+            
             console.log("contentGrid.drop.7", data, card, isTop, e) 
             // 拖到文件夹中间，将项目移动到该文件夹内
             const targetFolderId = card.dataset.id;
@@ -640,6 +643,17 @@ function moveItemToPosition(data, card, isTop, e) {
                 if (!targetFolder.items) {
                     targetFolder.items = [];
                 }
+                
+                //判断是否已存在相同书签
+                const existingBookmark = targetFolder.items.find(item => item.type === 'bookmark' && item.url === data.id);
+                if (existingBookmark) {
+                    clearTimeout(lastDragTimeOut)//清理上次计时器
+                    showNotification('该书签已存在');
+                    return;
+                }
+
+                // 从源位置移除项目
+                const [movedItem] = sourceItems.splice(sourceIndex, 1);
                 targetFolder.items.push(movedItem);
                 
                 // 重新渲染内容（如果当前显示的是目标文件夹，就渲染它）
@@ -651,6 +665,9 @@ function moveItemToPosition(data, card, isTop, e) {
             }
         }
     } else {
+
+        // 从源位置移除项目
+        const [movedItem] = sourceItems.splice(sourceIndex, 1);
         console.log("contentGrid.drop.8", JSON.stringify(sourceItems)) 
         // 拖到了书签上，在当前文件夹内排序
         
@@ -685,18 +702,19 @@ function moveItemToPosition(data, card, isTop, e) {
 }
 
 // 添加书签到指定文件夹
-function addBookmarkToFolder(folder, url) {
-    if (!url) return;
-
-    let title = url;
-    try {
-        const urlObj = new URL(url);
-        title = urlObj.hostname;
-    } catch (e) {
-        // URL 解析失败，使用原始 URL 作为标题
-    }
-
+function addBookmarkToFolder(folder, urlInfo) {
+    if (!urlInfo.url) return;
+    
+    let url = urlInfo.url;
+    let title = urlInfo.title||url;
     folder.items = folder.items || [];
+    //判断是否已存在书签
+    const existingBookmark = folder.items.find(item => item.type === 'bookmark' && item.url === url);
+    if (existingBookmark) {
+        showNotification('书签已存在');
+        return;
+    }
+    
     folder.items.push({
         type: 'bookmark',
         title: title,
@@ -803,13 +821,13 @@ function renderTreeItem(item, level) {
         // 检查是否是内部拖拽（支持多种数据格式）
         let internalData = e.dataTransfer.getData('application/x-bookmark-item');
         let data = null;
-        let isBookmarkBarItem = false;
+        // let isBookmarkBarItem = false;
         
-        // 如果没有找到，尝试书签栏格式
-        if (!internalData) {
-            internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
-            isBookmarkBarItem = true;
-        }
+        // // 如果没有找到，尝试书签栏格式
+        // if (!internalData) {
+        //     internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+        //     isBookmarkBarItem = true;
+        // }
         
         console.log("contentEl.drop.0",internalData, e.dataTransfer.types)
 
@@ -818,18 +836,19 @@ function renderTreeItem(item, level) {
                 data = JSON.parse(internalData);
                 
                 // 处理书签栏项目
-                if (isBookmarkBarItem) {
-                    // 构建标准的内部数据格式
-                    const bookmarkBarData = data;
-                    data = {
-                        type: 'internal',
-                        itemType: bookmarkBarData.itemType,
-                        id: bookmarkBarData.id,
-                        sourceFolderId: 'root' // 书签栏项目默认在根目录
-                    };
-                }
+                // if (isBookmarkBarItem) {
+                //     // 构建标准的内部数据格式
+                //     // const bookmarkBarData = data;
+                //     // data = {
+                //     //     type: 'internal',
+                //     //     itemType: bookmarkBarData.itemType,
+                //     //     id: bookmarkBarData.id,
+                //     //     sourceFolderId: 'root', // 书签栏项目默认在根目录
+                //     //     url: bookmarkBarData.url,
+                //     // };
+                // }
                 
-                if (data.type === 'internal' || isBookmarkBarItem) {
+                if (data.type === 'internal') {
                     // 找到源文件夹
                     const sourceFolderId = data.sourceFolderId || 'root';
                     const sourceRes = findFolderById(bookmarksTree, sourceFolderId);
@@ -857,37 +876,30 @@ function renderTreeItem(item, level) {
                             return;
                         }
                         
-                        // 从源位置移除项目
-                        const [movedItem] = sourceItems.splice(sourceIndex, 1);
+                        
 
                         // 检查拖拽位置，决定是移到文件夹内还是插入到文件夹上下方
                         const rect = contentEl.getBoundingClientRect();
                         const y = e.clientY - rect.top;
                         const zone = rect.height / 6;
 
-                        if (false) {//y < zone || y > rect.height - zone
-                            console.log("contentEl.drop.3", item);
-                            // 拖到文件夹上方或下方，插入到父文件夹中
-                            const folderRes = findFolderById(bookmarksTree, item.id);
-                            if (folderRes && folderRes.parent) {
-                                const parentFolder = folderRes.parent;
-                                const parentItems = parentFolder.items || [];
-                                const targetIndex = parentItems.findIndex(child => child.id === item.id);
-                                
-                                if (targetIndex !== -1) {
-                                    // 计算插入位置
-                                    const insertIndex = y < zone ? targetIndex : targetIndex + 1;
-                                    parentItems.splice(insertIndex, 0, movedItem);
-                                }
-                            }
-                        } else {
-                            console.log("contentEl.drop.2", item);//下拉书签拖不进来
+                        console.log("contentEl.drop.2", item);//下拉书签拖不进来
                             // 拖到文件夹中间，添加到目标文件夹
                             if (!item.items) {
                                 item.items = [];
                             }
+                            
+                            //判断是否已存在相同书签
+                            const existingBookmark = item.items.find(item => item.type === 'bookmark' && item.url === data.url);
+                            if (existingBookmark) {
+                                clearTimeout(lastDragTimeOut)//清理上次计时器
+                                showNotification('该书签已存在');
+                                return;
+                            }
+
+                            // 从源位置移除项目
+                        const [movedItem] = sourceItems.splice(sourceIndex, 1);
                             item.items.push(movedItem);
-                        }
 
                         // 重新渲染树形结构和内容
                         renderTree();
@@ -902,6 +914,43 @@ function renderTreeItem(item, level) {
                 console.error('解析内部拖拽数据失败.2:', err);
             }
         }
+        
+        // 外部链接拖拽
+        const urlInfo = getUrlInfo(e.dataTransfer);
+        console.log("contentEl.urlInfo", urlInfo)
+        if (!urlInfo.url) return;
+
+        console.log("contentGrid.drop.a1", urlInfo);
+        
+         const newBookmark = {
+            type: 'bookmark',
+            title: urlInfo.title||urlInfo.url,
+            url: urlInfo.url,
+            favicon: '🔗'
+            };
+
+        if (!item.items) {
+            item.items = [];
+        }
+
+        //判断是否已存在相同书签
+        const existingBookmark = item.items.find(item => item.type === 'bookmark' && item.url === newBookmark.url);
+        if (existingBookmark) {
+            clearTimeout(lastDragTimeOut)//清理上次计时器
+            showNotification('该书签已存在');
+            return;
+        }
+
+        item.items.push(newBookmark);
+ // 重新渲染树形结构和内容
+        renderTree();
+        renderContent(currentFolder);
+        
+        // 保存书签
+        saveBookmarks();
+        showNotification('书签添加成功');
+        // clearDragStyles();
+
     });
 
     // 添加展开/折叠事件

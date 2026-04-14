@@ -505,7 +505,7 @@ folderDropdownContent.addEventListener('drop', (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
+    const internalData = e.dataTransfer.getData('application/x-bookmark-item');
     if (internalData) {
         try {
             const data = JSON.parse(internalData);

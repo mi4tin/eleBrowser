@@ -1548,10 +1548,14 @@ async function renderBookmarkBar() {
             // 拖拽开始
             itemEl.addEventListener('dragstart', (e) => {
                 e.stopPropagation();
-                e.dataTransfer.setData('application/x-bookmark-bar-item', JSON.stringify({
+                console.log("开始拖动.1:", item);
+                
+                e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
+                    type: 'internal',
                     index: index,
                     itemType: item.type,
-                    id: item.type === 'folder' ? item.id : (item.id || item.url)
+                    id: item.id || item.url,//书签没有id
+                    url: item.url
                 }));
                 e.dataTransfer.effectAllowed = 'move';
                 itemEl.classList.add('dragging');
@@ -1818,11 +1822,14 @@ if (bookmarkBarContent) {
         e.stopPropagation();
 
         // 1. 优先处理书签栏内部数据
-        const internalData = e.dataTransfer.getData('application/x-bookmark-bar-item');
-        if (internalData) {
+        const internalData = e.dataTransfer.getData('application/x-bookmark-item');
+        console.log("contentGrid.drop.internalData", internalData, e.dataTransfer.types);
+        if (false) {
             try {
                 const data = JSON.parse(internalData);
                 const targetItem = e.target.closest('.bookmark-bar-item');
+
+                console.log("contentGrid.drop.data", targetItem);
 
                 if (targetItem) {
                     const targetItemType = targetItem.dataset.itemType;
@@ -1830,6 +1837,8 @@ if (bookmarkBarContent) {
                     // 判断鼠标在目标项的位置
                     const rect = targetItem.getBoundingClientRect();
                     const mouseX = e.clientX - rect.left;
+
+                    console.log("bookmarkBarContent.drop:", targetItemType);
                     
                     if (targetItemType === 'folder') {
                         const isLeft = mouseX < rect.width * 0.2;
@@ -1854,6 +1863,9 @@ if (bookmarkBarContent) {
                             ipcRenderer.send('move-bookmark-to-folder', data, targetFolderId);
                         }
                     } else {
+
+                        console.log("bookmarkBarContent.drop.1:", targetItemType);
+
                         // 书签的逻辑保持不变
                         const isLeft = mouseX < rect.width / 2;
                         let targetIndex = parseInt(targetItem.dataset.index);
