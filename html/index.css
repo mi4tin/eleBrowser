@@ -200,6 +200,7 @@ body {
     order: 100; /* 确保按钮总是在最后 */
     flex-shrink: 0; /* 防止按钮被压缩 */
     flex-grow: 0; /* 防止按钮扩展 */
+    user-select: none;
 }
 #add-tab:hover {
     background-color: #d0d0d0;

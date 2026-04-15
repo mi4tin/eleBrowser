@@ -676,6 +676,19 @@ addTabBtn.addEventListener('click', () => {
     createTab();
 });
 
+tabsContainer.addEventListener('dblclick', async (event) => {
+    if (event.target.closest('.tab') || event.target.closest('#add-tab')) {
+        return;
+    }
+
+    const isMaximized = await ipcRenderer.invoke('window-is-maximized');
+    if (isMaximized) {
+        await ipcRenderer.invoke('window-unmaximize');
+    } else {
+        await ipcRenderer.invoke('window-maximize');
+    }
+});
+
 backBtn.addEventListener('click', async () => {
     if (currentTabId == null) return;
 
