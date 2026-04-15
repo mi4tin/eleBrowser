@@ -20,7 +20,7 @@ module.exports = function createWindowManager(deps) {
             width: 1000,
             height: 700,
             frame: true,//标题栏设置
-            titleBarStyle: 'hidden',
+            // titleBarStyle: 'hidden',
             titleBarOverlay: {
                 color: '#f3f3f3',
                 symbolColor: '#333333',
