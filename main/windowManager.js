@@ -19,8 +19,8 @@ module.exports = function createWindowManager(deps) {
         const myWindow = new BrowserWindow({
             width: 1000,
             height: 700,
-            frame: true,//标题栏设置
-            // titleBarStyle: 'hidden',
+            frame: false,//标题栏设置
+            titleBarStyle: 'hidden',//标题栏设置，这个起决定作用
             titleBarOverlay: {
                 color: '#f3f3f3',
                 symbolColor: '#333333',
