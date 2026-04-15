@@ -4,6 +4,7 @@
     padding: 0;
 }
 body {
+    --native-window-controls-width: 138px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
     overflow: hidden;
 }
@@ -14,7 +15,8 @@ body {
     align-items: flex-start;
     background: #f3f3f3;
     border-bottom: 1px solid #ddd;
-    padding: 0 8px;
+    padding: 0 var(--native-window-controls-width) 0 8px;
+    -webkit-app-region: drag;
 
     /* 确保标签容器不会无限扩展 */
     min-width: 0;
@@ -201,6 +203,18 @@ body {
 }
 #add-tab:hover {
     background-color: #d0d0d0;
+}
+#tabs {
+    display: flex;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    -webkit-app-region: no-drag;
+
+    /* 确保加号按钮在末尾 */
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: flex-start;
 }
 /* 书签栏 */
 .bookmark-bar-container {

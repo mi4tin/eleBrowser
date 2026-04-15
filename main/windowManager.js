@@ -13,12 +13,19 @@ module.exports = function createWindowManager(deps) {
     } = deps;
 
     function newWindow() {
-        const iconPath = appRootDir + '/assets/ico2.ico';
+        const iconPath = appRootDir + '/assets/ico1.png';
         console.log('icon', iconPath);
 
         const myWindow = new BrowserWindow({
             width: 1000,
             height: 700,
+            frame: true,//标题栏设置
+            titleBarStyle: 'hidden',
+            titleBarOverlay: {
+                color: '#f3f3f3',
+                symbolColor: '#333333',
+                height: 39
+            },
             // x: 0,
             // y: 100,
             icon: iconPath,
@@ -38,6 +45,14 @@ module.exports = function createWindowManager(deps) {
 
         myWindow.webContents.once('did-finish-load', () => {
             console.log('主窗口加载完成，创建书签栏下拉菜单');
+        });
+
+        // 监听窗口最大化/还原状态变化
+        myWindow.on('maximize', () => {
+            myWindow.webContents.send('window-maximized');
+        });
+        myWindow.on('unmaximize', () => {
+            myWindow.webContents.send('window-unmaximized');
         });
 
         const handleResize = () => {

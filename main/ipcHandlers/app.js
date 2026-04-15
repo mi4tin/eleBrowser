@@ -182,4 +182,41 @@ module.exports = function registerAppIpcHandlers(deps) {
             });
         }
     });
+
+    // 窗口控制IPC处理
+    ipcMain.handle('window-minimize', (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender);
+        if (window) {
+            window.minimize();
+        }
+    });
+
+    ipcMain.handle('window-maximize', (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender);
+        if (window) {
+            window.maximize();
+        }
+    });
+
+    ipcMain.handle('window-unmaximize', (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender);
+        if (window) {
+            window.unmaximize();
+        }
+    });
+
+    ipcMain.handle('window-is-maximized', (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender);
+        if (window) {
+            return window.isMaximized();
+        }
+        return false;
+    });
+
+    ipcMain.handle('window-close', (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender);
+        if (window) {
+            window.close();
+        }
+    });
 };
