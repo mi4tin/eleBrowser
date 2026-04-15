@@ -145,6 +145,7 @@ body {
     text-overflow: ellipsis;
     margin-bottom: 2px; /* 为换行留出空间 */
     justify-content: space-between; /* 内容两端对齐，使关闭按钮在最右边 */
+    -webkit-app-region: no-drag;
 }
 .tab.active {
     background: #ffffff;
@@ -201,6 +202,7 @@ body {
     flex-shrink: 0; /* 防止按钮被压缩 */
     flex-grow: 0; /* 防止按钮扩展 */
     user-select: none;
+    -webkit-app-region: no-drag;
 }
 #add-tab:hover {
     background-color: #d0d0d0;
@@ -210,7 +212,7 @@ body {
     flex: 1 1 auto;
     overflow-x: hidden;
     overflow-y: hidden;
-    -webkit-app-region: no-drag;
+    -webkit-app-region: drag;
 
     /* 确保加号按钮在末尾 */
     justify-content: flex-start;
