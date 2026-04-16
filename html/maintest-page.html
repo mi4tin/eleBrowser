@@ -3,17 +3,67 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>maintest — titleBarOverlay + DevTools</title>
+    <title>maintest — 自定义标题栏 + DevTools</title>
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: system-ui, sans-serif;
             padding: 16px;
-            padding-top: 48px;
+            padding-top: 0;
             background: #f3f3f3;
-            -webkit-app-region: drag;
         }
+        
+        /* 自定义标题栏样式 */
+        .custom-titlebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 39px;
+            background: #f3f3f3;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            -webkit-app-region: drag;
+            z-index: 1000;
+        }
+        
+        .titlebar-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .titlebar-controls {
+            display: flex;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+        }
+
+        .titlebar-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .titlebar-btn:hover {
+            opacity: 0.8;
+        }
+
+        .titlebar-btn.close { background: #ff5f57; }
+        .titlebar-btn.minimize { background: #ffbd2e; }
+        .titlebar-btn.maximize { background: #28ca42; }
+        
+        .content {
+            margin-top: 48px;
+        }
+        
         h1 { font-size: 18px; margin: 0 0 12px; }
         p { margin: 8px 0; line-height: 1.5; color: #333; }
         code { background: #e8e8e8; padding: 2px 6px; border-radius: 4px; }
@@ -22,15 +72,41 @@
     </style>
 </head>
 <body>
-    <h1>titleBarOverlay + DevTools 复现页</h1>
-    <p>顶部区域可拖动窗口（<code>-webkit-app-region: drag</code>）。</p>
-    <p>请用菜单 <strong>「DevTools 测试」</strong> 或快捷键：</p>
-    <ul>
-        <li><code>F5</code> — <code>right</code></li>
-        <li><code>F6</code> — <code>bottom</code></li>
-        <li><code>F7</code> — <code>left</code></li>
-        <li><code>F8</code> — <code>detach</code></li>
-    </ul>
-    <p class="hint">再开一个「无 overlay 对照窗」，对比同一快捷键下 <code>right</code> 是否仍会从停靠退回 detach。</p>
+    <!-- 自定义标题栏 -->
+    <div class="custom-titlebar">
+        <div class="titlebar-title">自定义标题栏测试</div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn minimize" onclick="window.electronAPI?.minimize()"></button>
+            <button class="titlebar-btn maximize" onclick="window.electronAPI?.maximize()"></button>
+            <button class="titlebar-btn close" onclick="window.electronAPI?.close()"></button>
+        </div>
+    </div>
+    
+    <div class="content">
+        <h1>自定义标题栏 + DevTools 测试页</h1>
+        <p>使用自定义标题栏替代 titleBarOverlay，解决右停靠冲突问题。</p>
+        <p>请用菜单 <strong>「DevTools 测试」</strong> 或快捷键：</p>
+        <ul>
+            <li><code>F5</code> — <code>right</code> (现在应该可以正常停靠)</li>
+            <li><code>F6</code> — <code>bottom</code></li>
+            <li><code>F7</code> — <code>left</code></li>
+            <li><code>F8</code> — <code>detach</code></li>
+        </ul>
+        <p class="hint">自定义标题栏避免了 titleBarOverlay 的布局冲突，右停靠功能应该可以正常使用。</p>
+    </div>
+    
+    <script>
+        // 预加载脚本注入的 API
+        if (window.electronAPI) {
+            console.log('Electron API 已加载');
+        } else {
+            // 降级处理：如果没有预加载脚本，使用默认行为
+            window.electronAPI = {
+                minimize: () => console.log('最小化窗口'),
+                maximize: () => console.log('最大化窗口'),
+                close: () => console.log('关闭窗口')
+            };
+        }
+    </script>
 </body>
 </html>
