@@ -20,15 +20,18 @@ module.exports = function createWindowManager(deps) {
             width: 1000,
             height: 700,
             frame: false,//标题栏设置
-            // titleBarStyle: 'hidden',//标题栏设置，这个起决定作用
-            // titleBarOverlay: {
-            //     color: '#f3f3f3',
-            //     symbolColor: '#333333',
-            //     height: 39
-            // },
+            titleBarStyle: 'hidden',//标题栏设置，这个起决定作用
+            titleBarOverlay: {
+                color: '#f3f3f3',
+                symbolColor: '#333333',
+                height: 39
+            },
+            // roundedCorners: false,
             // x: 0,
             // y: 100,
             icon: iconPath,
+// thickFrame: false,
+// roundedCorners: false,
             webPreferences: {
                 nodeIntegration: true,
                 contextIsolation: false,
