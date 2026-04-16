@@ -21,11 +21,11 @@ module.exports = function createWindowManager(deps) {
             height: 700,
             frame: false,//标题栏设置
             titleBarStyle: 'hidden',//标题栏设置，这个起决定作用
-            titleBarOverlay: {
-                color: '#f3f3f3',
-                symbolColor: '#333333',
-                height: 39
-            },
+            // titleBarOverlay: {
+            //     color: '#f3f3f3',
+            //     symbolColor: '#333333',
+            //     height: 39
+            // },
             // roundedCorners: false,
             // x: 0,
             // y: 100,
@@ -46,15 +46,7 @@ module.exports = function createWindowManager(deps) {
         setupProtocolBlocking(myWindow.webContents);
         myWindow.loadFile('html/index.html');
 
-
-        // 假设你的自定义最大化按钮在窗口右上角，距离右边界和上边界各8像素
-    // 获取窗口的原生句柄
-    const winHandle = myWindow.getNativeWindowHandle();
-
-    // 调用setSheetOffset，传入按钮位置信息
-    // 参数顺序: (offsetTop, offsetRight, offsetLeft, offsetBottom)
-    // 这里设置按钮位于顶部右侧
-    myWindow.setSheetOffset(8, 8);
+        
 
         myWindow.webContents.once('did-finish-load', () => {
             console.log('主窗口加载完成，创建书签栏下拉菜单');
