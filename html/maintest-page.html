@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>maintest — titleBarOverlay + DevTools</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, sans-serif;
+            padding: 16px;
+            padding-top: 48px;
+            background: #f3f3f3;
+            -webkit-app-region: drag;
+        }
+        h1 { font-size: 18px; margin: 0 0 12px; }
+        p { margin: 8px 0; line-height: 1.5; color: #333; }
+        code { background: #e8e8e8; padding: 2px 6px; border-radius: 4px; }
+        ul { margin: 8px 0; padding-left: 20px; }
+        .hint { font-size: 13px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>titleBarOverlay + DevTools 复现页</h1>
+    <p>顶部区域可拖动窗口（<code>-webkit-app-region: drag</code>）。</p>
+    <p>请用菜单 <strong>「DevTools 测试」</strong> 或快捷键：</p>
+    <ul>
+        <li><code>F5</code> — <code>right</code></li>
+        <li><code>F6</code> — <code>bottom</code></li>
+        <li><code>F7</code> — <code>left</code></li>
+        <li><code>F8</code> — <code>detach</code></li>
+    </ul>
+    <p class="hint">再开一个「无 overlay 对照窗」，对比同一快捷键下 <code>right</code> 是否仍会从停靠退回 detach。</p>
+</body>
+</html>
