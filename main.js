@@ -1367,7 +1367,7 @@ const template = [
                         const currentView = browserViews.get(lastActiveTabId);
                         console.log('打开开发者工具777:', lastActiveTabId);
                         if (currentView && currentView.webContents) {
-                            currentView.webContents.openDevTools();//right, bottom, detach
+                            currentView.webContents.openDevTools();
                         }
                     } else {
                         // 如果没有活动的BrowserView，就在主窗口打开
