@@ -219,6 +219,17 @@ body {
     flex-wrap: wrap;
     align-items: flex-start;
 }
+#tab-drop-zone {
+    flex: 1 1 48px;
+    min-width: 48px;
+    min-height: 34px;
+    order: 101;
+}
+.toolbar.toolbar-drop-active,
+.toolbar.toolbar-drop-active #tabs,
+.toolbar.toolbar-drop-active #tab-drop-zone {
+    -webkit-app-region: no-drag;
+}
 /* 书签栏 */
 .bookmark-bar-container {
     height: 50px;

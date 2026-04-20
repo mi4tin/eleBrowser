@@ -1,6 +1,7 @@
 const { ipcRenderer } = require('electron');
 
 const DEFAULT_URL = "https://www.baidu.com"// "file:///F:/DEV/Code/gitee.com/eleBrowser/html/bookmarks/bookmarks.html"//https://www.baidu.com"//'https://wx.mail.qq.com/';
+const toolbar = document.getElementById('toolbar');
 const tabsContainer = document.getElementById('tabs');
 const addTabBtn = document.getElementById('add-tab');
 const addressInput = document.getElementById('address-input');
@@ -9,6 +10,55 @@ const goBtn = document.getElementById('address-go');
 const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
+let toolbarDropModeTimer = null;
+
+function isExternalLinkDrag(dataTransfer) {
+    if (!dataTransfer) return false;
+
+    const types = Array.from(dataTransfer.types || []);
+    if (types.includes('application/x-bookmark-item')) {
+        return false;
+    }
+
+    return types.includes('text/uri-list') || types.includes('text/plain');
+}
+
+function setToolbarDropMode(enabled) {
+    if (!toolbar) return;
+    toolbar.classList.toggle('toolbar-drop-active', enabled);
+}
+
+function refreshToolbarDropMode() {
+    setToolbarDropMode(true);
+    clearTimeout(toolbarDropModeTimer);
+    toolbarDropModeTimer = setTimeout(() => {
+        setToolbarDropMode(false);
+    }, 150);
+}
+
+document.addEventListener('dragenter', (e) => {
+    if (isExternalLinkDrag(e.dataTransfer)) {
+        refreshToolbarDropMode();
+    }
+});
+
+document.addEventListener('dragover', (e) => {
+    if (isExternalLinkDrag(e.dataTransfer)) {
+        refreshToolbarDropMode();
+    }
+});
+
+document.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget) {
+        clearTimeout(toolbarDropModeTimer);
+        setToolbarDropMode(false);
+    }
+});
+
+document.addEventListener('drop', () => {
+    clearTimeout(toolbarDropModeTimer);
+    setToolbarDropMode(false);
+});
 
 
 /** 应用URL映射，用于从应用URL到浏览器URL的映射 
@@ -1210,7 +1260,7 @@ addressInput.addEventListener('dragstart', (e) => {
 });
 
 // 为标签栏添加放置事件监听器
-tabsContainer.addEventListener('dragover', (e) => {
+toolbar.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
 
@@ -1223,7 +1273,7 @@ tabsContainer.addEventListener('dragover', (e) => {
     }
 });
 
-tabsContainer.addEventListener('drop', (e) => {
+toolbar.addEventListener('drop', (e) => {
     e.preventDefault();
     const url = e.dataTransfer.getData('text/plain');
     console.log(" 拖动结束:", url)

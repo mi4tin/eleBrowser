@@ -10,9 +10,11 @@
 </head>
 
 <body>
-<div class="toolbar">
+<div class="toolbar" id="toolbar">
     <div id="tabs">
         <button id="add-tab">+</button>
+        <div id="tab-drop-zone" aria-hidden="true"></div>
+      
     </div>
 </div>
 <div class="address-bar">
@@ -23,7 +25,7 @@
     </div>
     <div class="address-input-container">
         <span id="address-favicon" class="address-favicon"><img src="" alt="" style="display:none;"></span>
-        <input id="address-input" class="address-input" type="text" placeholder="输入网址并回车，或点击"前往"" autocomplete="off" />
+        <input id="address-input" class="address-input" type="text" placeholder="输入网址并回车，或点击‘前往’按钮" autocomplete="off" />
     </div>
     <button id="address-go" class="address-go">前往</button>
 </div>
