@@ -1367,7 +1367,7 @@ const template = [
                         const currentView = browserViews.get(lastActiveTabId);
                         console.log('打开开发者工具777:', lastActiveTabId);
                         if (currentView && currentView.webContents) {
-                            currentView.webContents.openDevTools({ mode: 'right' });//right, bottom, detach
+                            currentView.webContents.openDevTools();//right, bottom, detach
                             // setTimeout(() => {
                             //     console.log('打开开发者工具777.a2:', lastActiveTabId);
                             //     currentView.webContents.openDevTools({ mode: 'left' });
