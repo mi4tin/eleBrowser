@@ -2200,3 +2200,70 @@ function addExternalBookmarkToBookmarkBar(data, targetIndex) {
 
 // 初始化书签栏
 renderBookmarkBar();
+
+// ========== 个人中心功能 ==========
+const userCenterBtn = document.getElementById('user-center-btn');
+const loginModal = document.getElementById('login-modal');
+const loginModalClose = document.getElementById('login-modal-close');
+const loginSubmit = document.getElementById('login-submit');
+const loginUsername = document.getElementById('login-username');
+const loginPassword = document.getElementById('login-password');
+
+// 显示登录弹窗
+function showLoginModal() {
+    loginModal.classList.add('active');
+}
+
+// 隐藏登录弹窗
+function hideLoginModal() {
+    loginModal.classList.remove('active');
+}
+
+// 个人中心按钮点击事件
+userCenterBtn.addEventListener('click', showLoginModal);
+
+// 关闭按钮点击事件
+loginModalClose.addEventListener('click', hideLoginModal);
+
+// 点击弹窗外部关闭
+loginModal.addEventListener('click', (e) => {
+    if (e.target === loginModal) {
+        hideLoginModal();
+    }
+});
+
+// ESC键关闭弹窗
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && loginModal.classList.contains('active')) {
+        hideLoginModal();
+    }
+});
+
+// 登录按钮点击事件
+loginSubmit.addEventListener('click', () => {
+    const username = loginUsername.value.trim();
+    const password = loginPassword.value.trim();
+    
+    if (!username || !password) {
+        alert('请输入用户名和密码');
+        return;
+    }
+    
+    // 这里可以添加实际的登录逻辑
+    console.log('登录请求:', { username, password });
+    alert('登录功能待实现\n用户名: ' + username);
+    
+    // 登录成功后关闭弹窗
+    hideLoginModal();
+    
+    // 清空输入框
+    loginUsername.value = '';
+    loginPassword.value = '';
+});
+
+// 密码输入框回车键登录
+loginPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        loginSubmit.click();
+    }
+});
