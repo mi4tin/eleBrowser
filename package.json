@@ -5,7 +5,7 @@
   "scripts": {
     "start": "electron .",
     "test:overlay-devtools": "electron maintest.js",
-  "dist": "electron-builder",
+    "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux",
@@ -17,7 +17,7 @@
   "license": "ISC",
   "description": "A modern Electron-based browser",
   "devDependencies": {
-    "electron": "^39.2.4",
+    "electron": "^41.2.1",
     "electron-builder": "^25.1.8"
   },
   "build": {
