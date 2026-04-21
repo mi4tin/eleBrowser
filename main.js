@@ -902,6 +902,42 @@ app.whenReady().then(() => {
                 }
                 // 返回一个空白页面
                 callback({ data: '<html><body><script>window.close();</script></body></html>', mimeType: 'text/html' });
+            } else if (url.includes('profile')) {
+                // 处理 dxbrowser://profile/ 请求
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('open-profile-tab');
+                    if (mainWindow.isMinimized()) {
+                        mainWindow.restore();
+                    }
+                    mainWindow.focus();
+                } else {
+                    newWindow();
+                    mainWindow.webContents.once('did-finish-load', () => {
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('open-profile-tab');
+                        }
+                    });
+                }
+                // 返回一个空白页面
+                callback({ data: '<html><body><script>window.close();</script></body></html>', mimeType: 'text/html' });
+            } else if (url.includes('sync')) {
+                // 处理 dxbrowser://sync/ 请求
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('open-sync-tab');
+                    if (mainWindow.isMinimized()) {
+                        mainWindow.restore();
+                    }
+                    mainWindow.focus();
+                } else {
+                    newWindow();
+                    mainWindow.webContents.once('did-finish-load', () => {
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('open-sync-tab');
+                        }
+                    });
+                }
+                // 返回一个空白页面
+                callback({ data: '<html><body><script>window.close();</script></body></html>', mimeType: 'text/html' });
             } else {
                 callback({ data: '' });
             }

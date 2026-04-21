@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心</title>
+    <link rel="stylesheet" href="profile.css">
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar Container -->
+        <div id="sidebar-container"></div>
+
+        <!-- Content Area -->
+        <div class="content">
+            <!-- Profile Section -->
+            <div class="content-section active" id="profile-section">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <span class="avatar-icon">👤</span>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name">未登录</div>
+                        <div class="profile-status">
+                            <span class="status-dot"></span>
+                            点击登录账号
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Cloud Services -->
+                <div class="section-title">云服务</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">☁️</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">网络书签</span>
+                                <span class="setting-desc">云端同步 32.0KB</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="setting-hint">点击开通VIP权益</span>
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">🤖</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">AI 笔记</span>
+                                <span class="setting-desc">开通VIP享特权</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="setting-hint">点击开通VIP权益</span>
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">📝</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">云端笔记</span>
+                                <span class="setting-desc">点击开通VIP享特权</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="setting-hint">点击开通VIP权益</span>
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Personal Data -->
+                <div class="section-title">个人数据</div>
+                <div class="setting-group">
+                    <div class="setting-item" id="cloud-sync-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">☁️</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">云同步</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">🔗</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">导入导出设置</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Member Benefits -->
+                <div class="section-title">会员权益</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">👑</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">立即开通VIP</span>
+                                <span class="setting-desc">海量特权抢先体验</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">🎁</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">每日抽奖</span>
+                                <span class="setting-desc">每日免费抽大奖</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Sections (Placeholder) -->
+            <div class="content-section" id="bookmarks-section">
+                <div class="section-title">书签同步</div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">📁</div>
+                    <div class="empty-state-text">功能开发中...</div>
+                </div>
+            </div>
+            <div class="content-section" id="history-section">
+                <div class="section-title">AI 助手</div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">🤖</div>
+                    <div class="empty-state-text">功能开发中...</div>
+                </div>
+            </div>
+            <div class="content-section" id="ai-section">
+                <div class="section-title">实用工具</div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚙️</div>
+                    <div class="empty-state-text">功能开发中...</div>
+                </div>
+            </div>
+            <div class="content-section" id="tools-section">
+                <div class="section-title">隐私安全</div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔒</div>
+                    <div class="empty-state-text">功能开发中...</div>
+                </div>
+            </div>
+            <div class="content-section" id="privacy-section">
+                <div class="section-title">网页管理</div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">🌐</div>
+                    <div class="empty-state-text">功能开发中...</div>
+                </div>
+            </div>
+            <div class="content-section" id="web-section">
+                <div class="section-title">新特性</div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">✨</div>
+                    <div class="empty-state-text">功能开发中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="../../common/toolkit.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="profile.js"></script>
+</body>
+</html>

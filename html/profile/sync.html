@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云同步</title>
+    <link rel="stylesheet" href="profile.css">
+    <link rel="stylesheet" href="sync.css">
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar Container -->
+        <div id="sidebar-container"></div>
+
+        <!-- Content Area -->
+        <div class="content">
+            <!-- Sync Section -->
+            <div class="content-section active" id="sync-section">
+                <div class="section-title">云同步</div>
+                
+                <!-- Sync Status -->
+                <div class="sync-status-section">
+                    <div class="sync-status-info">
+                        <span class="sync-status-icon">☁️</span>
+                        <div class="sync-status-text">
+                            <div class="sync-status-title">同步状态</div>
+                            <div class="sync-status-desc">当前未同步</div>
+                        </div>
+                    </div>
+                    <button class="sync-btn" id="syncBtn">立即同步</button>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Sync Settings -->
+                <div class="section-title">同步数据</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">书签</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="syncBookmarks" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">历史记录</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="syncHistory">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">密码</span>
+                                <span class="setting-desc">仅本地存储</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="syncPasswords" disabled>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">设置</span>
+                                <span class="setting-desc">仅同步已启用项</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="syncSettings" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Advanced Settings -->
+                <div class="section-title">设置与备份</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">设置与备份与同步</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="syncBackup">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">自动清理云端数据</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="setting-desc">30天</span>
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">清空云端数据</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../common/toolkit.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="sync.js"></script>
+</body>
+</html>

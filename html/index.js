@@ -10,6 +10,7 @@ const bookmarkBarContainer = document.getElementById('bookmarkBarContainer');
 const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
+const userCenterBtn = document.getElementById('user-center-btn');
 let toolbarDropModeTimer = null;
 
 function isExternalLinkDrag(dataTransfer) {
@@ -126,6 +127,18 @@ async function loadAddressForCurrentTab() {
     // 检查是否是 dxbrowser://history/ 协议
     if (inputValue === appUrlStart + 'history/' || inputValue.startsWith(appUrlStart + 'history')) {
         await openHistoryTab();
+        return;
+    }
+
+    // 检查是否是 dxbrowser://profile/ 协议
+    if (inputValue === appUrlStart + 'profile/' || inputValue.startsWith(appUrlStart + 'profile')) {
+        await openProfileTab();
+        return;
+    }
+
+    // 检查是否是 dxbrowser://sync/ 协议
+    if (inputValue === appUrlStart + 'sync/' || inputValue.startsWith(appUrlStart + 'sync')) {
+        await openSyncTab();
         return;
     }
 
@@ -415,6 +428,188 @@ async function openUnderlineTab() {
         updateAddressBar(appUrl);
     } catch (error) {
         console.error('创建划线记录标签页失败:', error);
+    }
+}
+
+async function openProfileTab() {
+    // 检查是否已经有个人中心标签页
+    const existingTab = document.querySelector('.tab[data-profile="true"]');
+    if (existingTab) {
+        const tabId = Number(existingTab.dataset.id);
+        activateTab(tabId);
+        return;
+    }
+
+    try {
+        // 使用主进程的 createBrowserView 创建个人中心
+        const profileUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/profile/profile.html';
+        const tabId = await ipcRenderer.invoke('create-browser-view', profileUrl);
+        console.log('创建个人中心标签页成功，tabId:', tabId);
+
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = tabId;
+        tabEl.dataset.profile = 'true';
+
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '个人中心';
+        tabEl.appendChild(textEl);
+
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+
+        tabsContainer.appendChild(tabEl);
+
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+
+        // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+
+            clickCount++;
+
+            if (clickCount === 1) {
+                // 第一次点击，立即激活标签
+                activateTab(tabId);
+                // 启动计时器，判断是否为双击
+                clickTimer = setTimeout(() => {
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则重置计数
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(tabId);
+                clickCount = 0;
+            }
+        });
+
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tabId);
+        });
+
+        // 激活新建的标签
+        currentTabId = tabId;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
+        });
+
+        const appUrl = appUrlStart + 'profile/';
+
+        appUrlMap[profileUrl] = appUrl;
+
+        updateAddressBar(appUrl);
+    } catch (error) {
+        console.error('创建个人中心标签页失败:', error);
+    }
+}
+
+async function openSyncTab() {
+    // 检查是否已经有云同步标签页
+    const existingTab = document.querySelector('.tab[data-sync="true"]');
+    if (existingTab) {
+        const tabId = Number(existingTab.dataset.id);
+        activateTab(tabId);
+        return;
+    }
+
+    try {
+        // 使用主进程的 createBrowserView 创建云同步页面
+        const syncUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/profile/sync.html';
+        const tabId = await ipcRenderer.invoke('create-browser-view', syncUrl);
+        console.log('创建云同步标签页成功，tabId:', tabId);
+
+        // 创建 tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab active';
+        tabEl.dataset.id = tabId;
+        tabEl.dataset.sync = 'true';
+
+        // 创建标签文本容器
+        const textEl = document.createElement('span');
+        textEl.className = 'tab-text';
+        textEl.textContent = '云同步';
+        tabEl.appendChild(textEl);
+
+        const closeEl = document.createElement('span');
+        closeEl.className = 'close';
+        closeEl.textContent = '×';
+        tabEl.appendChild(closeEl);
+
+        // 临时移除加号按钮
+        const addButton = document.getElementById('add-tab');
+        if (addButton) {
+            addButton.remove();
+        }
+
+        tabsContainer.appendChild(tabEl);
+
+        // 重新添加加号按钮到末尾
+        if (addButton) {
+            tabsContainer.appendChild(addButton);
+        }
+
+        // 点击切换标签
+        let clickCount = 0;
+        let clickTimer = null;
+
+        tabEl.addEventListener('click', (e) => {
+            if (e.target === closeEl) return;
+
+            clickCount++;
+
+            if (clickCount === 1) {
+                // 第一次点击，立即激活标签
+                activateTab(tabId);
+                // 启动计时器，判断是否为双击
+                clickTimer = setTimeout(() => {
+                    clickCount = 0;
+                }, 300); // 300ms 内没有第二次点击则重置计数
+            } else if (clickCount === 2) {
+                // 双击：关闭标签
+                clearTimeout(clickTimer);
+                closeTab(tabId);
+                clickCount = 0;
+            }
+        });
+
+        // 关闭标签
+        closeEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tabId);
+        });
+
+        // 激活新建的标签
+        currentTabId = tabId;
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', Number(tab.dataset.id) === tabId);
+        });
+
+        const appUrl = appUrlStart + 'sync/';
+
+        appUrlMap[syncUrl] = appUrl;
+
+        updateAddressBar(appUrl);
+    } catch (error) {
+        console.error('创建云同步标签页失败:', error);
     }
 }
 
@@ -726,6 +921,11 @@ addTabBtn.addEventListener('click', () => {
     createTab();
 });
 
+// 个人中心按钮：打开个人中心
+userCenterBtn.addEventListener('click', () => {
+    openProfileTab();
+});
+
 tabsContainer.addEventListener('dblclick', async (event) => {
     if (event.target.closest('.tab') || event.target.closest('#add-tab')) {
         return;
@@ -914,6 +1114,16 @@ ipcRenderer.on('open-history-tab', () => {
 ipcRenderer.on('open-underline-tab', () => {
     console.log('收到主进程消息: 打开划线记录标签页');
     openUnderlineTab();
+});
+
+ipcRenderer.on('open-profile-tab', () => {
+    console.log('收到主进程消息: 打开个人中心标签页');
+    openProfileTab();
+});
+
+ipcRenderer.on('open-sync-tab', () => {
+    console.log('收到主进程消息: 打开云同步标签页');
+    openSyncTab();
 });
 
 ipcRenderer.on('close-tab', (_event, tabid) => {
@@ -2203,7 +2413,7 @@ function addExternalBookmarkToBookmarkBar(data, targetIndex) {
 renderBookmarkBar();
 
 // ========== 个人中心功能 ==========
-const userCenterBtn = document.getElementById('user-center-btn');
+// const userCenterBtn = document.getElementById('user-center-btn');
 
 // 个人中心按钮点击事件
 userCenterBtn.addEventListener('click', () => {

@@ -1,0 +1,110 @@
+/* 同步功能特定样式 */
+
+/* 同步状态区域 */
+.sync-status-section {
+    background-color: #fff;
+    padding: 24px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+}
+
+.sync-status-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.sync-status-icon {
+    font-size: 48px;
+    margin-right: 16px;
+}
+
+.sync-status-text {
+    flex: 1;
+}
+
+.sync-status-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.sync-status-desc {
+    font-size: 14px;
+    color: #888;
+}
+
+/* 同步按钮 */
+.sync-btn {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.sync-btn:hover {
+    opacity: 0.9;
+}
+
+.sync-btn:active {
+    transform: scale(0.98);
+}
+
+/* 开关控件 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e0e0e0;
+    transition: 0.3s;
+    border-radius: 28px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 24px;
+    width: 24px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+input:checked + .slider {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
