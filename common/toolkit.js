@@ -17,6 +17,7 @@ function getUrlInfo(dataTransfer) {
     const a = doc.querySelector('a');
     if (a) {
       title = a.textContent || a.title || '';
+      title = title.trim();
     }
   }
   return { title, url };

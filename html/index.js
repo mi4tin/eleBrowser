@@ -1472,17 +1472,17 @@ function updateBookmarkBarArrow() {
     }
 
     // console.log('书签栏检测开始');
-    
+
     const scrollContainer = bookmarkBarContent.parentElement;
     const containerWidth = scrollContainer.clientWidth;
     const arrowWidth = bookmarkBarArrow.offsetWidth;
     const availableWidth = containerWidth - arrowWidth - 20;
-    
+
     // 重新计算可见书签和隐藏书签
     const items = bookmarkBarContent.querySelectorAll('.bookmark-bar-item');
     let currentWidth = 0;
     let visibleCount = 0;
-    
+
     items.forEach((item) => {
         const itemWidth = item.offsetWidth;
         currentWidth += itemWidth;
@@ -1490,11 +1490,11 @@ function updateBookmarkBarArrow() {
             visibleCount++;
         }
     });
-    
+
     // 重新构建 hiddenBookmarks 数组
     hiddenBookmarks = [];
     const allItems = bookmarksTreeData?.items || [];
-    
+
     // 从可见书签之后的书签都是隐藏的
     for (let i = visibleCount; i < allItems.length; i++) {
         hiddenBookmarks.push({
@@ -1503,7 +1503,7 @@ function updateBookmarkBarArrow() {
             data: allItems[i]
         });
     }
-    
+
     console.log('书签栏检测:', {
         containerWidth,
         availableWidth,
@@ -1511,7 +1511,7 @@ function updateBookmarkBarArrow() {
         visibleCount,
         hiddenCount: hiddenBookmarks.length
     });
-    
+
     // 只有当有隐藏的书签时才显示箭头按钮
     if (hiddenBookmarks.length > 0) {
         bookmarkBarArrow.classList.add('visible');
@@ -1539,7 +1539,7 @@ async function renderBookmarkBar() {
 
         // 清空书签栏
         bookmarkBarContent.innerHTML = '';
-        
+
         // 清空隐藏书签列表
         hiddenBookmarks = [];
 
@@ -1553,10 +1553,10 @@ async function renderBookmarkBar() {
         const containerWidth = scrollContainer.clientWidth;
         const arrowWidth = bookmarkBarArrow.offsetWidth;
         const availableWidth = containerWidth - arrowWidth - 20;
-        
+
         let currentWidth = 0;
         let visibleCount = 0;
-        
+
         // 只渲染能显示的书签
         allItems.forEach((item, index) => {
             console.log('渲染书签栏项目:', item);
@@ -1612,7 +1612,7 @@ async function renderBookmarkBar() {
             itemEl.addEventListener('dragstart', (e) => {
                 e.stopPropagation();
                 console.log("开始拖动.1:", item);
-                
+
                 e.dataTransfer.setData('application/x-bookmark-item', JSON.stringify({
                     type: 'internal',
                     index: index,
@@ -1640,7 +1640,7 @@ async function renderBookmarkBar() {
             bookmarkBarContent.appendChild(itemEl);
             const itemWidth = itemEl.offsetWidth;
             currentWidth += itemWidth;
-            
+
             if (currentWidth <= availableWidth) {
                 visibleCount++;
                 console.log(`渲染书签 ${visibleCount}:`, item.name || item.title, currentWidth, '<=', availableWidth);
@@ -1648,7 +1648,7 @@ async function renderBookmarkBar() {
                 // 超出宽度，从 DOM 中移除
                 bookmarkBarContent.removeChild(itemEl);
                 console.log(`移除书签（超出宽度）:`, item.name || item.title, currentWidth, '>', availableWidth);
-                
+
                 // 添加到隐藏书签列表
                 hiddenBookmarks.push({
                     index: visibleCount + hiddenBookmarks.length,
@@ -1657,9 +1657,9 @@ async function renderBookmarkBar() {
                 });
             }
         });
-        
+
         console.log('总书签数:', allItems.length, '可见书签数:', visibleCount, '隐藏书签数:', hiddenBookmarks.length);
-        
+
         // 等待 DOM 渲染完成后检测是否需要显示箭头按钮
         setTimeout(() => {
             updateBookmarkBarArrow();
@@ -1727,7 +1727,7 @@ function hideFolderDropdown() {
     document.querySelectorAll('.bookmark-bar-item.folder-item.dropdown-active').forEach(el => {
         el.classList.remove('dropdown-active');
     });
-    
+
     // 移除箭头按钮的激活状态
     if (bookmarkBarArrow) {
         bookmarkBarArrow.classList.remove('dropdown-active');
@@ -1737,12 +1737,12 @@ function hideFolderDropdown() {
 // 显示所有书签下拉菜单
 function showAllBookmarksDropdown() {
     console.log('显示隐藏书签下拉菜单，隐藏数量:', hiddenBookmarks.length);
-    
+
     if (!bookmarkBarArrow || hiddenBookmarks.length === 0) return;
-    
+
     // 获取箭头按钮的位置
     const rect = bookmarkBarArrow.getBoundingClientRect();
-    
+
     // 使用隐藏的书签数据
     const hiddenBookmarksData = {
         id: 'hidden-bookmarks',
@@ -1750,17 +1750,17 @@ function showAllBookmarksDropdown() {
         type: 'folder',
         items: hiddenBookmarks.map(item => item.data)
     };
-    
+
     const folderBounds = {
         x: rect.left - 250, // 让菜单在箭头左侧显示
         y: rect.bottom,
         width: 300,
         height: 41 * (hiddenBookmarksData.items.length || 1) + 16 + 2
     };
-    
+
     // 发送消息到下拉菜单
     ipcRenderer.send('show-folder-dropdown', hiddenBookmarksData, folderBounds, false);
-    
+
     // 给箭头添加激活状态
     bookmarkBarArrow.classList.add('dropdown-active');
 }
@@ -1771,14 +1771,14 @@ document.addEventListener('blur', () => {
 });
 
 bookmarkBarContainer.addEventListener('blur', () => {
-    console.log('书签栏鼠标移出',new Date());
+    console.log('书签栏鼠标移出', new Date());
     // hideFolderDropdown();
     // canMouseenter = false;
 });
 
 
 bookmarkBarContainer.addEventListener('focus', () => {
-    console.log('书签栏鼠标移入',new Date());
+    console.log('书签栏鼠标移入', new Date());
     // hideFolderDropdown();
     // canMouseenter = false;
 });
@@ -1810,7 +1810,7 @@ if (bookmarkBarContent) {
         const targetItem = e.target.closest('.bookmark-bar-item');
         if (targetItem && !targetItem.classList.contains('dragging')) {
             const targetItemType = targetItem.dataset.itemType;
-            
+
             // 如果是文件夹，延时显示下拉菜单
             if (targetItemType === 'folder') {
                 if (currentDragHoverFolder !== targetItem) {
@@ -1887,7 +1887,7 @@ if (bookmarkBarContent) {
         // 1. 优先处理书签栏内部数据
         const internalData = e.dataTransfer.getData('application/x-bookmark-item');
         console.log("contentGrid.drop.internalData", internalData, e.dataTransfer.types);
-     
+
 
         // 2. 处理书签管理器和下拉菜单的数据
         const bookmarkManagerData = e.dataTransfer.getData('application/x-bookmark-item');
@@ -1913,11 +1913,11 @@ if (bookmarkBarContent) {
                     const targetItemType = targetItem.dataset.itemType;
                     const rect = targetItem.getBoundingClientRect();
                     const mouseX = e.clientX - rect.left;
-                    
+
                     if (targetItemType === 'folder') {
                         const isLeft = mouseX < rect.width * 0.2;
                         const isRight = mouseX > rect.width * 0.8;
-                        
+
                         if (isLeft || isRight) {
                             // 拖到左右边缘
                             let targetIndex = parseInt(targetItem.dataset.index);
@@ -1976,19 +1976,20 @@ if (bookmarkBarContent) {
         }
 
         // 3. 处理外部链接（从浏览器或其他应用拖入）
-        const urlInfo =getUrlInfo(e.dataTransfer);
+        const urlInfo = getUrlInfo(e.dataTransfer);
+        console.log("contentGrid.drop.urlInfo", urlInfo, isUrlValid(urlInfo.url));
         if (urlInfo.url && isUrlValid(urlInfo.url)) {
             const targetItem = e.target.closest('.bookmark-bar-item');
-            
+
             if (targetItem) {
                 const targetItemType = targetItem.dataset.itemType;
                 const rect = targetItem.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
-                
+
                 if (targetItemType === 'folder') {
                     const isLeft = mouseX < rect.width * 0.2;
                     const isRight = mouseX > rect.width * 0.8;
-                    
+
                     if (isLeft || isRight) {
                         // 拖到左右边缘：添加到书签栏根目录的指定位置
                         let targetIndex = parseInt(targetItem.dataset.index);
@@ -2059,8 +2060,8 @@ function saveBookmarkBarData() {
 // 验证URL是否有效
 function isUrlValid(url) {
     try {
-        const pattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/i;
-        return pattern.test(url.trim());
+        new URL(url);
+        return true;
     } catch {
         return false;
     }
@@ -2084,9 +2085,9 @@ function generateUniqueId() {
 // 添加URL到书签栏
 function addUrlToBookmarkBar(urlInfo, targetIndex) {
     if (!bookmarksTreeData || !bookmarksTreeData.items) return;
-    
-    const title = urlInfo.title||urlInfo.url;
-    
+
+    const title = urlInfo.title || urlInfo.url;
+
     const newBookmark = {
         id: generateUniqueId(),
         type: 'bookmark',
@@ -2102,13 +2103,13 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
         console.log('书签已存在:', existingBookmark);
         return;
     }
-    
+
     if (targetIndex === -1) {
         bookmarksTreeData.items.push(newBookmark);
     } else {
         bookmarksTreeData.items.splice(targetIndex, 0, newBookmark);
     }
-    
+
     saveBookmarkBarData();
     renderBookmarkBar();
 }
@@ -2117,7 +2118,7 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
 function addUrlToFolder(url, folderId) {
     const cleanUrl = url.trim();
     const title = extractTitleFromUrl(cleanUrl);
-    
+
     const newBookmark = {
         id: generateUniqueId(),
         type: 'bookmark',
@@ -2126,14 +2127,14 @@ function addUrlToFolder(url, folderId) {
         favicon: '',
         addedAt: Date.now()
     };
-    
+
     ipcRenderer.send('add-url-to-folder', newBookmark, folderId);
 }
 
 // 在根目录内移动外部书签
 function moveExternalBookmarkInRoot(data, targetIndex) {
     if (!bookmarksTreeData || !bookmarksTreeData.items) return;
-    
+
     // 找到源索引
     const sourceIndex = bookmarksTreeData.items.findIndex(item => {
         if (item.type === 'folder' && data.itemType === 'folder') {
@@ -2143,12 +2144,12 @@ function moveExternalBookmarkInRoot(data, targetIndex) {
         }
         return false;
     });
-    
+
     if (sourceIndex === -1) return;
-    
+
     // 从源位置移除
     const [movedItem] = bookmarksTreeData.items.splice(sourceIndex, 1);
-    
+
     // 计算目标索引
     let finalTargetIndex = targetIndex;
     if (targetIndex === -1) {
@@ -2156,10 +2157,10 @@ function moveExternalBookmarkInRoot(data, targetIndex) {
     } else if (sourceIndex < finalTargetIndex) {
         finalTargetIndex--;
     }
-    
+
     // 插入到目标位置
     bookmarksTreeData.items.splice(finalTargetIndex, 0, movedItem);
-    
+
     saveBookmarkBarData();
     renderBookmarkBar();
 }
@@ -2167,9 +2168,9 @@ function moveExternalBookmarkInRoot(data, targetIndex) {
 // 添加外部书签（来自书签管理器或下拉菜单）到书签栏
 function addExternalBookmarkToBookmarkBar(data, targetIndex) {
     if (!bookmarksTreeData || !bookmarksTreeData.items) return;
-    
+
     let newItem;
-    
+
     if (data.itemType === 'folder') {
         newItem = {
             id: data.id,
@@ -2187,13 +2188,13 @@ function addExternalBookmarkToBookmarkBar(data, targetIndex) {
             addedAt: Date.now()
         };
     }
-    
+
     if (targetIndex === -1) {
         bookmarksTreeData.items.push(newItem);
     } else {
         bookmarksTreeData.items.splice(targetIndex, 0, newItem);
     }
-    
+
     saveBookmarkBarData();
     renderBookmarkBar();
 }
