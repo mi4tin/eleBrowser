@@ -3,7 +3,8 @@ module.exports = function registerLoginIpcHandlers(deps) {
         ipcMain,
         BrowserWindow,
         appRootDir,
-        getPreloadPath
+        getPreloadPath,
+        getMainWindow
     } = deps;
 
     let loginWindow = null;
@@ -14,7 +15,11 @@ module.exports = function registerLoginIpcHandlers(deps) {
             return;
         }
 
+        const mainWindow = getMainWindow();
+
         loginWindow = new BrowserWindow({
+            parent: mainWindow,
+            // modal: true,
             width: 480,
             height: 520,
             minWidth: 400,
