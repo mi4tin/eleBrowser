@@ -135,10 +135,39 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Personal Data -->
+                <div class="section-title">账号与安全</div>
+                <div class="setting-group">
+                    <div class="setting-item" id="account-settings-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">👤</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">账号设置</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                    <div class="setting-item" id="logout-account-item">
+                        <div class="setting-left">
+                            <span class="setting-icon">🚪</span>
+                            <div class="setting-left-content">
+                                <span class="setting-name">退出账号</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Other Sections (Placeholder) -->
-            <div class="content-section" id="bookmarks-section">
+            <!-- <div class="content-section" id="bookmarks-section">
                 <div class="section-title">书签同步</div>
                 <div class="empty-state">
                     <div class="empty-state-icon">📁</div>
@@ -179,10 +208,33 @@
                     <div class="empty-state-icon">✨</div>
                     <div class="empty-state-text">功能开发中...</div>
                 </div>
-            </div>
+            </div> -->
         </div>
     </div>
     
+    <!-- 退出登录确认面板 -->
+    <div id="logout-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-title">确定要退出登录吗？</div>
+            <div class="modal-content">
+                <p class="modal-text">
+                    退出登录后，书签、密码和其他设置项将无法同步，保存的密码、隐私设置会从此设备删除。网盘的上传、下载和云收藏任务即将暂停
+                </p>
+                <!-- <div class="modal-checkbox">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="clear-data-checkbox">
+                        <span class="checkbox-custom"></span>
+                        从此设备清除书签、历史记录数据
+                    </label>
+                </div> -->
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-logout-btn" class="modal-btn modal-btn-cancel">取消</button>
+                <button id="confirm-logout-btn" class="modal-btn modal-btn-confirm">退出登录</button>
+            </div>
+        </div>
+    </div>
+
     <script src="../../common/toolkit.js"></script>
     <script src="sidebar.js"></script>
     <script src="profile.js"></script>

@@ -13,6 +13,61 @@ const refreshBtn = document.getElementById('nav-refresh');
 const userCenterBtn = document.getElementById('user-center-btn');
 let toolbarDropModeTimer = null;
 
+// 当前用户信息
+let currentUser = null;
+
+// 更新用户按钮显示
+function updateUserButton(userData) {
+    if (userData) {
+        // 已登录，显示用户头像或名称首字母
+        const avatar = userData.avatar;
+        if (avatar) {
+            // 如果有头像，显示头像
+            userCenterBtn.innerHTML = `<img src="${avatar}" alt="avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+        } else {
+            // 如果没有头像，显示用户名首字母或邮箱首字母
+            const displayName = userData.nickname || userData.email || 'U';
+            const initial = displayName.charAt(0).toUpperCase();
+            userCenterBtn.textContent = initial;
+        }
+        // 已登录状态
+        currentUser = userData;
+    } else {
+        // 未登录，显示默认头像
+        userCenterBtn.textContent = '👤';
+        currentUser = null;
+    }
+}
+
+// 加载并验证用户信息
+async function loadAndValidateUser() {
+    try {
+        const result = await ipcRenderer.invoke('load-user-data');
+        console.log('加载用户数据:', result);
+        
+        if (result.success && result.data && result.data.token) {
+            const userData = result.data;
+            // 验证 token
+            const validateResult = await ipcRenderer.invoke('validate-token', userData.token);
+            console.log('验证token:', validateResult);
+            
+            if (validateResult.success && validateResult.data && validateResult.data.code === 0) {
+                // token 有效，更新用户信息,validateResult.data.data与result.data字段相同
+                updateUserButton(validateResult.data.data);
+            } else {
+                // token 无效，清除用户信息
+                updateUserButton(null);
+            }
+        } else {
+            // 没有用户数据
+            updateUserButton(null);
+        }
+    } catch (error) {
+        console.error('加载用户信息失败:', error);
+        updateUserButton(null);
+    }
+}
+
 function isExternalLinkDrag(dataTransfer) {
     if (!dataTransfer) return false;
 
@@ -921,10 +976,26 @@ addTabBtn.addEventListener('click', () => {
     createTab();
 });
 
-// 个人中心按钮：打开个人中心
-userCenterBtn.addEventListener('click', () => {
+// 个人中心按钮：打开个人中心或登录
+userCenterBtn.addEventListener('click', async () => {
     console.log('点击个人中心按钮');
-    openProfileTab();
+    if (currentUser) {
+        // 已登录，直接打开个人中心
+        openProfileTab();
+    } else {
+        // 未登录，先登录，再刷新用户状态
+        try {
+            // 先打开登录窗口（这里使用 ipc 发送消息）
+            ipcRenderer.send('open-login-window');
+            
+            // 等待一段时间后刷新用户状态
+            setTimeout(async () => {
+                await loadAndValidateUser();
+            }, 1500);
+        } catch (error) {
+            console.error('打开登录窗口失败:', error);
+        }
+    }
 });
 
 tabsContainer.addEventListener('dblclick', async (event) => {
@@ -1147,8 +1218,17 @@ ipcRenderer.on('close-right-tab', (_event, tabid) => {
     closeRightTabs(tabid);
 });
 
+ipcRenderer.on('update-user-data', (_event, userData) => {
+    console.log('收到主进程消息: 更新用户数据', userData);
+    // loadAndValidateUser();
+    updateUserButton(userData);
+});
+
 //启时动时自动创建一个标签页
 createTab();
+
+// 加载并验证用户信息
+loadAndValidateUser();
 
 // ===记录自动匹配功能 ===
 // === 历史记录自动匹配功能（使用BrowserView方案） ===
@@ -2417,7 +2497,7 @@ renderBookmarkBar();
 // const userCenterBtn = document.getElementById('user-center-btn');
 
 // 个人中心按钮点击事件
-userCenterBtn.addEventListener('click', () => {
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('open-login-window');
-});
+// userCenterBtn.addEventListener('click', () => {
+//     const { ipcRenderer } = require('electron');
+//     ipcRenderer.send('open-login-window');
+// });

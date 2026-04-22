@@ -23,6 +23,11 @@ if (typeof window !== 'undefined' && window.electronAPI) {
 // 获取 DOM 元素
 const profileStatus = document.querySelector('.profile-status');
 const profileName = document.querySelector('.profile-name');
+const logoutModal = document.getElementById('logout-modal');
+const cancelLogoutBtn = document.getElementById('cancel-logout-btn');
+const confirmLogoutBtn = document.getElementById('confirm-logout-btn');
+const clearDataCheckbox = document.getElementById('clear-data-checkbox');
+const logoutAccountItem = document.getElementById('logout-account-item');
 
 // 侧边栏组件
 let sidebar;
@@ -121,6 +126,48 @@ document.addEventListener('visibilitychange', async () => {
     }
 });
 
+// 显示退出登录确认面板
+function showLogoutModal() {
+    if (logoutModal) {
+        logoutModal.style.display = 'flex';
+        // clearDataCheckbox.checked = false;
+    }
+}
+
+// 隐藏退出登录确认面板
+function hideLogoutModal() {
+    if (logoutModal) {
+        logoutModal.style.display = 'none';
+    }
+}
+
+// 执行退出登录
+async function doLogout() {
+    try {
+        // 清除本地用户数据
+        const result = await ipcRenderer.invoke('clear-user-data');
+        if (result.success) {
+            // 如果勾选了清除数据，这里可以添加清除数据的逻辑
+            // if (clearDataCheckbox.checked) {
+            //     console.log('用户选择清除书签、历史记录数据');
+            //     // TODO: 实现清除数据的逻辑
+            // }
+            
+            // 更新UI显示未登录状态
+            updateProfileUI(null);
+            
+            // 隐藏确认面板
+            hideLogoutModal();
+
+            // ipcRenderer.send('save-user-data', null);
+            
+            console.log('退出登录成功');
+        }
+    } catch (error) {
+        console.error('退出登录失败:', error);
+    }
+}
+
 // 绑定设置项点击事件
 const settingItems = document.querySelectorAll('.setting-item');
 settingItems.forEach(item => {
@@ -132,5 +179,39 @@ settingItems.forEach(item => {
         if (item.id === 'cloud-sync-item') {
             window.location.href = 'sync.html';
         }
+        
+        // 处理退出账号点击
+        if (item.id === 'logout-account-item') {
+            showLogoutModal();
+        }
     });
+});
+
+// 绑定退出登录确认面板的按钮事件
+if (cancelLogoutBtn) {
+    cancelLogoutBtn.addEventListener('click', () => {
+        hideLogoutModal();
+    });
+}
+
+if (confirmLogoutBtn) {
+    confirmLogoutBtn.addEventListener('click', () => {
+        doLogout();
+    });
+}
+
+// 点击模态框背景时关闭面板
+if (logoutModal) {
+    logoutModal.addEventListener('click', (e) => {
+        if (e.target === logoutModal) {
+            hideLogoutModal();
+        }
+    });
+}
+
+// 按 ESC 键关闭模态框
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && logoutModal && logoutModal.style.display === 'flex') {
+        hideLogoutModal();
+    }
 });

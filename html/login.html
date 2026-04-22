@@ -436,7 +436,7 @@
 
                         // 延迟关闭窗口
                         setTimeout(() => {
-                            ipcRenderer.send('close-login-window');
+                            // ipcRenderer.send('close-login-window');
                         }, 1000);
                     } else {
                         showToast(response.msg || '登录失败', codeInput);

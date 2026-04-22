@@ -30,7 +30,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
         const mainWindow = getMainWindow();
 
         loginWindow = new BrowserWindow({
-            parent: mainWindow,
+            // parent: mainWindow,
             // modal: true,
             width: 480,
             height: 520,
@@ -98,10 +98,21 @@ module.exports = function registerLoginIpcHandlers(deps) {
         }
     });
 
-    // 保存用户信息到本地文件
+    // 登陆成功后，保存用户信息到本地文件
     ipcMain.handle('save-user-data', async (_event, userData) => {
+        console.log('save-user-data', userData);
         try {
-            fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2), 'utf8');
+            if (!userData) {
+                // 清除用户数据
+                fs.unlinkSync(USER_DATA_PATH);
+            }else{
+                fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2), 'utf8');
+            }
+
+            const mainWindow = getMainWindow();
+            // 登录成功后，通知主进程更新用户信息
+            mainWindow.webContents.send('update-user-data', userData);
+            
             return { success: true };
         } catch (error) {
             console.error('保存用户数据失败:', error);
@@ -139,10 +150,15 @@ module.exports = function registerLoginIpcHandlers(deps) {
 
     // 清除用户登录信息
     ipcMain.handle('clear-user-data', async () => {
+        console.log('clear-user-data');
         try {
             if (fs.existsSync(USER_DATA_PATH)) {
                 fs.unlinkSync(USER_DATA_PATH);
             }
+            const mainWindow = getMainWindow();
+            // 登录成功后，通知主进程更新用户信息
+            mainWindow.webContents.send('update-user-data', null);
+            
             return { success: true };
         } catch (error) {
             console.error('清除用户数据失败:', error);
