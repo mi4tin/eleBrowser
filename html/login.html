@@ -425,9 +425,12 @@
                         // 登录成功
                         const userData = response.data;
                         
-                        // 保存登录信息
-                        localStorage.setItem('auth_token', userData.token);
-                        localStorage.setItem('user_info', JSON.stringify(userData));
+                        // 保存登录信息到本地文件
+                        try {
+                            await ipcRenderer.invoke('save-user-data', userData);
+                        } catch (saveError) {
+                            console.error('保存用户数据失败:', saveError);
+                        }
 
                         showToast('登录成功！');
 

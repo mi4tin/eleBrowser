@@ -1,5 +1,7 @@
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = function registerLoginIpcHandlers(deps) {
     const {
@@ -7,13 +9,17 @@ module.exports = function registerLoginIpcHandlers(deps) {
         BrowserWindow,
         appRootDir,
         getPreloadPath,
-        getMainWindow
+        getMainWindow,
+        app
     } = deps;
 
     let loginWindow = null;
 
     // beta API 配置
     const API_BASE_URL = 'http://localhost:8011'; // 你可以根据实际情况修改
+
+    // 用户数据文件路径
+    const USER_DATA_PATH = path.join(app.getPath('userData'), 'user-auth.json');
 
     function createLoginWindow() {
         if (loginWindow && !loginWindow.isDestroyed()) {
@@ -53,6 +59,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
     }
 
     ipcMain.on('open-login-window', () => {
+        console.log('open-login-window');
         createLoginWindow();
     });
 
@@ -87,6 +94,58 @@ module.exports = function registerLoginIpcHandlers(deps) {
             return { success: true, data: result };
         } catch (error) {
             console.error('登录失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 保存用户信息到本地文件
+    ipcMain.handle('save-user-data', async (_event, userData) => {
+        try {
+            fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2), 'utf8');
+            return { success: true };
+        } catch (error) {
+            console.error('保存用户数据失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 从本地文件读取用户信息
+    ipcMain.handle('load-user-data', async () => {
+        try {
+            if (fs.existsSync(USER_DATA_PATH)) {
+                const data = fs.readFileSync(USER_DATA_PATH, 'utf8');
+                const userData = JSON.parse(data);
+                return { success: true, data: userData };
+            }
+            return { success: true, data: null };
+        } catch (error) {
+            console.error('读取用户数据失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 验证 token 并返回用户信息
+    ipcMain.handle('validate-token', async (_event, token) => {
+        try {
+            const result = await apiRequest('/api/auth/validateToken', {
+                token: token
+            });
+            return { success: true, data: result };
+        } catch (error) {
+            console.error('验证token失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 清除用户登录信息
+    ipcMain.handle('clear-user-data', async () => {
+        try {
+            if (fs.existsSync(USER_DATA_PATH)) {
+                fs.unlinkSync(USER_DATA_PATH);
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('清除用户数据失败:', error);
             return { success: false, error: error.message };
         }
     });

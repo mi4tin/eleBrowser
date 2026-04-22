@@ -11,6 +11,10 @@ if (typeof window !== 'undefined' && window.electronAPI) {
         ipcRenderer = {
             send: function (channel, data) {
                 console.log('IPC send (模拟):', channel, data);
+            },
+            invoke: async function (channel, data) {
+                console.log('IPC invoke (模拟):', channel, data);
+                return { success: true, data: null };
             }
         };
     }
@@ -18,9 +22,54 @@ if (typeof window !== 'undefined' && window.electronAPI) {
 
 // 获取 DOM 元素
 const profileStatus = document.querySelector('.profile-status');
+const profileName = document.querySelector('.profile-name');
 
 // 侧边栏组件
 let sidebar;
+
+// 当前用户信息
+let currentUser = null;
+
+// 更新 UI 显示用户信息
+function updateProfileUI(userData) {
+    if (userData) {
+        // 已登录
+        profileName.textContent = userData.nickname || userData.email || '用户';
+        profileStatus.innerHTML = `<span class="status-dot"></span>${userData.email}`;
+        currentUser = userData;
+    } else {
+        // 未登录
+        profileName.textContent = '未登录';
+        profileStatus.innerHTML = `<span class="status-dot"></span>点击登录账号`;
+        currentUser = null;
+    }
+}
+
+// 尝试从本地文件加载用户信息并验证
+async function loadAndValidateUser() {
+    try {
+        const result = await ipcRenderer.invoke('load-user-data');
+        
+        if (result.success && result.data) {
+            const userData = result.data;
+            
+            // 如果有 token，尝试验证
+            if (userData.token) {
+                // TODO: 暂时只使用本地存储的用户信息，后续可添加 token 验证
+                updateProfileUI(userData);
+            } else {
+                // 没有 token，显示未登录
+                updateProfileUI(null);
+            }
+        } else {
+            // 没有用户数据
+            updateProfileUI(null);
+        }
+    } catch (error) {
+        console.error('加载用户信息失败:', error);
+        updateProfileUI(null);
+    }
+}
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -51,6 +100,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     };
+    
+    // 加载并验证用户信息
+    await loadAndValidateUser();
 });
 
 // 绑定登录按钮点击事件
@@ -59,6 +111,15 @@ if (profileStatus) {
         ipcRenderer.send('open-login-window');
     });
 }
+
+// 监听登录窗口关闭事件，重新加载用户信息
+// 我们需要一种方式来检测登录成功
+// 这里我们通过监听页面可见性变化来重新检查
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        await loadAndValidateUser();
+    }
+});
 
 // 绑定设置项点击事件
 const settingItems = document.querySelectorAll('.setting-item');

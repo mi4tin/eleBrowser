@@ -923,6 +923,7 @@ addTabBtn.addEventListener('click', () => {
 
 // 个人中心按钮：打开个人中心
 userCenterBtn.addEventListener('click', () => {
+    console.log('点击个人中心按钮');
     openProfileTab();
 });
 
