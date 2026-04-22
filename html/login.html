@@ -225,7 +225,7 @@
         <div class="login-form">
             <div class="form-group">
                 <label for="email">邮箱</label>
-                <input type="email" id="email" class="form-input" placeholder="请输入邮箱地址" autofocus>
+                <input type="email" id="email" value="sszu@qq.com" class="form-input" placeholder="请输入邮箱地址" autofocus>
             </div>
             <div class="form-group">
                 <label for="code">验证码</label>
@@ -248,7 +248,7 @@
     
     <script>
         const { ipcRenderer } = require('electron');
-        
+
         const closeBtn = document.getElementById('closeBtn');
         const loginBtn = document.getElementById('loginBtn');
         const sendCodeBtn = document.getElementById('sendCodeBtn');
@@ -257,29 +257,29 @@
         const toastOverlay = document.getElementById('toastOverlay');
         const toastText = document.getElementById('toastText');
         const toastBtn = document.getElementById('toastBtn');
-        
+
         let countdown = 0;
         let countdownTimer = null;
         let currentFocusElement = null;
-        
+
         closeBtn.addEventListener('click', () => {
             ipcRenderer.send('close-login-window');
         });
-        
+
         // 自定义提示框函数
         function showToast(message, focusElement = null) {
             toastText.textContent = message;
             toastOverlay.classList.add('show');
             currentFocusElement = focusElement;
-            
+
             // 确保提示框按钮可以获得焦点
             toastBtn.focus();
         }
-        
+
         // 关闭提示框
         function hideToast() {
             toastOverlay.classList.remove('show');
-            
+
             // 恢复焦点到指定元素
             if (currentFocusElement) {
                 setTimeout(() => {
@@ -288,60 +288,93 @@
                 }, 50);
             }
         }
-        
+
         // 提示框按钮点击
         toastBtn.addEventListener('click', hideToast);
-        
+
         // 点击提示框背景关闭
         toastOverlay.addEventListener('click', (e) => {
             if (e.target === toastOverlay) {
                 hideToast();
             }
         });
-        
+
         // 提示框按回车关闭
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && toastOverlay.classList.contains('show')) {
                 hideToast();
             }
         });
-        
+
         // 验证邮箱格式
         function isValidEmail(email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             return emailRegex.test(email);
         }
-        
+
         // 发送验证码
-        sendCodeBtn.addEventListener('click', () => {
+        sendCodeBtn.addEventListener('click', async () => {
             const email = emailInput.value.trim();
-            
+
             if (!email) {
                 showToast('请输入邮箱地址', emailInput);
                 return;
             }
-            
+
             if (!isValidEmail(email)) {
                 showToast('请输入有效的邮箱地址', emailInput);
                 return;
             }
-            
-            console.log('发送验证码到:', email);
-            
-            // 开始倒计时
-            startCountdown();
+
+            // 禁用按钮防止重复点击
+            sendCodeBtn.disabled = true;
+            sendCodeBtn.textContent = '发送中...';
+
+            try {
+                const result = await ipcRenderer.invoke('auth-send-code', {
+                    email: email,
+                    type: 'login'
+                });
+
+                if (result.success) {
+                    const response = result.data;
+                    if (response.code === 0) {
+                        // 成功，显示提示并开始倒计时
+                        let message = '验证码已发送';
+                        // 如果是测试环境，验证码会返回，我们可以提示用户
+                        if (response.data && response.data.code) {
+                            message += `\n测试验证码: ${response.data.code}`;
+                        }
+                        showToast(message, codeInput);
+                        startCountdown();
+                    } else {
+                        showToast(response.msg || '发送失败', emailInput);
+                        sendCodeBtn.disabled = false;
+                        sendCodeBtn.textContent = '获取验证码';
+                    }
+                } else {
+                    showToast(result.error || '发送失败，请检查网络', emailInput);
+                    sendCodeBtn.disabled = false;
+                    sendCodeBtn.textContent = '获取验证码';
+                }
+            } catch (error) {
+                console.error('发送验证码失败:', error);
+                showToast('发送失败: ' + error.message, emailInput);
+                sendCodeBtn.disabled = false;
+                sendCodeBtn.textContent = '获取验证码';
+            }
         });
-        
+
         // 倒计时
         function startCountdown() {
             countdown = 60;
             sendCodeBtn.disabled = true;
             sendCodeBtn.textContent = `${countdown}秒后重试`;
-            
+
             countdownTimer = setInterval(() => {
                 countdown--;
                 sendCodeBtn.textContent = `${countdown}秒后重试`;
-                
+
                 if (countdown <= 0) {
                     clearInterval(countdownTimer);
                     countdownTimer = null;
@@ -350,48 +383,83 @@
                 }
             }, 1000);
         }
-        
+
         // 登录
-        loginBtn.addEventListener('click', () => {
+        loginBtn.addEventListener('click', async () => {
             const email = emailInput.value.trim();
             const code = codeInput.value.trim();
-            
+
             if (!email) {
                 showToast('请输入邮箱地址', emailInput);
                 return;
             }
-            
+
             if (!isValidEmail(email)) {
                 showToast('请输入有效的邮箱地址', emailInput);
                 return;
             }
-            
+
             if (!code) {
                 showToast('请输入验证码', codeInput);
                 return;
             }
-            
+
             if (code.length < 4) {
                 showToast('请输入有效的验证码', codeInput);
                 return;
             }
-            
-            console.log('登录请求:', { email, code });
-            showToast('登录功能待实现\n邮箱: ' + email + '\n验证码: ' + code);
-            
-            // 延迟关闭窗口，让用户看到提示
-            setTimeout(() => {
-                ipcRenderer.send('close-login-window');
-            }, 1500);
+
+            // 禁用按钮防止重复点击
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登录中...';
+
+            try {
+                const result = await ipcRenderer.invoke('auth-login', {
+                    email: email,
+                    code: code
+                });
+
+                if (result.success) {
+                    const response = result.data;
+                    if (response.code === 0) {
+                        // 登录成功
+                        const userData = response.data;
+                        
+                        // 保存登录信息
+                        localStorage.setItem('auth_token', userData.token);
+                        localStorage.setItem('user_info', JSON.stringify(userData));
+
+                        showToast('登录成功！');
+
+                        // 延迟关闭窗口
+                        setTimeout(() => {
+                            ipcRenderer.send('close-login-window');
+                        }, 1000);
+                    } else {
+                        showToast(response.msg || '登录失败', codeInput);
+                        loginBtn.disabled = false;
+                        loginBtn.textContent = '登录';
+                    }
+                } else {
+                    showToast(result.error || '登录失败，请检查网络', codeInput);
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '登录';
+                }
+            } catch (error) {
+                console.error('登录失败:', error);
+                showToast('登录失败: ' + error.message, codeInput);
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            }
         });
-        
+
         // 邮箱输入框回车
         emailInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !toastOverlay.classList.contains('show')) {
                 sendCodeBtn.click();
             }
         });
-        
+
         // 验证码输入框回车
         codeInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !toastOverlay.classList.contains('show')) {
