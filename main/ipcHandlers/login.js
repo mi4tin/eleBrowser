@@ -20,6 +20,111 @@ module.exports = function registerLoginIpcHandlers(deps) {
 
     // 用户数据文件路径
     const USER_DATA_PATH = path.join(app.getPath('userData'), 'user-auth.json');
+    // 书签数据文件路径
+    const BOOKMARKS_DATA_PATH = path.join(app.getPath('userData'), 'bookmarks.json');
+    
+    // 存储书签数据（内存缓存）
+    let bookmarksCache = null;
+    
+    // ============ 自动同步机制 ============
+    let autoSyncTimer = null;
+    let bookmarkChangeTimer = null;
+    let lastAutoSyncTime = null;
+    const AUTO_SYNC_INTERVAL = 30 * 60 * 1000; // 30分钟
+    const BOOKMARK_CHANGE_DELAY = 10 * 1000; // 书签变更后10秒
+    
+    // 启动自动同步
+    function startAutoSync() {
+        console.log('启动自动同步机制');
+        
+        // 先停止现有的定时器
+        stopAutoSync();
+        
+        // 设置30分钟自动同步
+        autoSyncTimer = setInterval(() => {
+            checkAndAutoSync();
+        }, AUTO_SYNC_INTERVAL);
+        
+        // 立即检查一次是否需要同步
+        setTimeout(() => checkAndAutoSync(), 5000);
+    }
+    
+    // 停止自动同步
+    function stopAutoSync() {
+        if (autoSyncTimer) {
+            clearInterval(autoSyncTimer);
+            autoSyncTimer = null;
+        }
+        if (bookmarkChangeTimer) {
+            clearTimeout(bookmarkChangeTimer);
+            bookmarkChangeTimer = null;
+        }
+    }
+    
+    // 检查并执行自动同步
+    async function checkAndAutoSync() {
+        try {
+            // 检查是否有用户数据
+            if (!fs.existsSync(USER_DATA_PATH)) {
+                return;
+            }
+            
+            const userData = JSON.parse(fs.readFileSync(USER_DATA_PATH, 'utf8'));
+            if (!userData || !userData.token) {
+                return;
+            }
+            
+            // 检查距离上次同步的时间
+            const now = Date.now();
+            const lastSync = userData.lastSyncTime || 0;
+            if (now - lastSync < AUTO_SYNC_INTERVAL) {
+                return;
+            }
+            
+            console.log('执行自动同步');
+            
+            // 获取服务器版本
+            const versionResult = await apiRequest('/api/bookmarks/getVersion', {
+                token: userData.token
+            });
+            
+            const serverVersion = versionResult?.version || 0;
+            const localVersion = userData.bookmarkSyncVersion || 0;
+            
+            // 如果云端有新版本，尝试同步（静默同步，不显示UI）
+            if (serverVersion > localVersion) {
+                console.log('发现云端新版本，执行自动同步');
+                
+                // 下载云端数据
+                const downloadResult = await apiRequest('/api/bookmarks/download', {
+                    token: userData.token
+                });
+                
+                if (downloadResult?.bookmarks) {
+                    // 保存到本地
+                    // 这里简化处理，实际应该有更完善的合并策略
+                    console.log('自动同步完成');
+                    
+                    // 更新本地版本
+                    userData.bookmarkSyncVersion = serverVersion;
+                    userData.lastSyncTime = now;
+                    fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2));
+                }
+            }
+        } catch (error) {
+            console.error('自动同步失败:', error);
+        }
+    }
+    
+    // 书签变更时触发同步
+    function onBookmarkChanged() {
+        if (bookmarkChangeTimer) {
+            clearTimeout(bookmarkChangeTimer);
+        }
+        bookmarkChangeTimer = setTimeout(() => {
+            checkAndAutoSync();
+        }, BOOKMARK_CHANGE_DELAY);
+    }
 
     function createLoginWindow() {
         if (loginWindow && !loginWindow.isDestroyed()) {
@@ -104,9 +209,13 @@ module.exports = function registerLoginIpcHandlers(deps) {
         try {
             if (!userData) {
                 // 清除用户数据
-                fs.unlinkSync(USER_DATA_PATH);
+                if (fs.existsSync(USER_DATA_PATH)) {
+                    fs.unlinkSync(USER_DATA_PATH);
+                }
+                stopAutoSync();
             }else{
                 fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2), 'utf8');
+                startAutoSync();
             }
 
             const mainWindow = getMainWindow();
@@ -166,6 +275,113 @@ module.exports = function registerLoginIpcHandlers(deps) {
         }
     });
 
+    // ============ 书签同步相关 IPC ============
+
+    // 上传书签
+    ipcMain.handle('upload-bookmarks', async (_event, params) => {
+        console.log('upload-bookmarks', params);
+        try {
+            const result = await apiRequest('/api/bookmarks/upload', params);
+            return { success: true, data: result };
+        } catch (error) {
+            console.error('上传书签失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 同步书签
+    ipcMain.handle('sync-bookmarks', async (_event, params) => {
+        console.log('sync-bookmarks', params);
+        try {
+            const result = await apiRequest('/api/bookmarks/sync', params);
+            return { success: true, data: result };
+        } catch (error) {
+            console.error('同步书签失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 下载书签
+    ipcMain.handle('download-bookmarks', async (_event, params) => {
+        console.log('download-bookmarks', params);
+        try {
+            const result = await apiRequest('/api/bookmarks/download', params);
+            console.log('下载书签:', result);
+            return { success: true, data: result };
+        } catch (error) {
+            console.error('下载书签失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // 获取书签最新版本
+    ipcMain.handle('get-bookmarks-version', async (_event, params) => {
+        console.log('get-bookmarks-version', params);
+        try {
+            const result = await apiRequest('/api/bookmarks/getVersion', params);
+            console.log('获取书签版本:', result);
+            if (result.code === 0) {
+                return { success: true, data: result.data };
+            } else {
+                return { success: false, data: {} };
+            }
+        } catch (error) {
+            console.error('获取书签版本失败:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // ============ 书签数据相关 IPC ============
+
+    // 请求书签数据
+    ipcMain.on('request-bookmarks-data', (event) => {
+        console.log('request-bookmarks-data');
+        try {
+            if (bookmarksCache) {
+                // 使用缓存
+                event.sender.send('bookmarks-data-response', bookmarksCache);
+            } else if (fs.existsSync(BOOKMARKS_DATA_PATH)) {
+                // 从文件读取
+                const data = fs.readFileSync(BOOKMARKS_DATA_PATH, 'utf8');
+                bookmarksCache = JSON.parse(data);
+                event.sender.send('bookmarks-data-response', bookmarksCache);
+            } else {
+                // 返回默认数据
+                const defaultData = {
+                    id: 'root',
+                    name: '书签',
+                    type: 'folder',
+                    items: []
+                };
+                event.sender.send('bookmarks-data-response', defaultData);
+            }
+        } catch (error) {
+            console.error('读取书签数据失败:', error);
+            const defaultData = {
+                id: 'root',
+                name: '书签',
+                type: 'folder',
+                items: []
+            };
+            event.sender.send('bookmarks-data-response', defaultData);
+        }
+    });
+
+    // 保存书签数据
+    ipcMain.on('save-bookmarks-data', (_event, data) => {
+        console.log('save-bookmarks-data');
+        try {
+            bookmarksCache = data;
+            fs.writeFileSync(BOOKMARKS_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
+            console.log('书签数据保存成功');
+            
+            // 触发书签变更后的自动同步
+            onBookmarkChanged();
+        } catch (error) {
+            console.error('保存书签数据失败:', error);
+        }
+    });
+
     // HTTP 请求工具函数
     function apiRequest(endpoint, data) {
         return new Promise((resolve, reject) => {
@@ -211,6 +427,24 @@ module.exports = function registerLoginIpcHandlers(deps) {
             req.end();
         });
     }
+
+    // 初始化：检查是否有已登录的用户
+    function initAutoSync() {
+        try {
+            if (fs.existsSync(USER_DATA_PATH)) {
+                const userData = JSON.parse(fs.readFileSync(USER_DATA_PATH, 'utf8'));
+                if (userData && userData.token) {
+                    console.log('发现已登录用户，启动自动同步');
+                    startAutoSync();
+                }
+            }
+        } catch (error) {
+            console.error('初始化自动同步失败:', error);
+        }
+    }
+    
+    // 执行初始化
+    initAutoSync();
 
     return {
         createLoginWindow

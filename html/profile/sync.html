@@ -142,6 +142,38 @@
         </div>
     </div>
 
+    <!-- 冲突解决模态框 -->
+    <div class="modal-overlay" id="syncConflictModal" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-title">发现同步冲突</div>
+            <div class="modal-content">
+                <div class="conflict-description">
+                    云端数据有更新，请选择同步方式
+                </div>
+                <div class="conflict-options">
+                    <div class="conflict-option" data-option="merge">
+                        <div class="option-icon">🔄</div>
+                        <div class="option-title">合并</div>
+                        <div class="option-desc">合并云端和本地变更</div>
+                    </div>
+                    <div class="conflict-option" data-option="cloud">
+                        <div class="option-icon">☁️</div>
+                        <div class="option-title">云端优先</div>
+                        <div class="option-desc">使用云端数据覆盖本地</div>
+                    </div>
+                    <div class="conflict-option" data-option="local">
+                        <div class="option-icon">💾</div>
+                        <div class="option-title">本地优先</div>
+                        <div class="option-desc">使用本地数据覆盖云端</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel-btn" id="cancelSyncBtn">暂不同步</button>
+            </div>
+        </div>
+    </div>
+
     <script src="../../common/toolkit.js"></script>
     <script src="sidebar.js"></script>
     <script src="sync.js"></script>
