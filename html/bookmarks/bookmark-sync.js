@@ -25,6 +25,12 @@ class BookmarkSync {
         return id;
     }
 
+    //重载数据与状态
+    reloadData(bookmarksTreeRef) {
+        this.bookmarksTreeRef = bookmarksTreeRef;
+        this.loadSyncState();
+    }
+
     // 加载同步状态
     loadSyncState() {
         try {
@@ -54,6 +60,51 @@ class BookmarkSync {
         } catch (error) {
             console.error('保存同步状态失败:', error);
         }
+    }
+
+    mergeBookmarks(localTree, cloudTree) {
+        const localMap = {};
+        const cloudMap = {};
+        
+        // 构建本地映射
+        function buildMap(tree, map) {
+            map[tree.id] = tree;
+            if (tree.items) {
+                tree.items.forEach(child => buildMap(child, map));
+            }
+        }
+        buildMap(localTree, localMap);
+        buildMap(cloudTree, cloudMap);
+        
+        // 合并策略：云端优先，但保留本地新增的
+        const mergedMap = {};
+        
+        // 先添加所有云端书签
+        Object.keys(cloudMap).forEach(id => {
+            mergedMap[id] = { ...cloudMap[id], items: [] };
+        });
+        
+        // 添加本地新增的（云端没有的）
+        Object.keys(localMap).forEach(id => {
+            if (!cloudMap[id]) {
+                mergedMap[id] = { ...localMap[id], items: [] };
+            }
+        });
+        
+        // 重建树结构
+        const result = unflattenTree(Object.values(mergedMap).map(item => ({
+            localId: item.id,
+            parentId: item.parentId || null,
+            type: item.type,
+            title: item.name,
+            url: item.url,
+            favicon: item.favicon,
+            orderIndex: item.orderIndex,
+            syncVersion: item.syncVersion,
+            isDeleted: item.isDeleted
+        })));
+        
+        return result;
     }
 
     // 扁平化树结构用于上传

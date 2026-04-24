@@ -450,6 +450,14 @@ async function performUploadFirst() {
     return
 }
 
+function bookmarkSyncReload(localBookmarks) {
+    if (bookmarkSync) {
+        bookmarkSync.reloadData(localBookmarks);
+    }else{
+        bookmarkSync=new BookmarkSync(localBookmarks);//不存在则创建
+    }
+}
+
 // 根据用户选择执行同步
 async function performSyncWithOption(option, serverVersion) {
     console.log('执行同步，选项:', option);
@@ -457,23 +465,27 @@ async function performSyncWithOption(option, serverVersion) {
     const localBookmarks = await getLocalBookmarks();
     
     if (option === 'merge') {
+        //todo:待测试
         // 合并：先下载云端数据，合并后上传
         const downloadResult = await ipcRenderer.invoke('download-bookmarks', {
             token: currentUser.token
         });
         
+        bookmarkSyncReload(localBookmarks);
+        
         if (downloadResult && downloadResult.success) {
             const cloudFlatList = downloadResult.data?.bookmarks || [];
-            const cloudTree = buildBookmarkTree(cloudFlatList);
+            const cloudTree = bookmarkSync.unflattenTree(cloudFlatList);
+            console.log('云端书签树.1:', cloudTree);
             
             // 合并
-            const mergedTree = mergeBookmarks(localBookmarks, cloudTree);
+            const mergedTree = bookmarkSync.mergeBookmarks(localBookmarks, cloudTree);
             
             // 保存到本地
-            ipcRenderer.send('save-bookmarks-data', mergedTree);
+            ipcRenderer.send('save-bookmarks', mergedTree);
             
             // 上传合并后的结果
-            const flatBookmarks = flattenBookmarks(mergedTree);
+            const flatBookmarks = bookmarkSync.flattenTree(mergedTree);
             const uploadResult = await ipcRenderer.invoke('upload-bookmarks', {
                 token: currentUser.token,
                 bookmarks: flatBookmarks,
