@@ -1,3 +1,5 @@
+// ipcRenderer依赖外部其它js
+
 // 书签同步模块
 class BookmarkSync {
     constructor(bookmarksTreeRef) {
@@ -32,6 +34,7 @@ class BookmarkSync {
                 this.syncVersion = parsed.syncVersion || 0;
                 this.lastSyncTime = parsed.lastSyncTime || 0;
                 this.lastSyncSnapshot = parsed.snapshot || null;
+                this.changes = parsed.changes || [];
             }
         } catch (error) {
             console.error('加载同步状态失败:', error);
@@ -44,7 +47,8 @@ class BookmarkSync {
             const state = {
                 syncVersion: this.syncVersion,
                 lastSyncTime: this.lastSyncTime,
-                snapshot: this.lastSyncSnapshot
+                snapshot: this.lastSyncSnapshot,
+                changes: this.changes
             };
             localStorage.setItem('bookmarkSyncState', JSON.stringify(state));
         } catch (error) {
@@ -57,24 +61,27 @@ class BookmarkSync {
         // 确保每个项目都有本地ID
         const localId = tree.id || this.generateLocalId();
         
-        const item = {
+        //root不上传
+        if(tree.id!='root'){
+            const item = {
             localId: localId,
             parentId: parentId,
             type: tree.type,
-            title: tree.type === 'folder' ? tree.name : tree.title,
+            title: tree.title,
             url: tree.url || '',
             favicon: tree.favicon || '',
             orderIndex: 0, // 后续会根据位置设置
             syncVersion: this.syncVersion,
             isDeleted: false
-        };
-        
-        // 确保树结构中有id
-        if (!tree.id) {
-            tree.id = localId;
+            };
+            
+            // 确保树结构中有id
+            if (!tree.id) {
+                tree.id = localId;
+            }
+            
+            result.push(item);
         }
-        
-        result.push(item);
         
         // 处理子项目
         if (tree.items && tree.items.length > 0) {
@@ -97,8 +104,8 @@ class BookmarkSync {
             map[item.localId] = {
                 id: item.localId,
                 type: item.type,
-                name: item.type === 'folder' ? item.title : undefined,
-                title: item.type === 'bookmark' ? item.title : undefined,
+                // 对于文件夹，同时设置 title 和 name 字段
+                title: item.title,
                 url: item.url,
                 favicon: item.favicon,
                 syncVersion: item.syncVersion,
@@ -131,7 +138,7 @@ class BookmarkSync {
         return roots.find(r => r.id === 'root') || roots[0] || {
             id: 'root',
             type: 'folder',
-            name: '书签',
+            title: '书签',
             items: []
         };
     }
@@ -142,12 +149,12 @@ class BookmarkSync {
     }
 
     // 记录变更（在书签修改时调用）
-    recordChange(operation, item, parentId = null) {
+    recordChange(operation, item, parentId = null,token = null) {
         const change = {
             localId: item.id || this.generateLocalId(),
             parentId: parentId,
             type: item.type,
-            title: item.type === 'folder' ? item.name : item.title,
+            title: item.title,
             url: item.url || '',
             favicon: item.favicon || '',
             operation: operation, // 'add', 'update', 'delete'
@@ -155,11 +162,17 @@ class BookmarkSync {
         };
         
         this.changes.push(change);
+
+        console.log('记录变更BookmarkSync', change);
         
         // 确保item有id
         if (!item.id) {
             item.id = change.localId;
         }
+        
+        // 保存到 localStorage
+        this.saveSyncState();
+        this.syncBookmarks(token);
     }
 
     // 计算与上次同步的差异
@@ -214,11 +227,45 @@ class BookmarkSync {
         }
     }
 
+    // 加载用户数据
+async  getUserData() {
+    try {
+        const result = await ipcRenderer.invoke('load-user-data');
+        console.log('加载用户数据结果:', result);
+        if (result && result.success) {
+            let currentUser = null;
+            if (result.data) {
+                // 旧格式：直接返回用户数据
+                console.log('加载用户数据成功:', result.data);
+                currentUser = result.data;
+            } else if (result.user) {
+                // 新格式：在 user 字段中
+                console.log('加载用户数据成功:', result.user);
+                currentUser = result.user;
+            }
+            return currentUser;
+        }
+    } catch (error) {
+        console.error('加载用户数据失败:', error);
+    }
+     return null;
+}
+
+
     // 增量同步
     async syncBookmarks(token) {
         if (this.isSyncing) {
             console.log('同步已在进行中');
             return false;
+        }
+
+        if (!token) {
+            const userData = await this.getUserData();
+            if (!userData) {
+                console.error('获取用户数据失败');
+                return false;
+            }
+            token = userData.token;
         }
         
         this.isSyncing = true;
@@ -356,20 +403,20 @@ class BookmarkSync {
 }
 
 // 安全地获取 electron API
-let ipcRenderer;
-if (typeof window !== 'undefined' && window.electronAPI) {
-    ipcRenderer = window.electronAPI;
-} else {
-    try {
-        const electron = require('electron');
-        ipcRenderer = electron.ipcRenderer;
-    } catch (e) {
-        console.error('无法加载 electron 模块:', e);
-        ipcRenderer = {
-            invoke: function () { return Promise.resolve(null); }
-        };
-    }
-}
+// let ipcRenderer;
+// if (typeof window !== 'undefined' && window.electronAPI) {
+//     ipcRenderer = window.electronAPI;
+// } else {
+//     try {
+//         const electron = require('electron');
+//         ipcRenderer = electron.ipcRenderer;
+//     } catch (e) {
+//         console.error('无法加载 electron 模块:', e);
+//         ipcRenderer = {
+//             invoke: function () { return Promise.resolve(null); }
+//         };
+//     }
+// }
 
 // 导出
 if (typeof module !== 'undefined' && module.exports) {

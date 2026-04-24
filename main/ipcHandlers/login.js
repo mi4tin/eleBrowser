@@ -102,7 +102,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
                 
                 if (downloadResult?.bookmarks) {
                     // 保存到本地
-                    // 这里简化处理，实际应该有更完善的合并策略
+                    // todo:这里简化处理，实际应该有更完善的合并策略
                     console.log('自动同步完成');
                     
                     // 更新本地版本
@@ -307,7 +307,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
         try {
             const result = await apiRequest('/api/bookmarks/download', params);
             console.log('下载书签:', result);
-            return { success: true, data: result };
+            return { success: true, data: result.data };
         } catch (error) {
             console.error('下载书签失败:', error);
             return { success: false, error: error.message };

@@ -35,7 +35,7 @@ if (typeof window !== 'undefined' && window.electronAPI) {
 // 默认书签数据
 const defaultBookmarksTree = {
     id: 'root',
-    name: '书签',
+    title: '书签',
     type: 'folder',
     items: []
 };
@@ -62,6 +62,7 @@ function saveBookmarks() {
 
 // 初始化书签数据
 let bookmarksTree;
+let bookmarkSync; // 书签同步实例
 
 const body = document.querySelector('body');
 const sidebar = document.getElementById('sidebar');
@@ -80,6 +81,10 @@ async function init() {
     // 异步加载书签数据
     bookmarksTree = await loadBookmarks();
     currentFolder = bookmarksTree;
+    
+    // 初始化书签同步实例
+    bookmarkSync = new BookmarkSync(bookmarksTree);
+    
     renderTree();
     renderContent(currentFolder);
     setupEventListeners();
@@ -755,7 +760,7 @@ function renderTreeItem(item, level) {
         <div class="tree-item-content" style="margin-left: ${indent}px;">
             <span class="tree-toggle ${hasChildren ? (isExpanded ? 'expanded' : 'collapsed') : 'empty'}"></span>
             <span class="tree-icon">📁</span>
-            <span class="tree-label">${escapeHtml(item.name)}</span>
+            <span class="tree-label">${escapeHtml(item.title)}</span>
         </div>
         ${hasChildren ? `<div class="tree-children"></div>` : ''}
     `;
@@ -1000,7 +1005,7 @@ function selectFolder(folder) {
 
 // 渲染内容区域
 function renderContent(folder) {
-    contentTitle.textContent = folder.name;
+    contentTitle.textContent = folder.title;
     contentPath.textContent = getFolderPath(folder);
 
     contentGrid.innerHTML = '';
@@ -1043,7 +1048,7 @@ function createFolderCard(folder) {
 
     card.innerHTML = `
         <div class="folder-card-icon">📁</div>
-        <div class="folder-card-name">${escapeHtml(folder.name)}</div>
+        <div class="folder-card-name">${escapeHtml(folder.title)}</div>
         <div class="folder-card-meta">${totalCount} 项</div>
     `;
 
@@ -1057,7 +1062,7 @@ function createFolderCard(folder) {
             type: 'internal',
             itemType: 'folder',
             id: folder.id,
-            name: folder.name,
+            title: folder.title,
             sourceFolderId: currentFolder.id
         }));
         e.dataTransfer.effectAllowed = 'move';
@@ -1169,13 +1174,13 @@ function getFolderPath(folder) {
     // 向上查找路径
     function findPath(node, targetId) {
         if (node.id === targetId) {
-            path.unshift(node.name);
+            path.unshift(node.title);
             return true;
         }
-        if (node.children) {
-            for (const child of node.children) {
+        if (node.items) {
+            for (const child of node.items) {
                 if (findPath(child, targetId)) {
-                    path.unshift(node.name);
+                    path.unshift(node.title);
                     return true;
                 }
             }
@@ -1282,9 +1287,17 @@ function hideContextMenu() {
 function renameFolder(id) {
     const res = findFolderById(bookmarksTree, id);
     if (!res) return;
-    const newName = prompt('请输入新的文件夹名称', res.folder.name);
+    const newName = prompt('请输入新的文件夹名称', res.folder.title);
     if (newName && newName.trim()) {
+        res.folder.title = newName.trim();
         res.folder.name = newName.trim();
+        
+        // 记录变更
+        if (bookmarkSync) {
+            const parentId = res.parent ? res.parent.id : null;
+            bookmarkSync.recordChange('update', res.folder, parentId);
+        }
+        
         renderTree();
         renderContent(currentFolder.id === id ? res.folder : currentFolder);
         saveBookmarks();
@@ -1298,6 +1311,13 @@ function deleteFolder(id) {
     if (!res || !res.parent) return;
     if (confirm('确定要删除该文件夹及其内容吗？')) {
         console.log('删除文件夹:', res.folder);
+        
+        // 记录变更
+        if (bookmarkSync) {
+            const parentId = res.parent ? res.parent.id : null;
+            bookmarkSync.recordChange('delete', res.folder, parentId);
+        }
+        
         res.parent.items = res.parent.items.filter(item => item.id !== id);
         if (currentFolder.id === id) {
             currentFolder = res.parent;
@@ -1337,6 +1357,14 @@ function editBookmark(bookmark) {
                 if (!newTitle || !newUrl) return;
                 bookmark.title = newTitle;
                 bookmark.url = newUrl;
+                
+                // 记录变更
+                if (bookmarkSync) {
+                    const parentInfo = findParentFolder(bookmarksTree, bookmark);
+                    const parentId = parentInfo ? parentInfo.id : null;
+                    bookmarkSync.recordChange('update', bookmark, parentId);
+                }
+                
                 renderContent(currentFolder);
                 saveBookmarks();
             }
@@ -1345,6 +1373,13 @@ function editBookmark(bookmark) {
 }
 
 function deleteBookmark(targetBookmark) {
+    // 先找到父文件夹，记录变更
+    if (bookmarkSync) {
+        const parentFolder = findParentFolder(bookmarksTree, targetBookmark);
+        const parentId = parentFolder ? parentFolder.id : null;
+        bookmarkSync.recordChange('delete', targetBookmark, parentId);
+    }
+    
     function removeFromFolder(folder) {
         if (folder.items) {
             const before = folder.items.length;
@@ -1405,13 +1440,21 @@ function addFolder(parentId) {
                 if (!res) return;
                 const newId = parentId + '-' + Math.random().toString(36).slice(2, 8);
                 res.folder.items = res.folder.items || [];
-                res.folder.items.push({
+                const newFolder = {
                     id: newId,
+                    title: name,
                     name: name,
                     type: 'folder',
                     items: []
-                });
+                };
+                res.folder.items.push(newFolder);
                 expandedFolders.add(parentId);
+                
+                // 记录变更
+                if (bookmarkSync) {
+                    bookmarkSync.recordChange('add', newFolder, parentId);
+                }
+                
                 renderTree();
                 renderContent(currentFolder);
                 saveBookmarks();
@@ -1450,12 +1493,19 @@ function addBookmark(parentId) {
                 const res = findFolderById(bookmarksTree, parentId);
                 if (!res) return;
                 res.folder.items = res.folder.items || [];
-                res.folder.items.push({
+                const newBookmark = {
                     type: 'bookmark',
                     title: title,
                     url: url,
                     favicon: '🔗'
-                });
+                };
+                res.folder.items.push(newBookmark);
+                
+                // 记录变更
+                if (bookmarkSync) {
+                    bookmarkSync.recordChange('add', newBookmark, parentId);
+                }
+                
                 renderContent(currentFolder);
                 saveBookmarks();
             }
@@ -1481,6 +1531,25 @@ function findFolderById(folder, id, parent = null) {
 function findParentFolderId(tree, folderId) {
     const result = findFolderById(tree, folderId);
     return result && result.parent ? result.parent.id : 'root';
+}
+
+// 辅助函数：查找对象的父文件夹
+function findParentFolder(tree, targetItem) {
+    function search(folder) {
+        if (folder.items) {
+            for (const item of folder.items) {
+                if (item === targetItem) {
+                    return folder;
+                }
+                if (item.type === 'folder') {
+                    const found = search(item);
+                    if (found) return found;
+                }
+            }
+        }
+        return null;
+    }
+    return search(tree);
 }
 
 // 辅助函数：检查文件夹是否是另一个文件夹的子文件夹
@@ -1582,12 +1651,18 @@ function addBookmarkFromDrag(url) {
 
     // 添加到当前文件夹
     currentFolder.items = currentFolder.items || [];
-    currentFolder.items.push({
+    const newBookmark = {
         type: 'bookmark',
         title: title,
         url: url,
         favicon: '🔗'
-    });
+    };
+    currentFolder.items.push(newBookmark);
+    
+    // 记录变更
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('add', newBookmark, currentFolder.id);
+    }
 
     // 重新渲染内容
     renderContent(currentFolder);

@@ -42,6 +42,7 @@ let currentUser = null;
 let isSyncing = false;
 let selectedConflictOption = null;
 let pendingSyncData = null;
+let bookmarkSync = null;
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -185,6 +186,7 @@ async function getLocalBookmarks() {
         ipcRenderer.once('bookmarks-data-response', (event, data) => {
             if (resolved) return;
             resolved = true;
+            console.log('获取本地书签数据:', data);
             resolve(data);
         });
         
@@ -196,7 +198,7 @@ async function getLocalBookmarks() {
             resolved = true;
             resolve({
                 id: 'root',
-                name: '书签',
+                title: '书签',
                 type: 'folder',
                 items: []
             });
@@ -238,6 +240,7 @@ function buildBookmarkTree(flatList) {
         map[item.localId] = {
             id: item.localId,
             name: item.title,
+            title: item.title,
             type: item.type,
             url: item.url,
             favicon: item.favicon,
@@ -276,7 +279,7 @@ function buildBookmarkTree(flatList) {
     // 否则包装在 root 下
     return {
         id: 'root',
-        name: '书签',
+        title: '书签',
         type: 'folder',
         items: roots
     };
@@ -429,35 +432,22 @@ function waitForConflictOption() {
 // 首次上传
 async function performUploadFirst() {
     console.log('首次同步，上传本地完整书签...');
-    
-    // 获取本地书签
+
+
+    // 获取本地书签并初始化 bookmarkSync
     const localBookmarks = await getLocalBookmarks();
-    
-    // 转换为扁平列表
-    const flatBookmarks = flattenBookmarks(localBookmarks);
-    
-    // 上传
-    const result = await ipcRenderer.invoke('upload-bookmarks', {
-        token: currentUser.token,
-        bookmarks: flatBookmarks,
-        syncVersion: 1,
-        deviceId: localStorage.getItem('deviceId') || 'browser-device'
-    });
-    
-    if (result && result.success) {
-        // 从服务器返回的结果中获取版本号
-        const newVersion = result.data?.version || 1;
-        
-        // 更新同步版本
-        localStorage.setItem('bookmarkSyncVersion', newVersion);
-        localStorage.setItem('lastSyncTime', Date.now());
-        
-        updateSyncUI();
-        showNotification('首次同步成功！');
-        console.log('首次同步完成，版本:', newVersion);
-    } else {
-        throw new Error(result?.error || '上传失败');
+    if (!bookmarkSync && localBookmarks) {
+        bookmarkSync = new BookmarkSync(localBookmarks);
     }
+
+    const success=await bookmarkSync.uploadBookmarks(currentUser.token);
+    if (!success) {
+        throw new Error('首次同步失败');
+    }
+    updateSyncUI();
+    showNotification('首次同步成功！');
+    console.log('首次同步完成');
+    return
 }
 
 // 根据用户选择执行同步
@@ -502,12 +492,15 @@ async function performSyncWithOption(option, serverVersion) {
             token: currentUser.token
         });
         
+        console.log('下载书签结果:', downloadResult);
+        
         if (downloadResult && downloadResult.success) {
             const cloudFlatList = downloadResult.data?.bookmarks || [];
             const cloudTree = buildBookmarkTree(cloudFlatList);
+            console.log('云端书签树:', cloudTree);
             
             // 保存到本地
-            ipcRenderer.send('save-bookmarks-data', cloudTree);
+            ipcRenderer.send('save-bookmarks', cloudTree);
             
             localStorage.setItem('bookmarkSyncVersion', serverVersion);
             showNotification('云端同步成功！');
@@ -529,27 +522,78 @@ async function performSyncWithOption(option, serverVersion) {
         showNotification('本地同步成功！');
     }
     
+    // 清空变更记录（强制同步后所有变更都已同步）
+    clearChangesFromStorage();
+    if (bookmarkSync) {
+        bookmarkSync.changes = [];
+    }
+    
     // 更新最后同步时间
     localStorage.setItem('lastSyncTime', Date.now());
     updateSyncUI();
     ipcRenderer.send('refresh-bookmarks');
 }
 
+// 从 localStorage 读取变更记录
+function getChangesFromStorage() {
+    try {
+        const state = localStorage.getItem('bookmarkSyncState');
+        if (state) {
+            const parsed = JSON.parse(state);
+            return parsed.changes || [];
+        }
+    } catch (error) {
+        console.error('读取变更记录失败:', error);
+    }
+    return [];
+}
+
+// 清空 localStorage 中的变更记录
+function clearChangesFromStorage() {
+    try {
+        const state = localStorage.getItem('bookmarkSyncState');
+        if (state) {
+            const parsed = JSON.parse(state);
+            parsed.changes = [];
+            localStorage.setItem('bookmarkSyncState', JSON.stringify(parsed));
+        }
+    } catch (error) {
+        console.error('清空变更记录失败:', error);
+    }
+}
+
 // 增量同步
 async function performIncrementalSync() {
     console.log('执行增量同步...');
     
+    // 获取本地书签并初始化 bookmarkSync
+    const localBookmarks = await getLocalBookmarks();
+    if (!bookmarkSync && localBookmarks) {
+        bookmarkSync = new BookmarkSync(localBookmarks);
+    }
+
+    const success=await bookmarkSync.syncBookmarks(currentUser.token);
+    if (!success) {
+        throw new Error('增量同步失败');
+    }
+    console.log('增量同步成功');
+    return
+    
+    // 从 localStorage 读取变更记录
+    const changes = getChangesFromStorage();
+    console.log('同步变更:', changes);
+    
     const result = await ipcRenderer.invoke('sync-bookmarks', {
         token: currentUser.token,
         localVersion: parseInt(localStorage.getItem('bookmarkSyncVersion') || 0),
-        changes: [],
+        changes: changes,
         deviceId: localStorage.getItem('deviceId') || 'browser-device'
     });
     
     if (result && result.success) {
+        console.log('增量同步结果changes:', result.data.changes);
         // 应用云端变更
         if (result.data && result.data.changes && result.data.changes.length > 0) {
-            const localBookmarks = await getLocalBookmarks();
             const localFlatList = flattenBookmarks(localBookmarks);
             
             // 简单的变更应用策略
@@ -573,12 +617,18 @@ async function performIncrementalSync() {
             });
             
             const mergedTree = buildBookmarkTree(mergedList);
-            ipcRenderer.send('save-bookmarks-data', mergedTree);
+            ipcRenderer.send('save-bookmarks', mergedTree);
         }
         
         // 更新版本
         if (result.data && result.data.serverVersion !== undefined) {
             localStorage.setItem('bookmarkSyncVersion', result.data.serverVersion);
+        }
+        
+        // 清空变更记录（从 localStorage 和内存中都清空
+        clearChangesFromStorage();
+        if (bookmarkSync) {
+            bookmarkSync.changes = [];
         }
         
         localStorage.setItem('lastSyncTime', Date.now());

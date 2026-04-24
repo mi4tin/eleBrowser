@@ -1602,22 +1602,26 @@ if (bookmarkBarArrow) {
 // 默认书签数据
 const defaultBookmarksTree = {
     id: 'root',
+    title: '书签',
     name: '书签',
     type: 'folder',
     items: [
         {
             id: 'life',
+            title: '生活',
             name: '生活',
             type: 'folder',
             items: [
                 {
                     id: 'life-food',
+                    title: '美食',
                     name: '美食',
                     type: 'folder',
                     items: []
                 },
                 {
                     id: 'life-shopping',
+                    title: '购物',
                     name: '购物',
                     type: 'folder',
                     items: [
@@ -1633,11 +1637,13 @@ const defaultBookmarksTree = {
         },
         {
             id: 'world-news',
+            title: '世界消息',
             name: '世界消息',
             type: 'folder',
             items: [
                 {
                     id: 'bloomberg',
+                    title: '彭博社',
                     name: '彭博社',
                     type: 'folder',
                     items: [
@@ -1657,6 +1663,7 @@ const defaultBookmarksTree = {
                 },
                 {
                     id: 'reuters',
+                    title: '路透社',
                     name: '路透社',
                     type: 'folder',
                     items: []
@@ -1665,6 +1672,7 @@ const defaultBookmarksTree = {
         },
         {
             id: 'weather',
+            title: '天气/气象',
             name: '天气/气象',
             type: 'folder',
             items: [
@@ -1678,12 +1686,14 @@ const defaultBookmarksTree = {
         },
         {
             id: 'travel',
+            title: '出行工具',
             name: '出行工具',
             type: 'folder',
             items: []
         },
         {
             id: 'hygiene',
+            title: '家庭卫生',
             name: '家庭卫生',
             type: 'folder',
             items: []
@@ -1692,6 +1702,7 @@ const defaultBookmarksTree = {
 };
 
 let bookmarksTreeData = null;
+let bookmarkSync = null;
 
 // 加载书签数据
 async function loadBookmarkBarData() {
@@ -1823,6 +1834,11 @@ async function renderBookmarkBar() {
     try {
         // 加载书签数据
         bookmarksTreeData = await loadBookmarkBarData();
+        
+        // 初始化书签同步实例
+        if (bookmarksTreeData && !bookmarkSync) {
+            bookmarkSync = new BookmarkSync(bookmarksTreeData);
+        }
 
         // 收集所有项目
         // const allItems = collectAllItems(bookmarksTreeData);
@@ -1865,20 +1881,20 @@ async function renderBookmarkBar() {
             if (item.type === 'folder') {
                 itemEl.innerHTML = `
                     <div class="bookmark-bar-icon">📁</div>
-                    <div class="bookmark-bar-label">${escapeHtml(item.name)}</div>
+                    <div class="bookmark-bar-label">${escapeHtml(item.title )}</div>
                 `;
 
                 // 点击文件夹：显示下拉菜单
                 itemEl.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    showFolderDropdown(item.id, item.name, itemEl);
+                    showFolderDropdown(item.id, item.title , itemEl);
                 });
 
                 itemEl.addEventListener('mouseenter', (e) => {
                     if (!canMouseenter) return;
                     e.stopPropagation();
                     isMouseenter = true;
-                    showFolderDropdown(item.id, item.name, itemEl, isMouseenter);
+                    showFolderDropdown(item.id, item.title , itemEl, isMouseenter);
                 });
             } else {
                 itemEl.innerHTML = `
@@ -1934,11 +1950,11 @@ async function renderBookmarkBar() {
 
             if (currentWidth <= availableWidth) {
                 visibleCount++;
-                console.log(`渲染书签 ${visibleCount}:`, item.name || item.title, currentWidth, '<=', availableWidth);
+                console.log(`渲染书签 ${visibleCount}:`, item.title , currentWidth, '<=', availableWidth);
             } else {
                 // 超出宽度，从 DOM 中移除
                 bookmarkBarContent.removeChild(itemEl);
-                console.log(`移除书签（超出宽度）:`, item.name || item.title, currentWidth, '>', availableWidth);
+                console.log(`移除书签（超出宽度）:`, item.title , currentWidth, '>', availableWidth);
 
                 // 添加到隐藏书签列表
                 hiddenBookmarks.push({
@@ -2037,7 +2053,7 @@ function showAllBookmarksDropdown() {
     // 使用隐藏的书签数据
     const hiddenBookmarksData = {
         id: 'hidden-bookmarks',
-        name: '更多书签',
+        title: '更多书签',
         type: 'folder',
         items: hiddenBookmarks.map(item => item.data)
     };
@@ -2400,15 +2416,20 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
     } else {
         bookmarksTreeData.items.splice(targetIndex, 0, newBookmark);
     }
+    
+    // 记录变更
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('add', newBookmark, bookmarksTreeData.id);
+    }
 
     saveBookmarkBarData();
     renderBookmarkBar();
 }
 
 // 添加URL到指定文件夹
-function addUrlToFolder(url, folderId) {
-    const cleanUrl = url.trim();
-    const title = extractTitleFromUrl(cleanUrl);
+function addUrlToFolder(urlInfo, folderId) {
+    const cleanUrl = urlInfo.url;
+    const title =  urlInfo.title || urlInfo.url;//extractTitleFromUrl(cleanUrl);
 
     const newBookmark = {
         id: generateUniqueId(),
@@ -2466,7 +2487,8 @@ function addExternalBookmarkToBookmarkBar(data, targetIndex) {
         newItem = {
             id: data.id,
             type: 'folder',
-            name: data.name || '新建文件夹',
+            title: data.title || '新建文件夹',
+            name: data.title || '新建文件夹',
             items: []
         };
     } else {

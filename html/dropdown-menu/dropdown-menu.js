@@ -102,13 +102,13 @@ function showFolderDropdown() {
             // 子文件夹
             itemEl.innerHTML = `
                 <span class="icon folder-icon">📁</span>
-                <span class="label">${escapeHtml(item.name)}</span>
+                <span class="label">${escapeHtml(item.title)}</span>
                 <span class="arrow">❯</span>
             `;
             
             itemEl.addEventListener('mouseenter', () => {
                 const rect = itemEl.getBoundingClientRect();
-                console.log('鼠标进入子文件夹:', item.name, rect);
+                console.log('鼠标进入子文件夹:', item.title , rect);
 
                 // 延迟显示子菜单，避免快速移动时闪烁
                 if (hoverTimeout) {
@@ -222,7 +222,7 @@ function addDragEventsToItem(itemEl, item, index,parentFolderId) {
                 type: 'internal',
                 itemType: 'folder',
                 id: item.id,
-                name: item.name
+                title: item.title 
             };
         } else {
             console.log('dragstart.书签:', item,parentFolderId);
@@ -283,95 +283,105 @@ function loadBookmarksData(folderId) {
 // 默认书签数据
 function getDefaultBookmarks() {
     return {
-        id: 'root',
-        name: '书签',
-        type: 'folder',
-        items: [
-            {
-                id: 'life',
-                name: '生活',
-                type: 'folder',
-                items: [
-                    {
-                        id: 'life-food',
-                        name: '美食',
-                        type: 'folder',
-                        items: []
-                    },
-                    {
-                        id: 'life-shopping',
-                        name: '购物',
-                        type: 'folder',
-                        items: [
-                            {
-                                type: 'bookmark',
-                                title: '淘宝',
-                                url: 'https://www.taobao.com',
-                                favicon: '🛒'
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                id: 'world-news',
-                name: '世界消息',
-                type: 'folder',
-                items: [
-                    {
-                        id: 'bloomberg',
-                        name: '彭博社',
-                        type: 'folder',
-                        items: [
-                            {
-                                type: 'bookmark',
-                                title: '特朗普：将于明年 4 月访华',
-                                url: 'https://baijiahao.baidu.com/s?id=123456789',
-                                favicon: '🔵'
-                            },
-                            {
-                                type: 'bookmark',
-                                title: '彭博社放风救市，地产股集体反弹！但底层数据藏着大信号...',
-                                url: 'https://mp.weixin.qq.com/s/abcdefgh',
-                                favicon: '🟢'
-                            }
-                        ]
-                    },
-                    {
-                        id: 'reuters',
-                        name: '路透社',
-                        type: 'folder',
-                        items: []
-                    }
-                ]
-            },
-            {
-                id: 'weather',
-                name: '天气/气象',
-                type: 'folder',
-                items: [
-                    {
-                        type: 'bookmark',
-                        title: '中国天气网',
-                        url: 'https://www.weather.com.cn',
-                        favicon: '☁️'
-                    }
-                ]
-            },
-            {
-                id: 'travel',
-                name: '出行工具',
-                type: 'folder',
-                items: []
-            },
-            {
-                id: 'hygiene',
-                name: '家庭卫生',
-                type: 'folder',
-                items: []
-            }
-        ]
-    };
+    id: 'root',
+    title: '书签',
+    name: '书签',
+    type: 'folder',
+    items: [
+        {
+            id: 'life',
+            title: '生活',
+            name: '生活',
+            type: 'folder',
+            items: [
+                {
+                    id: 'life-food',
+                    title: '美食',
+                    name: '美食',
+                    type: 'folder',
+                    items: []
+                },
+                {
+                    id: 'life-shopping',
+                    title: '购物',
+                    name: '购物',
+                    type: 'folder',
+                    items: [
+                        {
+                            type: 'bookmark',
+                            title: '淘宝',
+                            url: 'https://www.taobao.com',
+                            favicon: '🛒'
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            id: 'world-news',
+            title: '世界消息',
+            name: '世界消息',
+            type: 'folder',
+            items: [
+                {
+                    id: 'bloomberg',
+                    title: '彭博社',
+                    name: '彭博社',
+                    type: 'folder',
+                    items: [
+                        {
+                            type: 'bookmark',
+                            title: '特朗普：将于明年 4 月访华',
+                            url: 'https://baijiahao.baidu.com/s?id=123456789',
+                            favicon: '🔵'
+                        },
+                        {
+                            type: 'bookmark',
+                            title: '彭博社放风救市，地产股集体反弹！但底层数据藏着大信号...',
+                            url: 'https://mp.weixin.qq.com/s/abcdefgh',
+                            favicon: '🟢'
+                        }
+                    ]
+                },
+                {
+                    id: 'reuters',
+                    title: '路透社',
+                    name: '路透社',
+                    type: 'folder',
+                    items: []
+                }
+            ]
+        },
+        {
+            id: 'weather',
+            title: '天气/气象',
+            name: '天气/气象',
+            type: 'folder',
+            items: [
+                {
+                    type: 'bookmark',
+                    title: '中国天气网',
+                    url: 'https://www.weather.com.cn',
+                    favicon: '☁️'
+                }
+            ]
+        },
+        {
+            id: 'travel',
+            title: '出行工具',
+            name: '出行工具',
+            type: 'folder',
+            items: []
+        },
+        {
+            id: 'hygiene',
+            title: '家庭卫生',
+            name: '家庭卫生',
+            type: 'folder',
+            items: []
+        }
+    ]
+};
 }
 
 // 监听主页面的消息
