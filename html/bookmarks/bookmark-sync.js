@@ -24,7 +24,7 @@ class BookmarkSync {
         }
         return id;
     }
-
+    
     //重载数据与状态
     reloadData(bookmarksTreeRef) {
         this.bookmarksTreeRef = bookmarksTreeRef;
@@ -118,7 +118,7 @@ class BookmarkSync {
         }
         
         // 确保每个项目都有本地ID
-        const localId = tree.id || this.generateLocalId();
+        const localId = tree.id || this.generateLocalId(parentId, tree.url||tree.title);//文件夹只有title
         
         const item = {
             localId: localId,
@@ -208,14 +208,39 @@ class BookmarkSync {
     }
 
     // 生成本地ID
-    generateLocalId() {
-        return 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    generateLocalId(parentId,url) {
+        return this.murmur3(parentId)+'-'+this.murmur3(url);
+    }
+
+    //生成一个长度低于32位的字符串，但速度比md5快很多，见https://chat.deepseek.com/a/chat/s/6bdfbb63-2851-49b3-9114-86ee43f54304
+    murmur3(str, seed = 0) {
+        let h1 = seed | 0;
+        const c1 = 0xcc9e2d51, c2 = 0x1b873593;
+        
+        for (let i = 0; i < str.length; i++) {
+            let k1 = str.charCodeAt(i);
+            k1 = Math.imul(k1, c1);
+            k1 = (k1 << 15) | (k1 >>> 17);
+            k1 = Math.imul(k1, c2);
+            h1 ^= k1;
+            h1 = (h1 << 13) | (h1 >>> 19);
+            h1 = Math.imul(h1, 5) + 0xe6546b64 | 0;
+        }
+        
+        h1 ^= str.length;
+        h1 ^= h1 >>> 16;
+        h1 = Math.imul(h1, 0x85ebca6b);
+        h1 ^= h1 >>> 13;
+        h1 = Math.imul(h1, 0xc2b2ae35);
+        h1 ^= h1 >>> 16;
+        
+        return (h1 >>> 0).toString(36);
     }
 
     // 记录变更（在书签修改时调用）
     recordChange(operation, item, parentId = null,token = null) {
         const change = {
-            localId: item.id || this.generateLocalId(),
+            localId: item.id || this.generateLocalId(parentId, item.url||item.title),
             parentId: parentId,
             type: item.type,
             title: item.title,

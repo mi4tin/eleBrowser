@@ -2385,8 +2385,8 @@ function extractTitleFromUrl(url) {
 }
 
 // 生成唯一ID
-function generateUniqueId() {
-    return 'bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+function generateUniqueId(parentId,url) {
+    return murmur3(parentId)+'-'+murmur3(url);
 }
 
 // 添加URL到书签栏
@@ -2396,7 +2396,7 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
     const title = urlInfo.title || urlInfo.url;
 
     const newBookmark = {
-        id: generateUniqueId(),
+        id: generateUniqueId(bookmarksTreeData.id, urlInfo.url),
         type: 'bookmark',
         title: title,
         url: urlInfo.url,
@@ -2432,7 +2432,7 @@ function addUrlToFolder(urlInfo, folderId) {
     const title =  urlInfo.title || urlInfo.url;//extractTitleFromUrl(cleanUrl);
 
     const newBookmark = {
-        id: generateUniqueId(),
+        id: generateUniqueId(folderId, cleanUrl),
         type: 'bookmark',
         title: title,
         url: cleanUrl,
@@ -2493,7 +2493,7 @@ function addExternalBookmarkToBookmarkBar(data, targetIndex) {
         };
     } else {
         newItem = {
-            id: data.id || generateUniqueId(),
+            id: data.id || generateUniqueId(bookmarksTreeData.id, data.url),
             type: 'bookmark',
             title: data.title || extractTitleFromUrl(data.url),
             url: data.url,
