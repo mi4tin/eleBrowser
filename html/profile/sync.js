@@ -177,7 +177,7 @@ function hideConflictModal() {
     pendingSyncData = null;
 }
 
-// 获取本地书签数据
+// 获取本地书签数据,root不保留
 async function getLocalBookmarks() {
     return new Promise((resolve) => {
         let resolved = false;
@@ -463,7 +463,9 @@ async function performSyncWithOption(option, serverVersion) {
     console.log('执行同步，选项:', option);
     
     const localBookmarks = await getLocalBookmarks();
-    
+    console.log('本地书签items:', localBookmarks);
+     bookmarkSyncReload(localBookmarks);
+     
     if (option === 'merge') {
         //todo:待测试
         // 合并：先下载云端数据，合并后上传
@@ -471,24 +473,26 @@ async function performSyncWithOption(option, serverVersion) {
             token: currentUser.token
         });
         
-        bookmarkSyncReload(localBookmarks);
-        
         if (downloadResult && downloadResult.success) {
             const cloudFlatList = downloadResult.data?.bookmarks || [];
-            const cloudTree = bookmarkSync.unflattenTree(cloudFlatList);
-            console.log('云端书签树.1:', cloudTree);
+            console.log('云端书签列表:', cloudFlatList,JSON.stringify(cloudFlatList));
             
+            // const cloudTree = bookmarkSync.unflattenTree(cloudFlatList);
+            
+            let localList = bookmarkSync.flattenTree(localBookmarks);
+            console.log('本地书签:',localList, "云端书签树:",cloudFlatList);
             // 合并
-            const mergedTree = bookmarkSync.mergeBookmarks(localBookmarks, cloudTree);
+            const mergedObj = bookmarkSync.mergeBookmarks(localList, cloudFlatList);
+            console.log('合并后的书签:', mergedObj);
             
             // 保存到本地
-            ipcRenderer.send('save-bookmarks', mergedTree);
+            ipcRenderer.send('save-bookmarks', mergedObj.tree);
             
             // 上传合并后的结果
-            const flatBookmarks = bookmarkSync.flattenTree(mergedTree);
+            // const flatBookmarks = bookmarkSync.flattenTree(mergedObj.tree);
             const uploadResult = await ipcRenderer.invoke('upload-bookmarks', {
                 token: currentUser.token,
-                bookmarks: flatBookmarks,
+                bookmarks: mergedObj.flat,
                 syncVersion: serverVersion + 1,
                 deviceId: localStorage.getItem('deviceId') || 'browser-device'
             });
@@ -519,7 +523,8 @@ async function performSyncWithOption(option, serverVersion) {
         }
     } else if (option === 'local') {
         // 本地优先：上传覆盖云端
-        const flatBookmarks = flattenBookmarks(localBookmarks);
+        const flatBookmarks = bookmarkSync.flattenTree(localBookmarks);
+        console.log('本地书签flatBookmarks:', flatBookmarks);
         
         const uploadResult = await ipcRenderer.invoke('upload-bookmarks', {
             token: currentUser.token,

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/hooks/gapa-session-start.mjs",
+        "timeout": 5
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/gapa-stop.mjs",
+        "timeout": 5
+      }
+    ]
+  }
+}

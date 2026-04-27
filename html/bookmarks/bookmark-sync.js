@@ -62,59 +62,65 @@ class BookmarkSync {
         }
     }
 
-    mergeBookmarks(localTree, cloudTree) {
-        const localMap = {};
-        const cloudMap = {};
+    mergeBookmarks(localList, cloudList) {
+        const itemMap = new Map();
         
-        // 构建本地映射
-        function buildMap(tree, map) {
-            map[tree.id] = tree;
-            if (tree.items) {
-                tree.items.forEach(child => buildMap(child, map));
+        // 第一步：先处理本地数据
+        for (const item of localList) {
+            itemMap.set(item.localId, { ...item });
+        }
+        
+        // 第二步：处理云端数据，根据合并策略
+        for (const item of cloudList) {
+            const existing = itemMap.get(item.localId);
+            
+            if (existing) {
+                // 同一书签存在，比较版本
+                // 策略：保留最新版本，相同版本保留本地的
+                const localVersion = existing.syncVersion || 0;
+                const cloudVersion = item.syncVersion || 0;
+                
+                if (cloudVersion > localVersion) {
+                    // 云端版本更新，替换本地
+                    itemMap.set(item.localId, { ...item });
+                }
+                // 否则保留本地的，不需要操作
+            } else {
+                // 云端新增的项目，直接添加
+                itemMap.set(item.localId, { ...item });
             }
         }
-        buildMap(localTree, localMap);
-        buildMap(cloudTree, cloudMap);
         
-        // 合并策略：云端优先，但保留本地新增的
-        const mergedMap = {};
+        // 第三步：转换为合并后的扁平数组
+        const mergeFlat = Array.from(itemMap.values());
         
-        // 先添加所有云端书签
-        Object.keys(cloudMap).forEach(id => {
-            mergedMap[id] = { ...cloudMap[id], items: [] };
-        });
+        // 第四步：重建树结构
+        const mergeTree = this.unflattenTree(mergeFlat);
         
-        // 添加本地新增的（云端没有的）
-        Object.keys(localMap).forEach(id => {
-            if (!cloudMap[id]) {
-                mergedMap[id] = { ...localMap[id], items: [] };
-            }
-        });
-        
-        // 重建树结构
-        const result = unflattenTree(Object.values(mergedMap).map(item => ({
-            localId: item.id,
-            parentId: item.parentId || null,
-            type: item.type,
-            title: item.name,
-            url: item.url,
-            favicon: item.favicon,
-            orderIndex: item.orderIndex,
-            syncVersion: item.syncVersion,
-            isDeleted: item.isDeleted
-        })));
-        
-        return result;
+        return {
+            flat: mergeFlat,
+            tree: mergeTree,
+        };
     }
-
-    // 扁平化树结构用于上传
+    
+    // 扁平化树结构用于上传（不上传root节点）
     flattenTree(tree, parentId = null, result = []) {
+        // 如果是root节点，跳过不上传，直接处理子节点
+        if (tree.id === 'root') {
+            // 处理子项目，root的子节点parentId设为null
+            if (tree.items && tree.items.length > 0) {
+                tree.items.forEach((child, index) => {
+                    child.orderIndex = index;
+                    this.flattenTree(child, null, result);
+                });
+            }
+            return result;
+        }
+        
         // 确保每个项目都有本地ID
         const localId = tree.id || this.generateLocalId();
         
-        //root不上传
-        if(tree.id!='root'){
-            const item = {
+        const item = {
             localId: localId,
             parentId: parentId,
             type: tree.type,
@@ -124,15 +130,14 @@ class BookmarkSync {
             orderIndex: 0, // 后续会根据位置设置
             syncVersion: this.syncVersion,
             isDeleted: false
-            };
-            
-            // 确保树结构中有id
-            if (!tree.id) {
-                tree.id = localId;
-            }
-            
-            result.push(item);
+        };
+        
+        // 确保树结构中有id
+        if (!tree.id) {
+            tree.id = localId;
         }
+        
+        result.push(item);
         
         // 处理子项目
         if (tree.items && tree.items.length > 0) {
@@ -148,7 +153,7 @@ class BookmarkSync {
     // 从扁平化列表重建树结构
     unflattenTree(flatList) {
         const map = {};
-        const roots = [];
+        const rootItems = []; // 直接挂载到 root 下的项目
 
         // 先把所有节点放入map
         flatList.forEach(item => {
@@ -169,10 +174,12 @@ class BookmarkSync {
 
         // 构建树形关系
         flatList.forEach(item => {
-            if (item.parentId && map[item.parentId]) {
+            if (item.parentId && item.parentId !== '' && map[item.parentId]) {
+                // 有有效的父节点，挂载到父节点下
                 map[item.parentId].items.push(map[item.localId]);
-            } else {
-                roots.push(map[item.localId]);
+            } else if (item.localId !== 'root') {
+                // parentId 为空或无效，且不是 root 本身，挂载到 root 下
+                rootItems.push(map[item.localId]);
             }
         });
 
@@ -183,15 +190,21 @@ class BookmarkSync {
                 node.items.forEach(sortItems);
             }
         };
-        roots.forEach(sortItems);
+        Object.values(map).forEach(sortItems);
+        rootItems.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
-        // 返回第一个根节点（应该是root）
-        return roots.find(r => r.id === 'root') || roots[0] || {
+        // 创建或获取 root 节点
+        let root = map['root'] || {
             id: 'root',
             type: 'folder',
             title: '书签',
             items: []
         };
+        
+        // 将 rootItems 挂载到 root 下
+        root.items = rootItems;
+        
+        return root;
     }
 
     // 生成本地ID

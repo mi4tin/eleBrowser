@@ -45,6 +45,7 @@ function loadBookmarks() {
     return new Promise((resolve) => {
         ipcRenderer.send('load-bookmarks');
         ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+            console.log('加载书签数据:', bookmarks);
             if (bookmarks) {
                 resolve(bookmarks);
             } else {
