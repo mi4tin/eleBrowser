@@ -23,6 +23,10 @@ function getUrlInfo(dataTransfer) {
   return { title, url };
 }
 
+// 生成书签ID
+function generateBookmarkId(parentId,url) {
+    return murmur3(parentId)+'-'+murmur3(url);
+}
 
 //生成一个长度低于32位的指定字符串，与str一一对应
 // 速度比md5快很多，见https://chat.deepseek.com/a/chat/s/6bdfbb63-2851-49b3-9114-86ee43f54304

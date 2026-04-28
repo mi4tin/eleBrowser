@@ -487,6 +487,7 @@ function insertBookmarkAtPosition(urlInfo, card, isTop, e) {
     const newBookmark = {
         type: 'bookmark',
         title: title,
+        id: generateBookmarkId(currentFolder.id, url),
         url: url,
         favicon: '🔗'
     };
@@ -722,6 +723,7 @@ function addBookmarkToFolder(folder, urlInfo) {
     }
     
     folder.items.push({
+        id: generateBookmarkId(folder.id, url),
         type: 'bookmark',
         title: title,
         url: url,
@@ -929,6 +931,7 @@ function renderTreeItem(item, level) {
         console.log("contentGrid.drop.a1", urlInfo);
         
          const newBookmark = {
+            id: generateBookmarkId(item.id, urlInfo.url),
             type: 'bookmark',
             title: urlInfo.title||urlInfo.url,
             url: urlInfo.url,
@@ -1439,7 +1442,7 @@ function addFolder(parentId) {
                 if (!name) return;
                 const res = findFolderById(bookmarksTree, parentId);
                 if (!res) return;
-                const newId = parentId + '-' + Math.random().toString(36).slice(2, 8);
+                const newId = generateBookmarkId(parentId, name);
                 res.folder.items = res.folder.items || [];
                 const newFolder = {
                     id: newId,
@@ -1495,6 +1498,7 @@ function addBookmark(parentId) {
                 if (!res) return;
                 res.folder.items = res.folder.items || [];
                 const newBookmark = {
+                    id: generateBookmarkId(parentId, url),
                     type: 'bookmark',
                     title: title,
                     url: url,
@@ -1653,6 +1657,7 @@ function addBookmarkFromDrag(url) {
     // 添加到当前文件夹
     currentFolder.items = currentFolder.items || [];
     const newBookmark = {
+        id: generateBookmarkId(currentFolder.id, url),
         type: 'bookmark',
         title: title,
         url: url,
