@@ -24,8 +24,8 @@ function getUrlInfo(dataTransfer) {
 }
 
 // 生成书签ID
-function generateBookmarkId(parentId,url) {
-    return murmur3(parentId)+'-'+murmur3(url);
+function generateBookmarkId(url) {
+    return murmur3(url);
 }
 
 //生成一个长度低于32位的指定字符串，与str一一对应

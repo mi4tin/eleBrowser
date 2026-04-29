@@ -20,11 +20,6 @@ module.exports = function registerLoginIpcHandlers(deps) {
 
     // 用户数据文件路径
     const USER_DATA_PATH = path.join(app.getPath('userData'), 'user-auth.json');
-    // 书签数据文件路径
-    const BOOKMARKS_DATA_PATH = path.join(app.getPath('userData'), 'bookmarks.json');
-    
-    // 存储书签数据（内存缓存）
-    let bookmarksCache = null;
     
     // ============ 自动同步机制 ============
     let autoSyncTimer = null;
@@ -331,55 +326,11 @@ module.exports = function registerLoginIpcHandlers(deps) {
         }
     });
 
-    // ============ 书签数据相关 IPC ============
-
-    // 请求书签数据
-    ipcMain.on('request-bookmarks-data', (event) => {
-        console.log('request-bookmarks-data');
-        try {
-            if (bookmarksCache) {
-                // 使用缓存
-                event.sender.send('bookmarks-data-response', bookmarksCache);
-            } else if (fs.existsSync(BOOKMARKS_DATA_PATH)) {
-                // 从文件读取
-                const data = fs.readFileSync(BOOKMARKS_DATA_PATH, 'utf8');
-                bookmarksCache = JSON.parse(data);
-                event.sender.send('bookmarks-data-response', bookmarksCache);
-            } else {
-                // 返回默认数据
-                const defaultData = {
-                    id: 'root',
-                    name: '书签',
-                    type: 'folder',
-                    items: []
-                };
-                event.sender.send('bookmarks-data-response', defaultData);
-            }
-        } catch (error) {
-            console.error('读取书签数据失败:', error);
-            const defaultData = {
-                id: 'root',
-                name: '书签',
-                type: 'folder',
-                items: []
-            };
-            event.sender.send('bookmarks-data-response', defaultData);
-        }
-    });
-
-    // 保存书签数据
-    ipcMain.on('save-bookmarks-data', (_event, data) => {
-        console.log('save-bookmarks-data');
-        try {
-            bookmarksCache = data;
-            fs.writeFileSync(BOOKMARKS_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
-            console.log('书签数据保存成功');
-            
-            // 触发书签变更后的自动同步
-            onBookmarkChanged();
-        } catch (error) {
-            console.error('保存书签数据失败:', error);
-        }
+    // ============ 书签自动同步 ============
+    // 监听书签保存事件，触发自动同步
+    ipcMain.on('bookmarks-saved', () => {
+        console.log('收到书签保存通知，触发自动同步');
+        onBookmarkChanged();
     });
 
     // HTTP 请求工具函数

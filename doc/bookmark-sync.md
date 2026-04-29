@@ -157,8 +157,6 @@ eleBrowser/
 - `sync-bookmarks` - 同步书签
 - `download-bookmarks` - 下载书签
 - `get-bookmarks-version` - 获取版本
-- `request-bookmarks-data` - 请求书签数据
-- `save-bookmarks-data` - 保存书签数据
 
 **自动同步机制：**
 

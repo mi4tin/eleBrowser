@@ -104,12 +104,6 @@ async function init() {
         renderTree();
         renderContent(currentFolder);
     });
-
-    // 监听从主窗口发送的添加书签消息
-    // ipcRenderer.on('add-bookmark-from-drag', (event, url) => {
-    //     console.log('收到从主窗口拖动的URL:', url);
-    //     addBookmarkFromDrag(url);
-    // });
 }
 
 // 设置事件监听
@@ -487,7 +481,7 @@ function insertBookmarkAtPosition(urlInfo, card, isTop, e) {
     const newBookmark = {
         type: 'bookmark',
         title: title,
-        id: generateBookmarkId(currentFolder.id, url),
+        id: generateBookmarkId(url),
         url: url,
         favicon: '🔗'
     };
@@ -722,13 +716,20 @@ function addBookmarkToFolder(folder, urlInfo) {
         return;
     }
     
-    folder.items.push({
-        id: generateBookmarkId(folder.id, url),
+    const newBookmark={
+        id: generateBookmarkId(url),
         type: 'bookmark',
         title: title,
         url: url,
         favicon: '🔗'
-    });
+    }
+
+    folder.items.push(newBookmark);
+    
+    // 记录变更
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('add', newBookmark, folder.id);
+    }
 
     renderContent(currentFolder);
     saveBookmarks();
@@ -931,7 +932,7 @@ function renderTreeItem(item, level) {
         console.log("contentGrid.drop.a1", urlInfo);
         
          const newBookmark = {
-            id: generateBookmarkId(item.id, urlInfo.url),
+            id: generateBookmarkId(urlInfo.url),
             type: 'bookmark',
             title: urlInfo.title||urlInfo.url,
             url: urlInfo.url,
@@ -1442,7 +1443,7 @@ function addFolder(parentId) {
                 if (!name) return;
                 const res = findFolderById(bookmarksTree, parentId);
                 if (!res) return;
-                const newId = generateBookmarkId(parentId, name);
+                const newId = generateBookmarkId(name);
                 res.folder.items = res.folder.items || [];
                 const newFolder = {
                     id: newId,
@@ -1498,7 +1499,7 @@ function addBookmark(parentId) {
                 if (!res) return;
                 res.folder.items = res.folder.items || [];
                 const newBookmark = {
-                    id: generateBookmarkId(parentId, url),
+                    id: generateBookmarkId(url),
                     type: 'bookmark',
                     title: title,
                     url: url,
@@ -1639,43 +1640,6 @@ function closeModal() {
         currentModal.remove();
         currentModal = null;
     }
-}
-
-// 从主窗口拖动添加书签
-function addBookmarkFromDrag(url) {
-    if (!url) return;
-
-    // 从URL中提取标题
-    let title = url;
-    try {
-        const urlObj = new URL(url);
-        title = urlObj.hostname;
-    } catch (e) {
-        // URL解析失败，使用原始URL作为标题
-    }
-
-    // 添加到当前文件夹
-    currentFolder.items = currentFolder.items || [];
-    const newBookmark = {
-        id: generateBookmarkId(currentFolder.id, url),
-        type: 'bookmark',
-        title: title,
-        url: url,
-        favicon: '🔗'
-    };
-    currentFolder.items.push(newBookmark);
-    
-    // 记录变更
-    if (bookmarkSync) {
-        bookmarkSync.recordChange('add', newBookmark, currentFolder.id);
-    }
-
-    // 重新渲染内容
-    renderContent(currentFolder);
-    // 保存书签
-    saveBookmarks();
-
-    showNotification('书签添加成功');
 }
 
 // 显示通知

@@ -2307,6 +2307,7 @@ if (bookmarkBarContent) {
                     } else {
                         // 拖到中间区域：添加到该文件夹内
                         const targetFolderId = targetItem.dataset.id;
+                        console.log("拖到中间区域：添加到该文件夹内", targetFolderId);
                         addUrlToFolder(urlInfo, targetFolderId);
                     }
                 } else {
@@ -2385,8 +2386,8 @@ function extractTitleFromUrl(url) {
 }
 
 // 生成唯一ID
-function generateUniqueId(parentId,url) {
-    return murmur3(parentId)+'-'+murmur3(url);
+function generateBookmarkId(url) {
+    return murmur3(url);
 }
 
 // 添加URL到书签栏
@@ -2396,7 +2397,7 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
     const title = urlInfo.title || urlInfo.url;
 
     const newBookmark = {
-        id: generateUniqueId(bookmarksTreeData.id, urlInfo.url),
+        id: generateBookmarkId(urlInfo.url),
         type: 'bookmark',
         title: title,
         url: urlInfo.url,
@@ -2427,12 +2428,16 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
 }
 
 // 添加URL到指定文件夹
-function addUrlToFolder(urlInfo, folderId) {
+ function addUrlToFolder(urlInfo, folderId) {
+    if (!bookmarksTreeData || !bookmarksTreeData.items) {
+        console.log('添加URL到指定文件夹.书签树数据为空');
+        return;
+    }
     const cleanUrl = urlInfo.url;
     const title =  urlInfo.title || urlInfo.url;//extractTitleFromUrl(cleanUrl);
 
     const newBookmark = {
-        id: generateUniqueId(folderId, cleanUrl),
+        id: generateBookmarkId(cleanUrl),
         type: 'bookmark',
         title: title,
         url: cleanUrl,
@@ -2440,7 +2445,20 @@ function addUrlToFolder(urlInfo, folderId) {
         addedAt: Date.now()
     };
 
-    ipcRenderer.send('add-url-to-folder', newBookmark, folderId);
+    const targetFolder = findFolderById(bookmarksTreeData, folderId);
+    if (!targetFolder) return;
+    if (!targetFolder.items) {
+        targetFolder.items = [];
+    }
+    targetFolder.items.push(newBookmark);
+
+    // 记录变更
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('add', newBookmark, bookmarksTreeData.id);
+    }
+
+    saveBookmarkBarData();
+    // renderBookmarkBar();//加入文件夹不用渲染
 }
 
 // 在根目录内移动外部书签
@@ -2493,7 +2511,7 @@ function addExternalBookmarkToBookmarkBar(data, targetIndex) {
         };
     } else {
         newItem = {
-            id: data.id || generateUniqueId(bookmarksTreeData.id, data.url),
+            id: data.id || generateBookmarkId(data.url),
             type: 'bookmark',
             title: data.title || extractTitleFromUrl(data.url),
             url: data.url,

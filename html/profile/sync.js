@@ -183,14 +183,14 @@ async function getLocalBookmarks() {
         let resolved = false;
         
         // 使用 once 监听单次响应
-        ipcRenderer.once('bookmarks-data-response', (event, data) => {
+        ipcRenderer.once('load-bookmarks-reply', (event, data) => {
             if (resolved) return;
             resolved = true;
             console.log('获取本地书签数据:', data);
             resolve(data);
         });
         
-        ipcRenderer.send('request-bookmarks-data');
+        ipcRenderer.send('load-bookmarks');
         
         // 超时处理，3秒后返回默认数据
         setTimeout(() => {

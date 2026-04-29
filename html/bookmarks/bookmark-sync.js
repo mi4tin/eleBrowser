@@ -67,12 +67,12 @@ class BookmarkSync {
         
         // 第一步：先处理本地数据
         for (const item of localList) {
-            itemMap.set(item.localId, { ...item });
+            itemMap.set(item.parentId+'-'+item.localId, { ...item });
         }
         
         // 第二步：处理云端数据，根据合并策略
         for (const item of cloudList) {
-            const existing = itemMap.get(item.localId);
+            const existing = itemMap.get(item.parentId+'-'+item.localId);
             
             if (existing) {
                 // 同一书签存在，比较版本
@@ -82,12 +82,12 @@ class BookmarkSync {
                 
                 if (cloudVersion > localVersion) {
                     // 云端版本更新，替换本地
-                    itemMap.set(item.localId, { ...item });
+                    itemMap.set(item.parentId+'-'+item.localId, { ...item });
                 }
                 // 否则保留本地的，不需要操作
             } else {
                 // 云端新增的项目，直接添加
-                itemMap.set(item.localId, { ...item });
+                itemMap.set(item.parentId+'-'+item.localId, { ...item });
             }
         }
         
@@ -118,7 +118,7 @@ class BookmarkSync {
         }
         
         // 确保每个项目都有本地ID
-        const localId = tree.id || this.generateLocalId(parentId, tree.url||tree.title);//文件夹只有title
+        const localId = tree.id || this.generateBookmarkId(tree.url||tree.title);//文件夹只有title
         
         const item = {
             localId: localId,
@@ -207,9 +207,9 @@ class BookmarkSync {
         return root;
     }
 
-    // 生成本地ID
-    generateLocalId(parentId,url) {
-        return this.murmur3(parentId)+'-'+this.murmur3(url);
+    // 生成书签ID
+    generateBookmarkId(url) {
+        return this.murmur3(url);
     }
 
     //生成一个长度低于32位的字符串，但速度比md5快很多，见https://chat.deepseek.com/a/chat/s/6bdfbb63-2851-49b3-9114-86ee43f54304
@@ -240,7 +240,7 @@ class BookmarkSync {
     // 记录变更（在书签修改时调用）
     recordChange(operation, item, parentId = null,token = null) {
         const change = {
-            localId: item.id || this.generateLocalId(parentId, item.url||item.title),
+            localId: item.id || this.generateBookmarkId(item.url||item.title),
             parentId: parentId,
             type: item.type,
             title: item.title,

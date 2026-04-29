@@ -17,6 +17,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     let bookmarkDropdownView = null;
     let dropdownFolderId = null;
     let subDropdownViews = [];
+    let bookmarksCache = null; // 书签数据缓存
 
     function getDropdownUrl() {
         return 'file:///' + appRootDir.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
@@ -177,13 +178,36 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     }
 
     function loadBookmarksData(folderId) {
-        if (!fs.existsSync(bookmarksFilePath)) return null;
-        const data = fs.readFileSync(bookmarksFilePath, 'utf8');
-        let bookmarks = JSON.parse(data);
+        // 先尝试从缓存获取
+        let bookmarks = bookmarksCache;
+        if (bookmarks) {
+            console.log('从缓存获取书签数据:', bookmarks);
+            // return bookmarks;
+        }
+        
+        if (!bookmarks && fs.existsSync(bookmarksFilePath)) {
+            // 从文件读取
+            const data = fs.readFileSync(bookmarksFilePath, 'utf8');
+            bookmarks = JSON.parse(data);
+            bookmarksCache = bookmarks; // 存入缓存
+        }
+        
+        if (!bookmarks) {
+            // 返回默认数据
+            bookmarks = {
+                id: 'root',
+                title: '书签',
+                name: '书签', // 向后兼容
+                type: 'folder',
+                items: []
+            };
+        }
+        
         if (folderId) {
             const folder = findFolderById(bookmarks, folderId);
             if (folder) bookmarks = folder;
         }
+        
         return bookmarks;
     }
 
@@ -452,6 +476,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         console.log('收到保存书签请求');
         try {
             fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
+            bookmarksCache = bookmarks; // 更新缓存
             event.reply('save-bookmarks-reply', { success: true });
             // 通知所有窗口更新
             notifyAllWindowsBookmarksSaved();
@@ -460,7 +485,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             event.reply('save-bookmarks-reply', { success: false, error: e.message });
         }
     });
-
+    
     // 递归查找并移除项目
     function findAndRemoveItem(folder, itemData) {
         if (!folder.items) return null;
@@ -597,30 +622,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             }
         } catch (e) {
             console.error('排序失败:', e);
-        }
-    });
-
-    // 添加URL到指定文件夹
-    ipcMain.on('add-url-to-folder', (event, bookmark, folderId) => {
-        console.log('收到添加URL到文件夹请求:', bookmark, folderId);
-        try {
-            const bookmarks = loadBookmarksData(null);
-            if (!bookmarks) return;
-
-            const targetFolder = findFolderById(bookmarks, folderId);
-            if (!targetFolder) return;
-            if (!targetFolder.items) {
-                targetFolder.items = [];
-            }
-            targetFolder.items.push(bookmark);
-
-            // 保存书签数据
-            fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
-
-            // 通知所有窗口更新
-            notifyAllWindowsBookmarksSaved();
-        } catch (e) {
-            console.error('添加URL到文件夹失败:', e);
         }
     });
 
