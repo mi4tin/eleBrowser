@@ -753,6 +753,7 @@ function addBookmarkToFolder(folder, urlInfo) {
     }
 
     folder.items.push(newBookmark);
+    newBookmark.orderIndex = folder.items.length - 1;
     
     // 记录变更
     if (bookmarkSync) {
@@ -1493,6 +1494,7 @@ function addFolder(parentId) {
                     items: []
                 };
                 res.folder.items.push(newFolder);
+                newFolder.orderIndex = res.folder.items.length - 1;
                 expandedFolders.add(parentId);
                 
                 // 记录变更
@@ -1546,6 +1548,7 @@ function addBookmark(parentId) {
                     favicon: '🔗'
                 };
                 res.folder.items.push(newBookmark);
+                newBookmark.orderIndex = res.folder.items.length - 1;
                 
                 // 记录变更
                 if (bookmarkSync) {

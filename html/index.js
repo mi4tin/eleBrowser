@@ -2414,8 +2414,10 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
 
     if (targetIndex === -1) {
         bookmarksTreeData.items.push(newBookmark);
+        newBookmark.orderIndex = bookmarksTreeData.items.length - 1;
     } else {
         bookmarksTreeData.items.splice(targetIndex, 0, newBookmark);
+        newBookmark.orderIndex = targetIndex;
     }
     
     // 记录变更
@@ -2451,6 +2453,7 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
         targetFolder.items = [];
     }
     targetFolder.items.push(newBookmark);
+    newBookmark.orderIndex = targetFolder.items.length - 1;
 
     // 记录变更
     if (bookmarkSync) {
