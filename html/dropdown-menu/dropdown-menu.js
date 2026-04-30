@@ -257,6 +257,10 @@ function addDragEventsToItem(itemEl, item, index,parentFolderId) {
 
 // 书签数据（从主进程接收）
 let folderData = null;
+// 完整的书签树
+let bookmarksTree = null;
+// bookmarkSync 实例
+let bookmarkSync = null;
 
 // 加载书签数据
 function loadBookmarksData(folderId) {
@@ -384,11 +388,233 @@ function getDefaultBookmarks() {
 };
 }
 
+// 查找文件夹（本地版）
+function findFolderById(folder, id) {
+    if (folder.id === id) return folder;
+    if (!folder.items) return null;
+    for (const item of folder.items) {
+        if (item.type === 'folder') {
+            const found = findFolderById(item, id);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+// 检查文件夹是否是另一个文件夹的后代
+function isDescendantFolder(ancestorId, folder) {
+    if (folder.id === ancestorId) return true;
+    if (!folder.items) return false;
+    for (const item of folder.items) {
+        if (item.type === 'folder') {
+            if (isDescendantFolder(ancestorId, item)) return true;
+        }
+    }
+    return false;
+}
+
+// 递归查找并移除项目
+function findAndRemoveItem(folder, itemData) {
+    if (!folder.items) return null;
+    
+    const sourceIndex = folder.items.findIndex(item => {
+        if (item.type === 'folder' && itemData.itemType === 'folder') {
+            return item.id === itemData.id;
+        } else if (item.type === 'bookmark' && itemData.itemType === 'bookmark') {
+            return item.id === itemData.id || item.url === itemData.id;
+        }
+        return false;
+    });
+    
+    if (sourceIndex !== -1) {
+        return folder.items.splice(sourceIndex, 1)[0];
+    }
+    
+    // 递归查找子文件夹
+    for (const item of folder.items) {
+        if (item.type === 'folder') {
+            const found = findAndRemoveItem(item, itemData);
+            if (found) return found;
+        }
+    }
+    
+    return null;
+}
+
+// 保存书签数据
+function saveBookmarks() {
+    ipcRenderer.send('save-bookmarks', bookmarksTree);
+}
+
+// 移动书签到文件夹
+function moveBookmarkToFolder(itemData, targetFolderId) {
+    console.log('移动书签到文件夹:', itemData, targetFolderId);
+    try {
+        if (!bookmarksTree) {
+            console.error('bookmarksTree 未加载');
+            return;
+        }
+
+        // 检查是否是将文件夹拖到自身或其子文件夹中
+        if (itemData.itemType === 'folder') {
+            const targetFolder = findFolderById(bookmarksTree, targetFolderId);
+            if (targetFolder && (targetFolder.id === itemData.id || isDescendantFolder(itemData.id, targetFolder))) {
+                console.log('不能将文件夹拖到自身或其子文件夹中');
+                return;
+            }
+        }
+
+        // 找到目标文件夹
+        const targetFolder = findFolderById(bookmarksTree, targetFolderId);
+        if (!targetFolder) {
+            console.error('目标文件夹不存在:', targetFolderId);
+            return;
+        }
+
+        if (!targetFolder.items) {
+            targetFolder.items = [];
+        }
+
+        // 判断是否已存在相同书签
+        if (itemData.itemType === 'bookmark') {
+            const existingBookmark = targetFolder.items.find(item => item.type === 'bookmark' && item.url === itemData.url);
+            if (existingBookmark) {
+                console.log('书签已存在:', existingBookmark);
+                return;
+            }
+        }
+
+        // 从源位置移除项目
+        const movedItem = findAndRemoveItem(bookmarksTree, itemData);
+        if (!movedItem) {
+            console.error('找不到要移动的项目');
+            return;
+        }
+
+        // 添加到目标文件夹
+        targetFolder.items.push(movedItem);
+        movedItem.orderIndex = targetFolder.items.length - 1;
+
+        // 记录同步变更
+        if (bookmarkSync) {
+            bookmarkSync.recordChange('update', movedItem, targetFolderId);
+        }
+
+        // 保存书签数据
+        saveBookmarks();
+
+        // 关闭所有下拉菜单
+        ipcRenderer.send('hide-folder-dropdown');
+        
+    } catch (e) {
+        console.error('移动书签到文件夹失败:', e);
+    }
+}
+
+// 同一文件夹内排序或跨文件夹移动到指定位置
+function reorderBookmarkInFolder(itemData, folderId, targetIndex) {
+    console.log('排序书签:', itemData, folderId, targetIndex);
+    try {
+        if (!bookmarksTree) {
+            console.error('bookmarksTree 未加载');
+            return;
+        }
+
+        const targetFolder = findFolderById(bookmarksTree, folderId);
+        if (!targetFolder) {
+            console.error('目标文件夹不存在:', folderId);
+            return;
+        }
+        if (!targetFolder.items) {
+            targetFolder.items = [];
+        }
+
+        // 检查是否是将文件夹拖到自身或其子文件夹中
+        if (itemData.itemType === 'folder') {
+            if (targetFolder.id === itemData.id || isDescendantFolder(itemData.id, targetFolder)) {
+                console.log('不能将文件夹拖到自身或其子文件夹中');
+                return;
+            }
+        }
+
+        // 先检查项目是否已经在目标文件夹中
+        let sourceIndex = targetFolder.items.findIndex(item => {
+            if (item.type === 'folder' && itemData.itemType === 'folder') {
+                return item.id === itemData.id;
+            } else if (item.type === 'bookmark' && itemData.itemType === 'bookmark') {
+                return item.id === itemData.id || item.url === itemData.id;
+            }
+            return false;
+        });
+
+        let movedItem;
+        if (sourceIndex !== -1) {
+            // 同一文件夹内：从源位置移除
+            [movedItem] = targetFolder.items.splice(sourceIndex, 1);
+        } else {
+            // 跨文件夹：从源位置移除
+            movedItem = findAndRemoveItem(bookmarksTree, itemData);
+            if (!movedItem) {
+                console.error('找不到要移动的项目');
+                return;
+            }
+            // 跨文件夹移动时，sourceIndex 设为 -1，不需要调整 targetIndex
+            sourceIndex = -1;
+        }
+
+        // 计算目标索引（如果同一文件夹且源索引小于目标索引，移除后目标索引需要减1）
+        let finalTargetIndex = targetIndex;
+        if (sourceIndex !== -1 && sourceIndex < finalTargetIndex) {
+            finalTargetIndex--;
+        }
+
+        // 确保索引不越界
+        finalTargetIndex = Math.max(0, Math.min(finalTargetIndex, targetFolder.items.length));
+
+        // 插入到目标位置
+        targetFolder.items.splice(finalTargetIndex, 0, movedItem);
+        movedItem.orderIndex = finalTargetIndex;
+
+        // 记录同步变更
+        if (bookmarkSync) {
+            bookmarkSync.recordChange('update', movedItem, folderId);
+        }
+
+        // 保存书签数据
+        saveBookmarks();
+
+        // 关闭所有下拉菜单
+        ipcRenderer.send('hide-folder-dropdown');
+        
+    } catch (e) {
+        console.error('排序失败:', e);
+    }
+}
+
 // 监听主页面的消息
 ipcRenderer.on('show-folder-dropdown', async (event, receivedFolderData, folderBounds) => {
     console.log('收到显示文件夹下拉菜单请求:', receivedFolderData, folderBounds);
 
-    folderData = receivedFolderData
+    folderData = receivedFolderData;
+    
+    // 加载完整的书签树
+    try {
+        ipcRenderer.send('load-bookmarks', null);
+        ipcRenderer.once('load-bookmarks-reply', (event, bookmarks) => {
+            console.log('收到完整书签树:', bookmarks);
+            if (bookmarks) {
+                bookmarksTree = bookmarks;
+                // 初始化 bookmarkSync
+                if (typeof BookmarkSync !== 'undefined' && !bookmarkSync) {
+                    bookmarkSync = new BookmarkSync(bookmarksTree);
+                } else if (bookmarkSync) {
+                    bookmarkSync.reloadData(bookmarksTree);
+                }
+            }
+        });
+    } catch (e) {
+        console.error('加载完整书签树失败:', e);
+    }
 
     showFolderDropdown();
 });
@@ -534,25 +760,25 @@ folderDropdownContent.addEventListener('drop', (e) => {
                         // 中间区域：移动到该文件夹内
                         const targetFolderId = targetItem.dataset.id;
                         console.log('移动项目到文件夹:', data, '目标文件夹:', targetFolderId);
-                        ipcRenderer.send('move-bookmark-to-folder', data, targetFolderId);
+                        moveBookmarkToFolder(data, targetFolderId);
                     } else {
                         // 上/下边缘：在同一文件夹内排序
                         const isTop = mouseY < zone;
                         let finalTargetIndex = isTop ? targetIndexInList : targetIndexInList + 1;
                         console.log('同一文件夹内排序1:', data, '目标索引:', finalTargetIndex);
-                        ipcRenderer.send('reorder-bookmark-in-folder', data, folderData.id, finalTargetIndex);
+                        reorderBookmarkInFolder(data, folderData.id, finalTargetIndex);
                     }
                 } else {
                     // 书签的上/下边缘：在同一文件夹内排序
                     const isTop = mouseY < rect.height / 2;
                     let finalTargetIndex = isTop ? targetIndexInList : targetIndexInList + 1;
                     console.log('同一文件夹内排序2:', data, '目标索引:', finalTargetIndex);
-                    ipcRenderer.send('reorder-bookmark-in-folder', data, folderData.id, finalTargetIndex);
+                    reorderBookmarkInFolder(data, folderData.id, finalTargetIndex);
                 }
             } else {
                 // 拖到空白区域：添加到当前文件夹
                 console.log('添加到当前文件夹:', data, folderData.id);
-                ipcRenderer.send('move-bookmark-to-folder', data, folderData.id);
+                moveBookmarkToFolder(data, folderData.id);
             }
 
             // 清除样式
