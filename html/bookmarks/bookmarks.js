@@ -406,6 +406,14 @@ function setupDragEvents() {
                                 
                                 // 重新渲染内容
                                 renderContent(currentFolder);
+                                
+                                // 记录变更
+                                if (bookmarkSync) {
+                                    // 计算并设置 orderIndex
+                                    movedItem.orderIndex = currentFolder.items.length - 1;
+                                    bookmarkSync.recordChange('update', movedItem, currentFolder.id);
+                                }
+                                
                                 // 如果源文件夹和当前文件夹不同，需要重新渲染树形结构
                                 if (sourceRes.folder.id !== currentFolder.id) {
                                     renderTree();
@@ -603,6 +611,8 @@ function moveItemToPosition(data, card, isTop, e) {
         showNotification('不能将文件夹拖到自身或其子文件夹中');
         return;
     }
+
+    let movedItem = null,parentId = '';
     
     // 检查目标卡片是否是文件夹
     // targetCardType = card.dataset.type;
@@ -626,10 +636,12 @@ function moveItemToPosition(data, card, isTop, e) {
             }
 
             // 从源位置移除项目
-            const [movedItem] = sourceItems.splice(sourceIndex, 1);
+            [movedItem] = sourceItems.splice(sourceIndex, 1);
 
             // 插入到目标位置
             targetItems.splice(targetInsertIndex, 0, movedItem);
+            movedItem.orderIndex = targetInsertIndex;
+            parentId = sourceRes.folder.id;
 
             // 重新渲染内容
             renderContent(currentFolder);
@@ -654,9 +666,18 @@ function moveItemToPosition(data, card, isTop, e) {
                 }
 
                 // 从源位置移除项目
-                const [movedItem] = sourceItems.splice(sourceIndex, 1);
+                [movedItem] = sourceItems.splice(sourceIndex, 1);
                 targetFolder.items.push(movedItem);
-                
+                movedItem.orderIndex = targetFolder.items.length - 1;
+                parentId = sourceRes.folder.id;
+
+                console.log("contentGrid.drop.8.1", JSON.stringify(targetFolder)) 
+
+                // 记录变更
+                // if (bookmarkSync) {
+                //     bookmarkSync.recordChange('update', movedItem, targetFolder.id);
+                // }
+        
                 // 重新渲染内容（如果当前显示的是目标文件夹，就渲染它）
                 if (currentFolder.id === targetFolderId) {
                     renderContent(targetFolder);
@@ -668,7 +689,7 @@ function moveItemToPosition(data, card, isTop, e) {
     } else {
 
         // 从源位置移除项目
-        const [movedItem] = sourceItems.splice(sourceIndex, 1);
+        [movedItem] = sourceItems.splice(sourceIndex, 1);
         console.log("contentGrid.drop.8", JSON.stringify(sourceItems)) 
         // 拖到了书签上，在当前文件夹内排序
         
@@ -685,11 +706,18 @@ function moveItemToPosition(data, card, isTop, e) {
 
         // 插入到目标位置
         targetItems.splice(targetInsertIndex, 0, movedItem);
+        movedItem.orderIndex = targetInsertIndex;
+        parentId = currentFolder.id;
         console.log("contentGrid.drop.10", JSON.stringify(targetItems),JSON.stringify(bookmarksTree)) 
 
 
         // 重新渲染内容
         renderContent(currentFolder);
+    }
+    
+    // 记录变更
+    if (bookmarkSync&&movedItem) {
+        bookmarkSync.recordChange('update', movedItem, parentId);
     }
     
     // 如果源文件夹和目标文件夹不同，需要重新渲染树形结构
@@ -913,6 +941,18 @@ function renderTreeItem(item, level) {
                         // 重新渲染树形结构和内容
                         renderTree();
                         renderContent(currentFolder);
+                        
+                        // 记录变更
+                        if (bookmarkSync) {
+                            // 计算并设置 orderIndex
+                            if (item.items) {
+                                const index = item.items.findIndex(i => i.id === movedItem.id || (i.url && i.url === movedItem.url));
+                                movedItem.orderIndex = index !== -1 ? index : 0;
+                            } else {
+                                movedItem.orderIndex = 0;
+                            }
+                            bookmarkSync.recordChange('update', movedItem, item.id);
+                        }
                         
                         // 保存书签
                         saveBookmarks();

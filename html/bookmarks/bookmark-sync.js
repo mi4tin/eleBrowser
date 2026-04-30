@@ -104,14 +104,14 @@ class BookmarkSync {
     }
     
     // 扁平化树结构用于上传（不上传root节点）
-    flattenTree(tree, parentId = null, result = []) {
+    flattenTree(tree, parentId = null, result = [], parentIndex = 0) {
         // 如果是root节点，跳过不上传，直接处理子节点
         if (tree.id === 'root') {
-            // 处理子项目，root的子节点parentId设为null
+            // 处理子项目
             if (tree.items && tree.items.length > 0) {
                 tree.items.forEach((child, index) => {
                     child.orderIndex = index;
-                    this.flattenTree(child, null, result);
+                    this.flattenTree(child, 'root', result, index);
                 });
             }
             return result;
@@ -127,7 +127,7 @@ class BookmarkSync {
             title: tree.title,
             url: tree.url || '',
             favicon: tree.favicon || '',
-            orderIndex: 0, // 后续会根据位置设置
+            orderIndex: tree.orderIndex !== undefined ? tree.orderIndex : parentIndex,
             syncVersion: this.syncVersion,
             isDeleted: false
         };
@@ -246,6 +246,7 @@ class BookmarkSync {
             title: item.title,
             url: item.url || '',
             favicon: item.favicon || '',
+            orderIndex: item.orderIndex !== undefined ? item.orderIndex : 0,
             operation: operation, // 'add', 'update', 'delete'
             timestamp: Date.now()
         };
@@ -361,16 +362,17 @@ async  getUserData() {
         
         try {
             // 收集本地变更
-            const localChanges = this.changes.length > 0 ? this.changes.map(c => ({
-                localId: c.localId,
-                parentId: c.parentId,
-                type: c.type,
-                title: c.title,
-                url: c.url,
-                favicon: c.favicon,
-                syncVersion: this.syncVersion,
-                isDeleted: c.operation === 'delete'
-            })) : [];
+        const localChanges = this.changes.length > 0 ? this.changes.map(c => ({
+            localId: c.localId,
+            parentId: c.parentId,
+            type: c.type,
+            title: c.title,
+            url: c.url,
+            favicon: c.favicon,
+            orderIndex: c.orderIndex,
+            syncVersion: this.syncVersion,
+            isDeleted: c.operation === 'delete'
+        })) : [];
             
             // 调用同步接口
             const result = await ipcRenderer.invoke('sync-bookmarks', {

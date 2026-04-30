@@ -181,7 +181,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         // 先尝试从缓存获取
         let bookmarks = bookmarksCache;
         if (bookmarks) {
-            console.log('从缓存获取书签数据:', bookmarks);
+            // console.log('从缓存获取书签数据:', bookmarks);
             // return bookmarks;
         }
         
