@@ -682,12 +682,6 @@ function moveItemToPosition(data, card, isTop, e) {
                 parentId = sourceRes.folder.id;
 
                 console.log("contentGrid.drop.8.1", JSON.stringify(targetFolder)) 
-
-                // 记录变更
-                // if (bookmarkSync) {
-                //     bookmarkSync.recordChange('update', movedItem, targetFolder.id);
-                // }
-        
                 // 重新渲染内容（如果当前显示的是目标文件夹，就渲染它）
                 if (currentFolder.id === targetFolderId) {
                     renderContent(targetFolder);

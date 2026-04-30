@@ -2493,40 +2493,11 @@ function moveExternalBookmarkInRoot(data, targetIndex) {
 
     // 插入到目标位置
     bookmarksTreeData.items.splice(finalTargetIndex, 0, movedItem);
+    movedItem.orderIndex = finalTargetIndex;
 
-    saveBookmarkBarData();
-    renderBookmarkBar();
-}
-
-// 添加外部书签（来自书签管理器或下拉菜单）到书签栏
-function addExternalBookmarkToBookmarkBar(data, targetIndex) {
-    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
-
-    let newItem;
-
-    if (data.itemType === 'folder') {
-        newItem = {
-            id: data.id,
-            type: 'folder',
-            title: data.title || '新建文件夹',
-            name: data.title || '新建文件夹',
-            items: []
-        };
-    } else {
-        newItem = {
-            id: data.id || generateBookmarkId(data.url),
-            type: 'bookmark',
-            title: data.title || extractTitleFromUrl(data.url),
-            url: data.url,
-            favicon: data.favicon || '',
-            addedAt: Date.now()
-        };
-    }
-
-    if (targetIndex === -1) {
-        bookmarksTreeData.items.push(newItem);
-    } else {
-        bookmarksTreeData.items.splice(targetIndex, 0, newItem);
+    // 记录变更
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('update', movedItem, bookmarksTreeData.id);
     }
 
     saveBookmarkBarData();
