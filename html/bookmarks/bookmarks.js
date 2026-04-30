@@ -511,9 +511,11 @@ function insertBookmarkAtPosition(urlInfo, card, isTop, e) {
             
             if (targetIndex === -1) {
                 currentFolder.items.push(newBookmark);
+                newBookmark.orderIndex = currentFolder.items.length - 1;
             } else {
                 const insertIndex = isTop ? targetIndex : targetIndex + 1;
                 currentFolder.items.splice(insertIndex, 0, newBookmark);
+                newBookmark.orderIndex = insertIndex;
             }
             renderContent(currentFolder);
         } else {
@@ -535,6 +537,7 @@ function insertBookmarkAtPosition(urlInfo, card, isTop, e) {
                 }
 
                 targetFolder.items.push(newBookmark);
+                newBookmark.orderIndex = targetFolder.items.length - 1;
                 
                 if (currentFolder.id === targetFolderId) {
                     renderContent(targetFolder);
@@ -551,11 +554,18 @@ function insertBookmarkAtPosition(urlInfo, card, isTop, e) {
         
         if (targetIndex === -1) {
             currentFolder.items.push(newBookmark);
+            newBookmark.orderIndex = currentFolder.items.length - 1;
         } else {
             const insertIndex = isTop ? targetIndex : targetIndex + 1;
             currentFolder.items.splice(insertIndex, 0, newBookmark);
+            newBookmark.orderIndex = insertIndex;
         }
         renderContent(currentFolder);
+    }
+
+    // 记录变更
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('add', newBookmark, currentFolder.id);
     }
 
     // 保存书签
