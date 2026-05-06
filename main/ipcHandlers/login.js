@@ -1,7 +1,4 @@
-const https = require('https');
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const { apiRequest, API_BASE_URL, initUserDataPath, getLoginUserInfo, saveUserData } = require('./ipcTool');
 
 module.exports = function registerLoginIpcHandlers(deps) {
     const {
@@ -15,11 +12,8 @@ module.exports = function registerLoginIpcHandlers(deps) {
 
     let loginWindow = null;
 
-    // beta API 配置
-    const API_BASE_URL = 'http://localhost:8011'; // 你可以根据实际情况修改
-
-    // 用户数据文件路径
-    const USER_DATA_PATH = path.join(app.getPath('userData'), 'user-auth.json');
+    // 初始化用户数据路径
+    initUserDataPath(app);
     
     // ============ 自动同步机制 ============
     let autoSyncTimer = null;
@@ -60,14 +54,12 @@ module.exports = function registerLoginIpcHandlers(deps) {
     async function checkAndAutoSync() {
         try {
             // 检查是否有用户数据
-            if (!fs.existsSync(USER_DATA_PATH)) {
+            const userResult = getLoginUserInfo();
+            if (!userResult.success || !userResult.data || !userResult.data.token) {
                 return;
             }
             
-            const userData = JSON.parse(fs.readFileSync(USER_DATA_PATH, 'utf8'));
-            if (!userData || !userData.token) {
-                return;
-            }
+            const userData = userResult.data;
             
             // 检查距离上次同步的时间
             const now = Date.now();
@@ -103,7 +95,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
                     // 更新本地版本
                     userData.bookmarkSyncVersion = serverVersion;
                     userData.lastSyncTime = now;
-                    fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2));
+                    saveUserData(userData);
                 }
             }
         } catch (error) {
@@ -204,12 +196,10 @@ module.exports = function registerLoginIpcHandlers(deps) {
         try {
             if (!userData) {
                 // 清除用户数据
-                if (fs.existsSync(USER_DATA_PATH)) {
-                    fs.unlinkSync(USER_DATA_PATH);
-                }
+                saveUserData(null);
                 stopAutoSync();
             }else{
-                fs.writeFileSync(USER_DATA_PATH, JSON.stringify(userData, null, 2), 'utf8');
+                saveUserData(userData);
                 startAutoSync();
             }
 
@@ -226,17 +216,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
 
     // 从本地文件读取用户信息
     ipcMain.handle('load-user-data', async () => {
-        try {
-            if (fs.existsSync(USER_DATA_PATH)) {
-                const data = fs.readFileSync(USER_DATA_PATH, 'utf8');
-                const userData = JSON.parse(data);
-                return { success: true, data: userData };
-            }
-            return { success: true, data: null };
-        } catch (error) {
-            console.error('读取用户数据失败:', error);
-            return { success: false, error: error.message };
-        }
+         return getLoginUserInfo();
     });
 
     // 验证 token 并返回用户信息
@@ -256,9 +236,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
     ipcMain.handle('clear-user-data', async () => {
         console.log('clear-user-data');
         try {
-            if (fs.existsSync(USER_DATA_PATH)) {
-                fs.unlinkSync(USER_DATA_PATH);
-            }
+            saveUserData(null);
             const mainWindow = getMainWindow();
             // 登录成功后，通知主进程更新用户信息
             mainWindow.webContents.send('update-user-data', null);
@@ -270,124 +248,15 @@ module.exports = function registerLoginIpcHandlers(deps) {
         }
     });
 
-    // ============ 书签同步相关 IPC ============
 
-    // 上传书签
-    ipcMain.handle('upload-bookmarks', async (_event, params) => {
-        console.log('upload-bookmarks', params);
-        try {
-            const result = await apiRequest('/api/bookmarks/upload', params);
-            return { success: true, data: result };
-        } catch (error) {
-            console.error('上传书签失败:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    // 同步书签
-    ipcMain.handle('sync-bookmarks', async (_event, params) => {
-        console.log('sync-bookmarks', params);
-        try {
-            const result = await apiRequest('/api/bookmarks/sync', params);
-            return { success: true, data: result };
-        } catch (error) {
-            console.error('同步书签失败:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    // 下载书签
-    ipcMain.handle('download-bookmarks', async (_event, params) => {
-        console.log('download-bookmarks', params);
-        try {
-            const result = await apiRequest('/api/bookmarks/download', params);
-            console.log('下载书签:', result);
-            return { success: true, data: result.data };
-        } catch (error) {
-            console.error('下载书签失败:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    // 获取书签最新版本
-    ipcMain.handle('get-bookmarks-version', async (_event, params) => {
-        console.log('get-bookmarks-version', params);
-        try {
-            const result = await apiRequest('/api/bookmarks/getVersion', params);
-            console.log('获取书签版本:', result);
-            if (result.code === 0) {
-                return { success: true, data: result.data };
-            } else {
-                return { success: false, data: {} };
-            }
-        } catch (error) {
-            console.error('获取书签版本失败:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    // ============ 书签自动同步 ============
-    // 监听书签保存事件，触发自动同步
-    ipcMain.on('bookmarks-saved', () => {
-        console.log('收到书签保存通知，触发自动同步');
-        onBookmarkChanged();
-    });
-
-    // HTTP 请求工具函数
-    function apiRequest(endpoint, data) {
-        return new Promise((resolve, reject) => {
-            const postData = JSON.stringify(data);
-            
-            const url = new URL(API_BASE_URL + endpoint);
-            const client = url.protocol === 'https:' ? https : http;
-
-            const options = {
-                hostname: url.hostname,
-                port: url.port || (url.protocol === 'https:' ? 443 : 80),
-                path: url.pathname,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(postData)
-                }
-            };
-
-            const req = client.request(options, (res) => {
-                let responseData = '';
-
-                res.setEncoding('utf8');
-                res.on('data', (chunk) => {
-                    responseData += chunk;
-                });
-
-                res.on('end', () => {
-                    try {
-                        const parsed = JSON.parse(responseData);
-                        resolve(parsed);
-                    } catch (e) {
-                        reject(new Error('响应解析失败'));
-                    }
-                });
-            });
-
-            req.on('error', (e) => {
-                reject(e);
-            });
-
-            req.write(postData);
-            req.end();
-        });
-    }
 
     // 初始化：检查是否有已登录的用户
     function initAutoSync() {
         try {
-            if (fs.existsSync(USER_DATA_PATH)) {
-                const userData = JSON.parse(fs.readFileSync(USER_DATA_PATH, 'utf8'));
-                if (userData && userData.token) {
-                    console.log('发现已登录用户，启动自动同步');
-                    startAutoSync();
-                }
+            const userResult = getLoginUserInfo();
+            if (userResult.success && userResult.data && userResult.data.token) {
+                console.log('发现已登录用户，启动自动同步');
+                startAutoSync();
             }
         } catch (error) {
             console.error('初始化自动同步失败:', error);

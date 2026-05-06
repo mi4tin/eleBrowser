@@ -1,3 +1,5 @@
+const { apiRequest, API_BASE_URL, initUserDataPath, getLoginUserInfo, saveUserData } = require('./ipcTool');
+
 module.exports = function registerBookmarksIpcHandlers(deps) {
     const {
         app,
@@ -13,11 +15,296 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         hideHistoryAutocomplete
     } = deps;
 
+    // 初始化用户数据路径
+    initUserDataPath(app);
+
     const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
+    const syncStateFilePath = path.join(app.getPath('userData'), 'bookmark-sync-state.json');
     let bookmarkDropdownView = null;
     let dropdownFolderId = null;
     let subDropdownViews = [];
     let bookmarksCache = null; // 书签数据缓存
+    
+    // 同步相关变量
+    let syncState = {
+        syncVersion: 0,
+        lastSyncTime: 0,
+        lastSyncSnapshot: null,
+        changes: [],
+        deviceId: null,
+        isSyncing: false
+    };
+    
+    // 初始化同步状态
+    function loadSyncState() {
+        try {
+            if (fs.existsSync(syncStateFilePath)) {
+                const data = fs.readFileSync(syncStateFilePath, 'utf8');
+                syncState = JSON.parse(data);
+            }
+            if (!syncState.deviceId) {
+                syncState.deviceId = 'device-' + Math.random().toString(36).slice(2, 10);
+                saveSyncState();
+            }
+        } catch (error) {
+            console.error('加载同步状态失败:', error);
+        }
+    }
+    
+    function saveSyncState() {
+        try {
+            fs.writeFileSync(syncStateFilePath, JSON.stringify(syncState, null, 2), 'utf8');
+        } catch (error) {
+            console.error('保存同步状态失败:', error);
+        }
+    }
+    
+    // 生成书签ID
+    function generateBookmarkId(url) {
+        return murmur3(url);
+    }
+    
+    // 快速哈希函数
+    function murmur3(str, seed = 0) {
+        let h1 = seed | 0;
+        const c1 = 0xcc9e2d51, c2 = 0x1b873593;
+        
+        for (let i = 0; i < str.length; i++) {
+            let k1 = str.charCodeAt(i);
+            k1 = Math.imul(k1, c1);
+            k1 = (k1 << 15) | (k1 >>> 17);
+            k1 = Math.imul(k1, c2);
+            h1 ^= k1;
+            h1 = (h1 << 13) | (h1 >>> 19);
+            h1 = Math.imul(h1, 5) + 0xe6546b64 | 0;
+        }
+        
+        h1 ^= str.length;
+        h1 ^= h1 >>> 16;
+        h1 = Math.imul(h1, 0x85ebca6b);
+        h1 ^= h1 >>> 13;
+        h1 = Math.imul(h1, 0xc2b2ae35);
+        h1 ^= h1 >>> 16;
+        
+        return (h1 >>> 0).toString(36);
+    }
+    
+    // 扁平化树结构
+    function flattenTree(tree, parentId = null, result = [], parentIndex = 0) {
+        if (tree.id === 'root') {
+            if (tree.items && tree.items.length > 0) {
+                tree.items.forEach((child, index) => {
+                    child.orderIndex = index;
+                    flattenTree(child, 'root', result, index);
+                });
+            }
+            return result;
+        }
+        
+        const localId = tree.id || generateBookmarkId(tree.url||tree.title);
+        
+        const item = {
+            localId: localId,
+            parentId: parentId,
+            type: tree.type,
+            title: tree.title,
+            url: tree.url || '',
+            favicon: tree.favicon || '',
+            orderIndex: tree.orderIndex !== undefined ? tree.orderIndex : parentIndex,
+            syncVersion: syncState.syncVersion,
+            isDeleted: false
+        };
+        
+        if (!tree.id) {
+            tree.id = localId;
+        }
+        
+        result.push(item);
+        
+        if (tree.items && tree.items.length > 0) {
+            tree.items.forEach((child, index) => {
+                child.orderIndex = index;
+                flattenTree(child, localId, result);
+            });
+        }
+        
+        return result;
+    }
+    
+    // 记录变更（主进程版）
+    function recordChange(operation, item, parentId = null) {
+        const change = {
+            localId: item.id || generateBookmarkId(item.url||item.title),
+            parentId: parentId,
+            type: item.type,
+            title: item.title,
+            url: item.url || '',
+            favicon: item.favicon || '',
+            orderIndex: item.orderIndex !== undefined ? item.orderIndex : 0,
+            operation: operation,
+            timestamp: Date.now()
+        };
+        
+        syncState.changes.push(change);
+        console.log('记录变更（主进程）:', change);
+        
+        if (!item.id) {
+            item.id = change.localId;
+        }
+        
+        saveSyncState();
+        
+        // 触发同步
+        syncBookmarksMain();
+    }
+
+    // 从扁平化列表重建树结构
+    function unflattenTree(flatList) {
+        const map = {};
+        const rootItems = [];
+
+        // 先把所有节点放入map
+        flatList.forEach(item => {
+            map[item.localId] = {
+                id: item.localId,
+                type: item.type,
+                title: item.title,
+                url: item.url,
+                favicon: item.favicon,
+                syncVersion: item.syncVersion,
+                lastModified: Date.now(),
+                isDeleted: item.isDeleted,
+                orderIndex: item.orderIndex,
+                items: []
+            };
+        });
+
+        // 构建树形关系
+        flatList.forEach(item => {
+            if (item.parentId && item.parentId !== '' && map[item.parentId]) {
+                map[item.parentId].items.push(map[item.localId]);
+            } else if (item.localId !== 'root') {
+                rootItems.push(map[item.localId]);
+            }
+        });
+
+        // 按orderIndex排序
+        const sortItems = (node) => {
+            if (node.items && node.items.length > 0) {
+                node.items.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                node.items.forEach(sortItems);
+            }
+        };
+        Object.values(map).forEach(sortItems);
+        rootItems.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+        // 创建或获取 root 节点
+        let root = map['root'] || {
+            id: 'root',
+            type: 'folder',
+            title: '书签',
+            items: []
+        };
+        
+        root.items = rootItems;
+        
+        return root;
+    }
+
+    // 主同步方法
+    async function syncBookmarksMain(token) {
+        if (syncState.isSyncing) {
+            console.log('同步已在进行中');
+            return { success: false, error: '同步已在进行中' };
+        }
+
+        // 如果没有提供token，尝试从用户数据中获取
+        if (!token) {
+            const userResult = getLoginUserInfo();
+            if (!userResult.success || !userResult.data || !userResult.data.token) {
+                console.error('获取用户数据失败');
+                return { success: false, error: '未登录' };
+            }
+            token = userResult.data.token;
+        }
+        
+        syncState.isSyncing = true;
+        
+        try {
+            // 收集本地变更
+            const localChanges = syncState.changes.length > 0 ? syncState.changes.map(c => ({
+                localId: c.localId,
+                parentId: c.parentId,
+                type: c.type,
+                title: c.title,
+                url: c.url,
+                favicon: c.favicon,
+                orderIndex: c.orderIndex,
+                syncVersion: syncState.syncVersion,
+                isDeleted: c.operation === 'delete'
+            })) : [];
+            
+            // 调用同步接口
+            const result = await apiRequest('/api/bookmarks/sync', {
+                token: token,
+                localVersion: syncState.syncVersion,
+                changes: localChanges,
+                deviceId: syncState.deviceId
+            });
+            
+            if (result && result.code === 0) {
+                const data = result.data;
+                
+                // 更新服务器版本
+                if (data.serverVersion !== undefined) {
+                    syncState.syncVersion = data.serverVersion;
+                }
+                
+                // 应用服务器变更
+                let newBookmarksTree = null;
+                if (data.hasChanges && data.changes && data.changes.length > 0) {
+                    // 这里需要实现合并逻辑，暂时简化为下载完整数据
+                    const downloadResult = await apiRequest('/api/bookmarks/download', {
+                        token: token
+                    });
+                    
+                    newBookmarksTree = unflattenTree(downloadResult.data.bookmarks);
+                    if (downloadResult && downloadResult.code === 0 && downloadResult.data && downloadResult.data.bookmarks) {
+                    }
+                }
+                
+                // 清空变更
+                syncState.changes = [];
+                
+                // 更新快照
+                const currentBookmarks = loadBookmarksData(null);
+                syncState.lastSyncSnapshot = JSON.parse(JSON.stringify(currentBookmarks));
+                syncState.lastSyncTime = Date.now();
+                
+                saveSyncState();
+                
+                console.log('同步成功');
+                return { 
+                    success: true, 
+                    data: {
+                        serverVersion: syncState.syncVersion,
+                        newBookmarksTree: newBookmarksTree
+                    }
+                };
+            } else {
+                console.error('同步失败:', result);
+                return { success: false, error: result?.msg || '同步失败' };
+            }
+        } catch (error) {
+            console.error('同步书签失败:', error);
+            return { success: false, error: error.message };
+        } finally {
+            syncState.isSyncing = false;
+        }
+    }
+    
+    // 加载同步状态
+    loadSyncState();
 
     function getDropdownUrl() {
         return 'file:///' + appRootDir.replace(/\\/g, '/') + '/html/dropdown-menu/dropdown-menu.html';
@@ -624,6 +911,141 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             console.error('排序失败:', e);
         }
     });
+    
+    // 记录书签变更
+    ipcMain.on('record-bookmark-change', (event, operation, item, parentId) => {
+        console.log('收到记录变更请求:', operation, item, parentId);
+        recordChange(operation, item, parentId);
+        event.reply('record-bookmark-change-reply', { success: true });
+    });
+    
+    // 获取同步状态
+    ipcMain.handle('get-sync-state', () => {
+        return {
+            success: true,
+            data: {
+                syncVersion: syncState.syncVersion,
+                lastSyncTime: syncState.lastSyncTime,
+                hasChanges: syncState.changes.length > 0,
+                deviceId: syncState.deviceId
+            }
+        };
+    });
+    
+    // 获取变更列表
+    ipcMain.handle('get-bookmark-changes', () => {
+        return {
+            success: true,
+            data: syncState.changes
+        };
+    });
+    
+    // 清空变更记录
+    ipcMain.handle('clear-bookmark-changes', () => {
+        syncState.changes = [];
+        saveSyncState();
+        return { success: true };
+    });
+    
+    // 更新同步版本
+    ipcMain.handle('update-sync-version', (event, version) => {
+        syncState.syncVersion = version;
+        syncState.lastSyncTime = Date.now();
+        // 更新快照
+        const bookmarks = loadBookmarksData(null);
+        syncState.lastSyncSnapshot = JSON.parse(JSON.stringify(bookmarks));
+        saveSyncState();
+        return { success: true };
+    });
+
+    // 获取用户信息（用于同步）
+    ipcMain.handle('get-user-info', async () => {
+        return getLoginUserInfo();
+    });
+    
+    // 获取扁平化的书签数据（用于上传）
+    ipcMain.handle('get-flat-bookmarks', () => {
+        const bookmarks = loadBookmarksData(null);
+        const flatList = flattenTree(bookmarks);
+        return {
+            success: true,
+            data: flatList
+        };
+    });
+
+
+    
+        // ============ 书签同步相关 IPC ============
+    
+        // 上传书签
+        ipcMain.handle('upload-bookmarks', async (_event, params) => {
+            console.log('upload-bookmarks', params);
+            try {
+                const result = await apiRequest('/api/bookmarks/upload', params);
+                return { success: true, data: result };
+            } catch (error) {
+                console.error('上传书签失败:', error);
+                return { success: false, error: error.message };
+            }
+        });
+    
+        // 同步书签（旧版，保留兼容性）
+        ipcMain.handle('sync-bookmarks', async (_event, params) => {
+            console.log('sync-bookmarks', params);
+            try {
+                const result = await apiRequest('/api/bookmarks/sync', params);
+                return { success: true, data: result };
+            } catch (error) {
+                console.error('同步书签失败:', error);
+                return { success: false, error: error.message };
+            }
+        });
+
+        // 完整同步书签（新版）
+        ipcMain.handle('sync-bookmarks-full', async (_event, token) => {
+            console.log('sync-bookmarks-full');
+            return await syncBookmarksMain(token);
+        });
+    
+        // 下载书签
+        ipcMain.handle('download-bookmarks', async (_event, params) => {
+            console.log('download-bookmarks', params);
+            try {
+                const result = await apiRequest('/api/bookmarks/download', params);
+                console.log('下载书签:', result);
+                return { success: true, data: result.data };
+            } catch (error) {
+                console.error('下载书签失败:', error);
+                return { success: false, error: error.message };
+            }
+        });
+    
+        // 获取书签最新版本
+        ipcMain.handle('get-bookmarks-version', async (_event, params) => {
+            console.log('get-bookmarks-version', params);
+            try {
+                const result = await apiRequest('/api/bookmarks/getVersion', params);
+                console.log('获取书签版本:', result);
+                if (result.code === 0) {
+                    return { success: true, data: result.data };
+                } else {
+                    return { success: false, data: {} };
+                }
+            } catch (error) {
+                console.error('获取书签版本失败:', error);
+                return { success: false, error: error.message };
+            }
+        });
+    
+        // ============ 书签自动同步 ============
+        // 监听书签保存事件，触发自动同步
+        ipcMain.on('bookmarks-saved', () => {
+            console.log('收到书签保存通知，触发自动同步');
+            onBookmarkChanged();
+        });
+
+
+        
 
     return {
         updateBookmarkDropdownBounds,

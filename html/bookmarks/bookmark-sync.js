@@ -7,58 +7,31 @@ class BookmarkSync {
         this.syncVersion = 0;
         this.lastSyncTime = 0;
         this.isSyncing = false;
-        this.deviceId = this.generateDeviceId();
-        this.changes = []; // 本地变更记录
-        this.lastSyncSnapshot = null; // 上次同步时的快照
+        this.deviceId = null; // 设备ID现在从主进程获取
+        this.changes = []; // 变更记录现在主要在主进程管理
+        this.lastSyncSnapshot = null;
         
-        // 加载同步状态
-        this.loadSyncState();
-    }
-
-    // 生成设备ID
-    generateDeviceId() {
-        let id = localStorage.getItem('deviceId');
-        if (!id) {
-            id = 'device-' + Math.random().toString(36).slice(2, 10);
-            localStorage.setItem('deviceId', id);
-        }
-        return id;
+        // 从主进程加载初始状态
+        this.loadSyncStateFromMain();
     }
     
     //重载数据与状态
     reloadData(bookmarksTreeRef) {
         this.bookmarksTreeRef = bookmarksTreeRef;
-        this.loadSyncState();
+        this.loadSyncStateFromMain();
     }
 
-    // 加载同步状态
-    loadSyncState() {
+    // 从主进程加载同步状态
+    async loadSyncStateFromMain() {
         try {
-            const state = localStorage.getItem('bookmarkSyncState');
-            if (state) {
-                const parsed = JSON.parse(state);
-                this.syncVersion = parsed.syncVersion || 0;
-                this.lastSyncTime = parsed.lastSyncTime || 0;
-                this.lastSyncSnapshot = parsed.snapshot || null;
-                this.changes = parsed.changes || [];
+            const result = await ipcRenderer.invoke('get-sync-state');
+            if (result && result.success) {
+                this.syncVersion = result.data.syncVersion || 0;
+                this.lastSyncTime = result.data.lastSyncTime || 0;
+                this.deviceId = result.data.deviceId;
             }
         } catch (error) {
-            console.error('加载同步状态失败:', error);
-        }
-    }
-
-    // 保存同步状态
-    saveSyncState() {
-        try {
-            const state = {
-                syncVersion: this.syncVersion,
-                lastSyncTime: this.lastSyncTime,
-                snapshot: this.lastSyncSnapshot,
-                changes: this.changes
-            };
-            localStorage.setItem('bookmarkSyncState', JSON.stringify(state));
-        } catch (error) {
-            console.error('保存同步状态失败:', error);
+            console.error('从主进程加载同步状态失败:', error);
         }
     }
 
@@ -238,31 +211,16 @@ class BookmarkSync {
     }
 
     // 记录变更（在书签修改时调用）
-    recordChange(operation, item, parentId = null,token = null) {
-        const change = {
-            localId: item.id || this.generateBookmarkId(item.url||item.title),
-            parentId: parentId,
-            type: item.type,
-            title: item.title,
-            url: item.url || '',
-            favicon: item.favicon || '',
-            orderIndex: item.orderIndex !== undefined ? item.orderIndex : 0,
-            operation: operation, // 'add', 'update', 'delete'
-            timestamp: Date.now()
-        };
+    async recordChange(operation, item, parentId = null, token = null) {
+        console.log('记录变更（渲染进程）:', operation, item, parentId);
         
-        this.changes.push(change);
-
-        console.log('记录变更BookmarkSync', change);
+        // 调用主进程记录变更
+        ipcRenderer.send('record-bookmark-change', operation, item, parentId);
         
-        // 确保item有id
-        if (!item.id) {
-            item.id = change.localId;
-        }
-        
-        // 保存到 localStorage
-        this.saveSyncState();
-        this.syncBookmarks(token);
+        // 监听一次回复（非阻塞）
+        ipcRenderer.once('record-bookmark-change-reply', () => {
+            console.log('主进程已记录变更');
+        });
     }
 
     // 计算与上次同步的差异
@@ -291,7 +249,9 @@ class BookmarkSync {
     // 完整上传书签
     async uploadBookmarks(token) {
         try {
-            const flatList = this.flattenTree(this.bookmarksTreeRef);
+            // 从主进程获取扁平化的书签数据
+            const flatResult = await ipcRenderer.invoke('get-flat-bookmarks');
+            const flatList = flatResult?.data || [];
             
             const result = await ipcRenderer.invoke('upload-bookmarks', {
                 token: token,
@@ -302,10 +262,9 @@ class BookmarkSync {
             
             if (result && result.success) {
                 console.log('上传成功');
-                // 更新快照
-                this.lastSyncSnapshot = JSON.parse(JSON.stringify(this.bookmarksTreeRef));
-                this.changes = [];
-                this.saveSyncState();
+                // 更新主进程版本和清空变更
+                await ipcRenderer.invoke('update-sync-version', this.syncVersion);
+                await ipcRenderer.invoke('clear-bookmark-changes');
                 return true;
             } else {
                 console.error('上传失败:', result);
@@ -342,80 +301,23 @@ async  getUserData() {
 }
 
 
-    // 增量同步
+    // 增量同步（调用主进程）
     async syncBookmarks(token) {
-        if (this.isSyncing) {
-            console.log('同步已在进行中');
-            return false;
-        }
-
-        if (!token) {
-            const userData = await this.getUserData();
-            if (!userData) {
-                console.error('获取用户数据失败');
-                return false;
-            }
-            token = userData.token;
-        }
-        
-        this.isSyncing = true;
-        
         try {
-            // 收集本地变更
-        const localChanges = this.changes.length > 0 ? this.changes.map(c => ({
-            localId: c.localId,
-            parentId: c.parentId,
-            type: c.type,
-            title: c.title,
-            url: c.url,
-            favicon: c.favicon,
-            orderIndex: c.orderIndex,
-            syncVersion: this.syncVersion,
-            isDeleted: c.operation === 'delete'
-        })) : [];
-            
-            // 调用同步接口
-            const result = await ipcRenderer.invoke('sync-bookmarks', {
-                token: token,
-                localVersion: this.syncVersion,
-                changes: localChanges,
-                deviceId: this.deviceId
-            });
+            // 调用主进程的完整同步方法
+            const result = await ipcRenderer.invoke('sync-bookmarks-full', token);
             
             if (result && result.success) {
-                const data = result.data;
-                
-                // 更新服务器版本
-                if (data.serverVersion !== undefined) {
-                    this.syncVersion = data.serverVersion;
-                }
-                
-                // 应用服务器变更
-                if (data.hasChanges && data.changes) {
-                    this.applyServerChanges(data.changes);
-                }
-                
-                // 清空本地变更
-                this.changes = [];
-                
-                // 更新快照
-                this.lastSyncSnapshot = JSON.parse(JSON.stringify(this.bookmarksTreeRef));
-                this.lastSyncTime = Date.now();
-                
-                // 保存状态
-                this.saveSyncState();
-                
-                console.log('同步成功');
+                console.log('syncBookmarks同步成功');
                 return true;
             } else {
-                console.error('同步失败:', result);
+                console.error('syncBookmarks同步失败:', result);
                 return false;
             }
         } catch (error) {
-            console.error('同步书签失败:', error);
+            console.error('syncBookmarks同步书签失败:', error);
             return false;
         } finally {
-            this.isSyncing = false;
         }
     }
 
@@ -449,13 +351,12 @@ async  getUserData() {
                     Object.assign(this.bookmarksTreeRef, newTree);
                 }
                 
-                // 更新快照
-                this.lastSyncSnapshot = JSON.parse(JSON.stringify(this.bookmarksTreeRef));
-                this.lastSyncTime = Date.now();
-                this.changes = [];
+                // 更新主进程状态
+                await ipcRenderer.invoke('update-sync-version', this.syncVersion);
+                await ipcRenderer.invoke('clear-bookmark-changes');
                 
-                // 保存状态
-                this.saveSyncState();
+                // 刷新本地状态
+                await this.loadSyncStateFromMain();
                 
                 console.log('下载成功');
                 return true;
