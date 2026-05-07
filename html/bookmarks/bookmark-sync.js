@@ -301,26 +301,6 @@ async  getUserData() {
 }
 
 
-    // 同步
-    async checkAndAutoSync() {
-        try {
-            // 调用主进程的完整同步方法
-            const result = await ipcRenderer.invoke('checkAndAutoSync');
-            
-            if (result && result.success) {
-                console.log('syncBookmarks同步成功');
-                return true;
-            } else {
-                console.error('syncBookmarks同步失败:', result);
-                return false;
-            }
-        } catch (error) {
-            console.error('syncBookmarks同步书签失败:', error);
-            return false;
-        } finally {
-        }
-    }
-
     // 应用服务器变更
     applyServerChanges(serverChanges) {
         // 这里需要实现合并逻辑

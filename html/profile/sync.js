@@ -345,11 +345,7 @@ async function performSync() {
     syncBtn.style.cursor = 'wait';
     
     try {
-        if (!bookmarkSync) {
-            bookmarkSync = new BookmarkSync([]);
-        }
-
-        const syncResult = await bookmarkSync.checkAndAutoSync();
+        const syncResult =  await ipcRenderer.invoke('checkAndAutoSync');
         if (syncResult && syncResult.success) {
             showNotification('同步成功', 'success');
         } else {

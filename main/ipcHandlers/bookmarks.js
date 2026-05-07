@@ -41,6 +41,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             if (fs.existsSync(syncStateFilePath)) {
                 const data = fs.readFileSync(syncStateFilePath, 'utf8');
                 syncState = JSON.parse(data);
+                syncState.isSyncing = false;// 重置同步状态为未同步
             }
             if (!syncState.deviceId) {
                 syncState.deviceId = 'device-' + Math.random().toString(36).slice(2, 10);
@@ -213,7 +214,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     // 主同步方法
     async function syncBookmarksMain(token) {
         if (syncState.isSyncing) {
-            console.log('同步已在进行中');
+            console.log('同步已在进行中.a1');
             return { success: false, error: '同步已在进行中' };
         }
 
@@ -226,6 +227,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             }
             token = userResult.data.token;
         }
+
+        console.log('syncBookmarksMain开始同步:',token);
         
         syncState.isSyncing = true;
         
@@ -244,7 +247,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             })) : [];
 
             //开始同步
-            console.log('开始同步:',localChanges);
+            console.log('开始同步书签变更:',localChanges);
             
             
             // 调用同步接口
@@ -286,7 +289,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 
                 saveSyncState();
                 
-                console.log('同步成功');
+                console.log('书签变更同步成功');
                 return { 
                     success: true, 
                     data: {
@@ -1057,19 +1060,12 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
 
         // ============ 自动同步机制 ============
-    let autoSyncTimer = null;
-    let bookmarkChangeTimer = null;
-    let lastAutoSyncTime = null;
     const AUTO_SYNC_INTERVAL = 30 * 60 * 1000; // 30分钟
-    const BOOKMARK_CHANGE_DELAY = 10 * 1000; // 书签变更后10秒
     
     // 启动自动同步
     function startAutoSync() {
         console.log('启动自动同步机制');
-        
-        // 先停止现有的定时器
-        stopAutoSync();
-        
+
         // 设置30分钟自动同步
         ScheduledCheckAndAutoSync(AUTO_SYNC_INTERVAL);
         
@@ -1079,21 +1075,10 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     function ScheduledCheckAndAutoSync(t) {
         setTimeout(async () => {
+            console.log('定时同步');
             await checkAndAutoSync() 
             ScheduledCheckAndAutoSync(t);
         }, t);
-    }
-    
-    // 停止自动同步
-    function stopAutoSync() {
-        if (autoSyncTimer) {
-            clearInterval(autoSyncTimer);
-            autoSyncTimer = null;
-        }
-        if (bookmarkChangeTimer) {
-            clearTimeout(bookmarkChangeTimer);
-            bookmarkChangeTimer = null;
-        }
     }
     
     // 检查并执行自动同步
@@ -1114,21 +1099,17 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             //     return;
             // }
             
-            console.log('先同步本地书签到服务器');
-            await syncBookmarksMain(userData.token);
-            console.log('本地书签已同步到服务器');
-            
+            // --先更新云端到本地--
             // 获取服务器版本
             const versionResult = await apiRequest('/api/bookmarks/getVersion', {
                 token: userData.token
             });
             
-            const serverVersion = versionResult?.version || 0;
-            const localVersion = userData.bookmarkSyncVersion || 0;
-            
+            const serverVersion = versionResult?.data?.version || 0;
+            const localVersion = syncState.syncVersion || 0;
             // 如果云端有新版本，尝试同步（静默同步，不显示UI）
             if (serverVersion > localVersion) {
-                console.log('发现云端新版本，合并云版本到本地');
+                console.log('发现云端新版本'+serverVersion+'，本地版本'+localVersion+'不同，合并云版本到本地');
                 
                 // 下载云端数据
                 const downloadResult = await apiRequest('/api/bookmarks/download', {
@@ -1136,32 +1117,41 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                     minVersion: localVersion
                 });
                 
-                if (downloadResult?.bookmarks) {
+                if (downloadResult?.data?.bookmarks) {
+
+                    console.log('下载到的书签:',localVersion, downloadResult.data.bookmarks);
+
+
                     const bookmarks =loadBookmarksData(null)
                     var localList = flattenTree(bookmarks);
                     //直接合并到本地
-                    const mergedBookmarks = mergeBookmarks(localList, downloadResult.bookmarks);
+                    const mergedBookmarks = mergeBookmarks(localList, downloadResult.data.bookmarks);
                     saveBookmarksData(null, mergedBookmarks.tree);
                     // userData.bookmarks = mergedBookmarks;
                     
                     console.log('云端已合并到本地，自动同步完成');
                     
                     // 更新本地版本
-                    userData.bookmarkSyncVersion = serverVersion;
-                    userData.lastSyncTime = now;
-                    saveUserData(userData);
+                    syncState.syncVersion = serverVersion;
+                    syncState.lastSyncTime = Date.now();
+                    saveSyncState();
                 }
             }else{
-                console.log('云端版本与本地版本相同，无需同步');
+                console.log('云端版本'+serverVersion+'与本地版本'+localVersion+'相同，无需同步');
                 return { success: true };
             }
+
+
+             console.log('同步本地书签变更到服务器');
+            await syncBookmarksMain(userData.token);
+            console.log('本地变更书签已同步到服务器');
         } catch (error) {
             console.error('自动同步失败:', error);
             return { success: false, error: error.message };
         }
     }
 
-         // 初始化：检查是否有已登录的用户
+    // 初始化：检查是否有已登录的用户
     function initAutoSync() {
         try {
             const userResult = getLoginUserInfo();
@@ -1212,7 +1202,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         const mergeFlat = Array.from(itemMap.values());
         
         // 第四步：重建树结构
-        const mergeTree = this.unflattenTree(mergeFlat);
+        const mergeTree = unflattenTree(mergeFlat);
         
         return {
             flat: mergeFlat,
