@@ -301,11 +301,11 @@ async  getUserData() {
 }
 
 
-    // 增量同步（调用主进程）
-    async syncBookmarks(token) {
+    // 同步
+    async checkAndAutoSync() {
         try {
             // 调用主进程的完整同步方法
-            const result = await ipcRenderer.invoke('sync-bookmarks-full', token);
+            const result = await ipcRenderer.invoke('checkAndAutoSync');
             
             if (result && result.success) {
                 console.log('syncBookmarks同步成功');

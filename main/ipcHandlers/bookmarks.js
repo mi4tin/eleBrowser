@@ -146,7 +146,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         };
         
         syncState.changes.push(change);
-        console.log('记录变更（主进程）:', change);
         
         if (!item.id) {
             item.id = change.localId;
@@ -923,7 +922,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     
     // 记录书签变更
     ipcMain.on('record-bookmark-change', (event, operation, item, parentId) => {
-        console.log('收到记录变更请求:', operation, item, parentId);
+        console.log('收到bookmark变更请求:', operation, item, parentId);
         recordChange(operation, item, parentId);
         event.reply('record-bookmark-change-reply', { success: true });
     });
@@ -1011,9 +1010,10 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         });
 
         // 完整同步书签（新版）
-        ipcMain.handle('sync-bookmarks-full', async (_event, token) => {
-            console.log('sync-bookmarks-full');
-            return await syncBookmarksMain(token);
+        ipcMain.handle('checkAndAutoSync', async (_event) => {
+            console.log('handle.checkAndAutoSync');
+            return await checkAndAutoSync();
+            // return await syncBookmarksMain(token);
         });
     
         // 下载书签
@@ -1071,12 +1071,17 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         stopAutoSync();
         
         // 设置30分钟自动同步
-        autoSyncTimer = setInterval(() => {
-            checkAndAutoSync();
-        }, AUTO_SYNC_INTERVAL);
+        ScheduledCheckAndAutoSync(AUTO_SYNC_INTERVAL);
         
         // 立即检查一次是否需要同步
-        setTimeout(() => checkAndAutoSync(), 5000);
+        setTimeout(async () => await checkAndAutoSync(), 1000*5);
+    }
+
+    function ScheduledCheckAndAutoSync(t) {
+        setTimeout(async () => {
+            await checkAndAutoSync() 
+            ScheduledCheckAndAutoSync(t);
+        }, t);
     }
     
     // 停止自动同步
@@ -1097,17 +1102,17 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             // 检查是否有用户数据
             const userResult = getLoginUserInfo();
             if (!userResult.success || !userResult.data || !userResult.data.token) {
-                return;
+                return { success: false, error: '未登录' };
             }
             
             const userData = userResult.data;
             
             // 检查距离上次同步的时间
-            const now = Date.now();
-            const lastSync = userData.lastSyncTime || 0;
-            if (now - lastSync < AUTO_SYNC_INTERVAL) {
-                return;
-            }
+            // const now = Date.now();
+            // const lastSync = userData.lastSyncTime || 0;
+            // if (now - lastSync < AUTO_SYNC_INTERVAL) {
+            //     return;
+            // }
             
             console.log('先同步本地书签到服务器');
             await syncBookmarksMain(userData.token);
@@ -1148,10 +1153,11 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 }
             }else{
                 console.log('云端版本与本地版本相同，无需同步');
-                return;
+                return { success: true };
             }
         } catch (error) {
             console.error('自动同步失败:', error);
+            return { success: false, error: error.message };
         }
     }
 
