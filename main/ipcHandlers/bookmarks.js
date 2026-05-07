@@ -243,6 +243,10 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 syncVersion: syncState.syncVersion,
                 isDeleted: c.operation === 'delete'
             })) : [];
+
+            //开始同步
+            console.log('开始同步:',localChanges);
+            
             
             // 调用同步接口
             const result = await apiRequest('/api/bookmarks/sync', {
@@ -488,6 +492,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 type: 'folder',
                 items: []
             };
+            bookmarksCache = bookmarks; // 存入缓存
         }
         
         if (folderId) {
@@ -761,17 +766,21 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     ipcMain.on('save-bookmarks', (event, bookmarks) => {
         console.log('收到保存书签请求');
-        try {
+        saveBookmarksData(event, bookmarks);
+    });
+
+    function saveBookmarksData(event, bookmarks) {
+       try {
             fs.writeFileSync(bookmarksFilePath, JSON.stringify(bookmarks, null, 2), 'utf8');
             bookmarksCache = bookmarks; // 更新缓存
-            event.reply('save-bookmarks-reply', { success: true });
+            event&&event.reply('save-bookmarks-reply', { success: true });
             // 通知所有窗口更新
             notifyAllWindowsBookmarksSaved();
         } catch (e) {
             console.error('保存书签数据失败:', e);
-            event.reply('save-bookmarks-reply', { success: false, error: e.message });
+            event&&event.reply('save-bookmarks-reply', { success: false, error: e.message });
         }
-    });
+    }
     
     // 递归查找并移除项目
     function findAndRemoveItem(folder, itemData) {
@@ -1043,6 +1052,168 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             console.log('收到书签保存通知，触发自动同步');
             onBookmarkChanged();
         });
+
+
+
+
+        // ============ 自动同步机制 ============
+    let autoSyncTimer = null;
+    let bookmarkChangeTimer = null;
+    let lastAutoSyncTime = null;
+    const AUTO_SYNC_INTERVAL = 30 * 60 * 1000; // 30分钟
+    const BOOKMARK_CHANGE_DELAY = 10 * 1000; // 书签变更后10秒
+    
+    // 启动自动同步
+    function startAutoSync() {
+        console.log('启动自动同步机制');
+        
+        // 先停止现有的定时器
+        stopAutoSync();
+        
+        // 设置30分钟自动同步
+        autoSyncTimer = setInterval(() => {
+            checkAndAutoSync();
+        }, AUTO_SYNC_INTERVAL);
+        
+        // 立即检查一次是否需要同步
+        setTimeout(() => checkAndAutoSync(), 5000);
+    }
+    
+    // 停止自动同步
+    function stopAutoSync() {
+        if (autoSyncTimer) {
+            clearInterval(autoSyncTimer);
+            autoSyncTimer = null;
+        }
+        if (bookmarkChangeTimer) {
+            clearTimeout(bookmarkChangeTimer);
+            bookmarkChangeTimer = null;
+        }
+    }
+    
+    // 检查并执行自动同步
+    async function checkAndAutoSync() {
+        try {
+            // 检查是否有用户数据
+            const userResult = getLoginUserInfo();
+            if (!userResult.success || !userResult.data || !userResult.data.token) {
+                return;
+            }
+            
+            const userData = userResult.data;
+            
+            // 检查距离上次同步的时间
+            const now = Date.now();
+            const lastSync = userData.lastSyncTime || 0;
+            if (now - lastSync < AUTO_SYNC_INTERVAL) {
+                return;
+            }
+            
+            console.log('先同步本地书签到服务器');
+            await syncBookmarksMain(userData.token);
+            console.log('本地书签已同步到服务器');
+            
+            // 获取服务器版本
+            const versionResult = await apiRequest('/api/bookmarks/getVersion', {
+                token: userData.token
+            });
+            
+            const serverVersion = versionResult?.version || 0;
+            const localVersion = userData.bookmarkSyncVersion || 0;
+            
+            // 如果云端有新版本，尝试同步（静默同步，不显示UI）
+            if (serverVersion > localVersion) {
+                console.log('发现云端新版本，合并云版本到本地');
+                
+                // 下载云端数据
+                const downloadResult = await apiRequest('/api/bookmarks/download', {
+                    token: userData.token,
+                    minVersion: localVersion
+                });
+                
+                if (downloadResult?.bookmarks) {
+                    const bookmarks =loadBookmarksData(null)
+                    var localList = flattenTree(bookmarks);
+                    //直接合并到本地
+                    const mergedBookmarks = mergeBookmarks(localList, downloadResult.bookmarks);
+                    saveBookmarksData(null, mergedBookmarks.tree);
+                    // userData.bookmarks = mergedBookmarks;
+                    
+                    console.log('云端已合并到本地，自动同步完成');
+                    
+                    // 更新本地版本
+                    userData.bookmarkSyncVersion = serverVersion;
+                    userData.lastSyncTime = now;
+                    saveUserData(userData);
+                }
+            }else{
+                console.log('云端版本与本地版本相同，无需同步');
+                return;
+            }
+        } catch (error) {
+            console.error('自动同步失败:', error);
+        }
+    }
+
+         // 初始化：检查是否有已登录的用户
+    function initAutoSync() {
+        try {
+            const userResult = getLoginUserInfo();
+            if (userResult.success && userResult.data && userResult.data.token) {
+                console.log('发现已登录用户，启动自动同步');
+                startAutoSync();
+            }
+        } catch (error) {
+            console.error('初始化自动同步失败:', error);
+        }
+    }
+    
+    // 执行初始化
+    initAutoSync();
+
+
+    //方法与bookmark-sync.js中的mergeBookmarks方法一致
+    function mergeBookmarks(localList, cloudList) {
+        const itemMap = new Map();
+        
+        // 第一步：先处理本地数据
+        for (const item of localList) {
+            itemMap.set(item.parentId+'-'+item.localId, { ...item });
+        }
+        
+        // 第二步：处理云端数据，根据合并策略
+        for (const item of cloudList) {
+            const existing = itemMap.get(item.parentId+'-'+item.localId);
+            
+            if (existing) {
+                // 同一书签存在，比较版本
+                // 策略：保留最新版本，相同版本保留本地的
+                const localVersion = existing.syncVersion || 0;
+                const cloudVersion = item.syncVersion || 0;
+                
+                if (cloudVersion > localVersion) {
+                    // 云端版本更新，替换本地
+                    itemMap.set(item.parentId+'-'+item.localId, { ...item });
+                }
+                // 否则保留本地的，不需要操作
+            } else {
+                // 云端新增的项目，直接添加
+                itemMap.set(item.parentId+'-'+item.localId, { ...item });
+            }
+        }
+        
+        // 第三步：转换为合并后的扁平数组
+        const mergeFlat = Array.from(itemMap.values());
+        
+        // 第四步：重建树结构
+        const mergeTree = this.unflattenTree(mergeFlat);
+        
+        return {
+            flat: mergeFlat,
+            tree: mergeTree,
+        };
+    }
+    
 
 
         

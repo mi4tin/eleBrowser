@@ -15,93 +15,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
     // 初始化用户数据路径
     initUserDataPath(app);
     
-    // ============ 自动同步机制 ============
-    let autoSyncTimer = null;
-    let bookmarkChangeTimer = null;
-    let lastAutoSyncTime = null;
-    const AUTO_SYNC_INTERVAL = 30 * 60 * 1000; // 30分钟
-    const BOOKMARK_CHANGE_DELAY = 10 * 1000; // 书签变更后10秒
     
-    // 启动自动同步
-    function startAutoSync() {
-        console.log('启动自动同步机制');
-        
-        // 先停止现有的定时器
-        stopAutoSync();
-        
-        // 设置30分钟自动同步
-        autoSyncTimer = setInterval(() => {
-            checkAndAutoSync();
-        }, AUTO_SYNC_INTERVAL);
-        
-        // 立即检查一次是否需要同步
-        setTimeout(() => checkAndAutoSync(), 5000);
-    }
-    
-    // 停止自动同步
-    function stopAutoSync() {
-        if (autoSyncTimer) {
-            clearInterval(autoSyncTimer);
-            autoSyncTimer = null;
-        }
-        if (bookmarkChangeTimer) {
-            clearTimeout(bookmarkChangeTimer);
-            bookmarkChangeTimer = null;
-        }
-    }
-    
-    // 检查并执行自动同步
-    async function checkAndAutoSync() {
-        try {
-            // 检查是否有用户数据
-            const userResult = getLoginUserInfo();
-            if (!userResult.success || !userResult.data || !userResult.data.token) {
-                return;
-            }
-            
-            const userData = userResult.data;
-            
-            // 检查距离上次同步的时间
-            const now = Date.now();
-            const lastSync = userData.lastSyncTime || 0;
-            if (now - lastSync < AUTO_SYNC_INTERVAL) {
-                return;
-            }
-            
-            console.log('执行自动同步');
-            
-            // 获取服务器版本
-            const versionResult = await apiRequest('/api/bookmarks/getVersion', {
-                token: userData.token
-            });
-            
-            const serverVersion = versionResult?.version || 0;
-            const localVersion = userData.bookmarkSyncVersion || 0;
-            
-            // 如果云端有新版本，尝试同步（静默同步，不显示UI）
-            if (serverVersion > localVersion) {
-                console.log('发现云端新版本，执行自动同步');
-                
-                // 下载云端数据
-                const downloadResult = await apiRequest('/api/bookmarks/download', {
-                    token: userData.token
-                });
-                
-                if (downloadResult?.bookmarks) {
-                    // 保存到本地
-                    // todo:这里简化处理，实际应该有更完善的合并策略
-                    console.log('自动同步完成');
-                    
-                    // 更新本地版本
-                    userData.bookmarkSyncVersion = serverVersion;
-                    userData.lastSyncTime = now;
-                    saveUserData(userData);
-                }
-            }
-        } catch (error) {
-            console.error('自动同步失败:', error);
-        }
-    }
     
     // 书签变更时触发同步
     function onBookmarkChanged() {
@@ -250,21 +164,7 @@ module.exports = function registerLoginIpcHandlers(deps) {
 
 
 
-    // 初始化：检查是否有已登录的用户
-    function initAutoSync() {
-        try {
-            const userResult = getLoginUserInfo();
-            if (userResult.success && userResult.data && userResult.data.token) {
-                console.log('发现已登录用户，启动自动同步');
-                startAutoSync();
-            }
-        } catch (error) {
-            console.error('初始化自动同步失败:', error);
-        }
-    }
-    
-    // 执行初始化
-    initAutoSync();
+   
 
     return {
         createLoginWindow
