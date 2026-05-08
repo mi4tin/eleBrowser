@@ -95,7 +95,6 @@ module.exports = function createWindowManager(deps) {
             
 
             //测试专用时，可注释
-            myWindow.webContents.send('show-folder-dropdown-mouseenter', false);
             hideFolderDropdown(myWindow);
         };
         myWindow.on('blur', handleBlur);

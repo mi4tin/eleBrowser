@@ -450,6 +450,11 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             subDropdownViews = [];
         }
         dropdownFolderId = null;
+
+        const mainWindow = getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('show-folder-dropdown-mouseenter', false);
+        }
     }
 
     function findFolderById(folder, id) {
@@ -519,7 +524,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             const closeDropdownOnWindowChange = () => {
                 if (bookmarkDropdownView && bookmarkDropdownView.window && !bookmarkDropdownView.window.isDestroyed()) {
                     console.log('窗口大小改变，关闭下拉菜单');
-                    window.isDestroyed()==false&&window.webContents.send('show-folder-dropdown-mouseenter', false);
                     hideFolderDropdown(window);
                 }
             };
@@ -584,7 +588,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             mainWindow.webContents.send('browser-view-interacted');
         }
     });
-
+    
     ipcMain.on('show-folder-dropdown-next', (event, nextBounds, item, parentId) => {
         const window = BrowserWindow.fromWebContents(event.sender);
         // console.log('收到显示下级文件夹菜单请求:', window);

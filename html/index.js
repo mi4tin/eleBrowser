@@ -3,6 +3,7 @@ const { ipcRenderer } = require('electron');
 const DEFAULT_URL = "https://www.baidu.com"// "file:///F:/DEV/Code/gitee.com/eleBrowser/html/bookmarks/bookmarks.html"//https://www.baidu.com"//'https://wx.mail.qq.com/';
 const toolbar = document.getElementById('toolbar');
 const tabsContainer = document.getElementById('tabs');
+const tabDropZone = document.getElementById('tab-drop-zone');
 const addTabBtn = document.getElementById('add-tab');
 const addressInput = document.getElementById('address-input');
 const bookmarkBarContainer = document.getElementById('bookmarkBarContainer');
@@ -1398,12 +1399,20 @@ addressInput.addEventListener('blur', () => {
     }, 150);
 });
 
-document.getElementById('tab-drop-zone').addEventListener('click', (e) => {
-    console.log('点击了标签页拖拽区域');
-});
+function syncTabDropZoneFolderDropdownVisible(visible) {
+    if (tabDropZone) {
+        tabDropZone.classList.toggle('folder-dropdown-visible', !!visible);
+    }
+}
+
+if (tabDropZone) {
+    tabDropZone.addEventListener('mousedown', (e) => {
+        console.log('点击了标签页拖拽区域');
+    });
+}
 
 //点击页面其他地方隐藏自动匹配；点击书签栏以外关闭文件夹下拉（下拉在独立 WebContentsView 内，不会冒泡到此处）
-document.addEventListener('click', (e) => {
+document.addEventListener('mousedown', (e) => {
     if (!addressInput.contains(e.target)) {
         console.log('点击页面其他地方，隐藏地址下拉');
         hideAutocomplete();
@@ -2010,15 +2019,21 @@ function showFolderDropdown(folderId, folderName, folderElement, isMouseenter) {
 ipcRenderer.on('show-folder-dropdown-mouseenter', (event, show) => {
     console.log('收到显示文件夹下拉菜单鼠标移入请求:', show);
     canMouseenter = show;
+    syncTabDropZoneFolderDropdownVisible(show);
 });
 
 // 点击标签页内网页时主进程会发此消息：同步移除书签激活态并隐藏地址栏历史浮层状态
 ipcRenderer.on('browser-view-interacted', () => {
     console.log('收到浏览器视交互消息');
-    hideFolderDropdown();
-    void hideAutocomplete();
-    canMouseenter = false;
+    hideFolderDropdownAndAutocomplete()
 });
+
+function hideFolderDropdownAndAutocomplete() {
+    void hideAutocomplete();
+
+    hideFolderDropdown();
+    canMouseenter = false;
+}
 
 // 书签管理器保存书签后，通知主窗口更新书签栏
 ipcRenderer.on('bookmarks-saved', () => {
@@ -2034,6 +2049,7 @@ ipcRenderer.on('clipboard-updated', (event, text) => {
 
 // 隐藏文件夹下拉菜单
 function hideFolderDropdown() {
+    syncTabDropZoneFolderDropdownVisible(false);
     ipcRenderer.send('hide-folder-dropdown');
 
     // 移除所有文件夹的激活状态

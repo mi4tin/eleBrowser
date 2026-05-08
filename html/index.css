@@ -249,6 +249,10 @@ body {
     min-width: 48px;
     min-height: 34px;
     order: 101;
+    -webkit-app-region: drag;
+}
+#tab-drop-zone.folder-dropdown-visible {
+    -webkit-app-region: no-drag;
 }
 .toolbar.toolbar-drop-active,
 .toolbar.toolbar-drop-active #tabs,
