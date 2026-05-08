@@ -1076,6 +1076,8 @@ ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
     } else {
         console.log("URL格式不正确，已忽略:", url);
     }
+    canMouseenter = false;//新开标签后，书签栏下拉菜单隐藏
+    hideFolderDropdown();
 });
 
 // 主进程通知 BrowserView 状态更新（URL / 标题）
@@ -1396,19 +1398,23 @@ addressInput.addEventListener('blur', () => {
     }, 150);
 });
 
+document.getElementById('tab-drop-zone').addEventListener('click', (e) => {
+    console.log('点击了标签页拖拽区域');
+});
+
 //点击页面其他地方隐藏自动匹配；点击书签栏以外关闭文件夹下拉（下拉在独立 WebContentsView 内，不会冒泡到此处）
 document.addEventListener('click', (e) => {
     if (!addressInput.contains(e.target)) {
         console.log('点击页面其他地方，隐藏地址下拉');
         hideAutocomplete();
     }
-
-
-    if (!bookmarkBarContainer.contains(e.target)) {
-        console.log('点击页面其他地方，隐藏书签栏下拉');
-        hideFolderDropdown();
-        canMouseenter = false;
-    }
+    
+    // if (!bookmarkBarContainer.contains(e.target)) {
+       
+    // }
+    console.log('点击页面其他地方，隐藏书签栏下拉');
+    hideFolderDropdown();
+    canMouseenter = false;
 });
 
 //接收历史记录自动匹配选择结果
