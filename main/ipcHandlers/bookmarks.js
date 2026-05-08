@@ -1,4 +1,4 @@
-const { apiRequest, API_BASE_URL, initUserDataPath, getLoginUserInfo, saveUserData } = require('./ipcTool');
+const { apiRequest, API_BASE_URL, initUserDataPath, getLoginUserInfo, saveUserData, getDeviceId } = require('./ipcTool');
 
 module.exports = function registerBookmarksIpcHandlers(deps) {
     const {
@@ -17,6 +17,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
     // 初始化用户数据路径
     initUserDataPath(app);
+    const deviceId = getDeviceId();
 
     const bookmarksFilePath = path.join(app.getPath('userData'), 'bookmarks.json');
     const syncStateFilePath = path.join(app.getPath('userData'), 'bookmark-sync-state.json');
@@ -31,7 +32,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         lastSyncTime: 0,
         lastSyncSnapshot: null,
         changes: [],
-        deviceId: null,
         isSyncing: false
     };
     
@@ -42,10 +42,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 const data = fs.readFileSync(syncStateFilePath, 'utf8');
                 syncState = JSON.parse(data);
                 syncState.isSyncing = false;// 重置同步状态为未同步
-            }
-            if (!syncState.deviceId) {
-                syncState.deviceId = 'device-' + Math.random().toString(36).slice(2, 10);
-                saveSyncState();
             }
         } catch (error) {
             console.error('加载同步状态失败:', error);
@@ -155,7 +151,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         saveSyncState();
         
         // 触发同步
-        syncBookmarksMain();
+        checkAndAutoSync();
     }
 
     // 从扁平化列表重建树结构
@@ -248,14 +244,12 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
 
             //开始同步
             console.log('开始同步书签变更:',localChanges);
-            
-            
             // 调用同步接口
             const result = await apiRequest('/api/bookmarks/sync', {
                 token: token,
                 localVersion: syncState.syncVersion,
                 changes: localChanges,
-                deviceId: syncState.deviceId
+                deviceId: deviceId
             });
             
             if (result && result.code === 0) {
@@ -1031,34 +1025,14 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 return { success: false, error: error.message };
             }
         });
-    
-        // 获取书签最新版本
-        ipcMain.handle('get-bookmarks-version', async (_event, params) => {
-            console.log('get-bookmarks-version', params);
-            try {
-                const result = await apiRequest('/api/bookmarks/getVersion', params);
-                console.log('获取书签版本:', result);
-                if (result.code === 0) {
-                    return { success: true, data: result.data };
-                } else {
-                    return { success: false, data: {} };
-                }
-            } catch (error) {
-                console.error('获取书签版本失败:', error);
-                return { success: false, error: error.message };
-            }
-        });
-    
+
         // ============ 书签自动同步 ============
         // 监听书签保存事件，触发自动同步
         ipcMain.on('bookmarks-saved', () => {
             console.log('收到书签保存通知，触发自动同步');
             onBookmarkChanged();
         });
-
-
-
-
+        
         // ============ 自动同步机制 ============
     const AUTO_SYNC_INTERVAL = 30 * 60 * 1000; // 30分钟
     
@@ -1102,9 +1076,16 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             // --先更新云端到本地--
             // 获取服务器版本
             const versionResult = await apiRequest('/api/bookmarks/getVersion', {
-                token: userData.token
+                token: userData.token,
+                deviceId: deviceId
             });
             
+
+            if (!versionResult||versionResult.code!=0) {
+                console.error('获取版本失败:', versionResult);
+                return { success: false, error: versionResult?.msg || '获取版本失败' };
+            }
+
             const serverVersion = versionResult?.data?.version || 0;
             const localVersion = syncState.syncVersion || 0;
             // 如果云端有新版本，尝试同步（静默同步，不显示UI）
@@ -1114,14 +1095,12 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 // 下载云端数据
                 const downloadResult = await apiRequest('/api/bookmarks/download', {
                     token: userData.token,
-                    minVersion: localVersion
+                    minVersion: localVersion,
+                    deviceId: deviceId
                 });
                 
                 if (downloadResult?.data?.bookmarks) {
-
                     console.log('下载到的书签:',localVersion, downloadResult.data.bookmarks);
-
-
                     const bookmarks =loadBookmarksData(null)
                     var localList = flattenTree(bookmarks);
                     //直接合并到本地
@@ -1138,7 +1117,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 }
             }else{
                 console.log('云端版本'+serverVersion+'与本地版本'+localVersion+'相同，无需同步');
-                return { success: true };
             }
 
 

@@ -7,12 +7,22 @@ const API_BASE_URL = 'http://localhost:8011';
 
 // 用户数据管理
 let USER_DATA_PATH = null;
+let DEVICE_DATA_PATH = null;
 
 function initUserDataPath(app) {
     USER_DATA_PATH = path.join(app.getPath('userData'), 'user-auth.json');
+    DEVICE_DATA_PATH = path.join(app.getPath('userData'), 'device-info.json');
+    initDeviceInfo();
 }
 
 // 读取用户信息
+// {
+//   "userId": 10000,
+//   "email": "123@qq.com",
+//   "nickname": "xx",
+//   "avatar": "",
+//   "token": ""
+// }
 function getLoginUserInfo() {
     try {
         if (USER_DATA_PATH && fs.existsSync(USER_DATA_PATH)) {
@@ -42,6 +52,50 @@ function saveUserData(userData) {
         console.error('保存用户数据失败:', error);
         return { success: false, error: error.message };
     }
+}
+
+// 读取设备信息
+//{deviceId:"xxxx"}
+function getDeviceInfo() {
+    try {
+        if (DEVICE_DATA_PATH && fs.existsSync(DEVICE_DATA_PATH)) {
+            const data = fs.readFileSync(DEVICE_DATA_PATH, 'utf8');
+            const deviceData = JSON.parse(data);
+            return { success: true, data: deviceData };
+        }
+        return { success: true, data: null };
+    } catch (error) {
+        console.error('读取设备信息失败:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// 保存设备信息。不支持删除操作
+function initDeviceInfo() {
+    const deviceData =getDeviceInfo();
+    if(deviceData?.data?.deviceId){
+        console.log('已有设备id');
+        return  { success: true}
+    }
+    //生成设备id
+    const deviceId = 'device-' + Math.random().toString(36).slice(2, 10);
+    deviceData = {deviceId:deviceId};
+    try {
+        if (!deviceData) {
+            console.log('无有效设备信息');
+        } else {
+            fs.writeFileSync(DEVICE_DATA_PATH, JSON.stringify(deviceData, null, 2), 'utf8');
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('保存设备信息失败:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+function getDeviceId() {
+    const deviceData =getDeviceInfo();
+    return deviceData?.data?.deviceId || null;
 }
 
 // HTTP 请求工具函数
@@ -95,5 +149,6 @@ module.exports = {
     API_BASE_URL,
     initUserDataPath,
     getLoginUserInfo,
-    saveUserData
+    saveUserData,
+    getDeviceId
 };

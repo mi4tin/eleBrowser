@@ -349,29 +349,6 @@ async  getUserData() {
             return false;
         }
     }
-
-    // 获取最新版本
-    async getLatestVersion(token) {
-        try {
-            const result = await ipcRenderer.invoke('get-bookmarks-version', {
-                token: token
-            });
-            
-            if (result && result.success) {
-                return result.data.version || 0;
-            }
-            return 0;
-        } catch (error) {
-            console.error('获取版本失败:', error);
-            return 0;
-        }
-    }
-
-    // 检查是否有新的同步数据
-    async checkForUpdates(token) {
-        const latestVersion = await this.getLatestVersion(token);
-        return latestVersion > this.syncVersion;
-    }
 }
 
 // 安全地获取 electron API
