@@ -1118,7 +1118,7 @@ function registerAppShortcuts() {
                         name: shortcutConfig.name,
                         shortcut: shortcut
                     });
-                    console.log(`✓ 已注册快捷键: ${shortcutConfig.name} (${shortcutConfig.key})`);
+                    // console.log(`✓ 已注册快捷键: ${shortcutConfig.name} (${shortcutConfig.key})`);
                 } else {
                     failedShortcuts.push({
                         key: shortcutConfig.key,

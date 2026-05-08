@@ -72,7 +72,7 @@ function getDeviceInfo() {
 
 // 保存设备信息。不支持删除操作
 function initDeviceInfo() {
-    const deviceData =getDeviceInfo();
+    let deviceData =getDeviceInfo();
     if(deviceData?.data?.deviceId){
         console.log('已有设备id');
         return  { success: true}
@@ -86,6 +86,7 @@ function initDeviceInfo() {
         } else {
             fs.writeFileSync(DEVICE_DATA_PATH, JSON.stringify(deviceData, null, 2), 'utf8');
         }
+        console.log('生成设备id:', deviceId);
         return { success: true };
     } catch (error) {
         console.error('保存设备信息失败:', error);

@@ -224,7 +224,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             token = userResult.data.token;
         }
 
-        console.log('syncBookmarksMain开始同步:',token);
+        console.log('syncBookmarksMain开始同步:');
         
         syncState.isSyncing = true;
         
