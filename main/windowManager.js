@@ -7,6 +7,7 @@ module.exports = function createWindowManager(deps) {
         registerAppShortcuts,
         unregisterAppShortcuts,
         hideFolderDropdown,
+        hideDownloadsPanel,
         clearBrowserViews,
         resetTabIdCounter,
         setMainWindow
@@ -96,6 +97,7 @@ module.exports = function createWindowManager(deps) {
 
             //测试专用时，可注释
             hideFolderDropdown(myWindow);
+            hideDownloadsPanel(myWindow);
         };
         myWindow.on('blur', handleBlur);
 

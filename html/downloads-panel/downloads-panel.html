@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>近期下载</title>
+    <link rel="stylesheet" href="./downloads-panel.css" />
+</head>
+<body>
+    <div class="card">
+        <header class="header">
+            <h1>近期的下载记录</h1>
+            <button type="button" class="close-btn" id="close-btn" title="关闭" aria-label="关闭">×</button>
+        </header>
+        <div class="list" id="list">
+            <div class="empty">加载中…</div>
+        </div>
+        <footer class="footer">
+            <button type="button" class="link" id="open-all">完整的下载记录</button>
+            <span class="ext-icon" aria-hidden="true">↗</span>
+        </footer>
+    </div>
+    <script src="./downloads-panel.js"></script>
+</body>
+</html>

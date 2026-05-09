@@ -12,6 +12,7 @@ const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
 const userCenterBtn = document.getElementById('user-center-btn');
+const downloadToolbarBtn = document.getElementById('download-toolbar-btn');
 let toolbarDropModeTimer = null;
 
 // 当前用户信息
@@ -976,6 +977,20 @@ async function closeTab(id) {
 addTabBtn.addEventListener('click', () => {
     createTab();
 });
+
+if (downloadToolbarBtn) {
+    downloadToolbarBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = downloadToolbarBtn.getBoundingClientRect();
+        await ipcRenderer.invoke('toggle-downloads-panel', {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height
+        });
+    });
+}
 
 // 个人中心按钮：打开个人中心或登录
 userCenterBtn.addEventListener('click', async () => {
@@ -2032,6 +2047,7 @@ function hideFolderDropdownAndAutocomplete() {
     void hideAutocomplete();
 
     hideFolderDropdown();
+    void ipcRenderer.invoke('hide-downloads-panel');
     canMouseenter = false;
 }
 

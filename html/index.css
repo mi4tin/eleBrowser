@@ -117,6 +117,34 @@ body {
     opacity: 0.9;
 }
 
+/* 下载（近期记录） */
+.download-toolbar-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    background: #f7f7f7;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #444;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.download-toolbar-btn:hover {
+    background: #ededed;
+    border-color: #c0c0c0;
+}
+.download-toolbar-btn:active {
+    transform: translateY(1px);
+}
+.download-toolbar-icon {
+    display: block;
+    pointer-events: none;
+}
+
 /* 个人中心按钮样式 */
 .user-center-btn {
     width: 30px;
@@ -130,6 +158,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
     transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 

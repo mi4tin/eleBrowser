@@ -12,7 +12,8 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         getPreloadPath,
         getMainWindow,
         getBrowserViews,
-        hideHistoryAutocomplete
+        hideHistoryAutocomplete,
+        hideDownloadsPanel
     } = deps;
 
     // 初始化用户数据路径
@@ -581,6 +582,9 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         const win = BrowserWindow.fromWebContents(wc);
         if (win && !win.isDestroyed()) {
             hideFolderDropdown(win);
+        }
+        if (typeof hideDownloadsPanel === 'function') {
+            hideDownloadsPanel();
         }
         const mainWindow = getMainWindow();
         if (mainWindow && !mainWindow.isDestroyed()) {

@@ -37,6 +37,7 @@
       "preload-browserview.js",
       "preload-search-panel.js",
       "preload-history-autocomplete.js",
+      "preload-downloads-panel.js",
       "html/**/*",
       "node_modules/**/*",
       "!node_modules/.bin",
@@ -47,7 +48,8 @@
     "asarUnpack": [
       "preload-browserview.js",
       "preload-search-panel.js",
-      "preload-history-autocomplete.js"
+      "preload-history-autocomplete.js",
+      "preload-downloads-panel.js"
     ],
     "electronDist": "./node_modules/electron/dist",
     "win": {

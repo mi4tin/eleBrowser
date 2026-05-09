@@ -503,6 +503,8 @@ function resizeBrowserViews(window) {
     // 更新书签栏下拉菜单位置
     bookmarksIpcApi.updateBookmarkDropdownBounds(window);
 
+    downloadsIpcApi.hideDownloadsPanel();
+
     // 如果搜索面板存在，则重新定位它
     if (searchPanelView && !searchPanelView.webContents.isDestroyed()) {
         try {
@@ -969,6 +971,10 @@ let bookmarksIpcApi = {
     hideFolderDropdown: () => { }
 };
 
+let downloadsIpcApi = {
+    hideDownloadsPanel: () => { }
+};
+
 const { newWindow } = createWindowManager({
     BrowserWindow,
     appRootDir: __dirname,
@@ -977,6 +983,7 @@ const { newWindow } = createWindowManager({
     registerAppShortcuts,
     unregisterAppShortcuts,
     hideFolderDropdown: (window) => bookmarksIpcApi.hideFolderDropdown(window),
+    hideDownloadsPanel: () => downloadsIpcApi.hideDownloadsPanel(),
     clearBrowserViews: () => browserViews.clear(),
     resetTabIdCounter: () => { tabIdCounter = 0; },
     setMainWindow: (window) => { mainWindow = window; }
@@ -1292,6 +1299,7 @@ const ipcModules = registerIpcHandlers({
     newWindow
 });
 bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
+downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;
 
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
