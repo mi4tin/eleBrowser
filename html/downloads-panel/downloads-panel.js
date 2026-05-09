@@ -190,6 +190,15 @@ listEl.addEventListener('dblclick', (e) => {
     if (id) void window.downloadsPanel.revealItem(id);
 });
 
+listEl.addEventListener('contextmenu', (e) => {
+    const row = e.target.closest('.item');
+    if (!row) return;
+    const id = row.getAttribute('data-id');
+    if (!id) return;
+    e.preventDefault();
+    void window.downloadsPanel.showContextMenu(id, e.clientX, e.clientY);
+});
+
 const unsubs = [
     window.downloadsPanel.onListInit((list) => {
         renderFullList(list);

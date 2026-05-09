@@ -1,4 +1,4 @@
-const { shell } = require('electron');
+const { shell, clipboard, Menu } = require('electron');
 
 const MAX_ITEMS = 40;
 const PANEL_W = 384;
@@ -7,7 +7,18 @@ const STORE_VERSION = 1;
 const SAVE_DEBOUNCE_MS = 400;
 
 module.exports = function registerDownloadsIpcHandlers(deps) {
-    const { ipcMain, BrowserWindow, session, getPreloadPath, appRootDir, app, fs, path } = deps;
+    const {
+        ipcMain,
+        BrowserWindow,
+        session,
+        getPreloadPath,
+        appRootDir,
+        app,
+        fs,
+        path,
+        getBrowserViews,
+        getMainWindow
+    } = deps;
 
     /** @type {BrowserWindow | null} */
     let downloadsPanelWindow = null;
@@ -133,6 +144,62 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         );
     }
 
+    function findTabIdForWebContents(wc) {
+        if (!wc || (typeof wc.isDestroyed === 'function' && wc.isDestroyed())) return null;
+        const views = getBrowserViews();
+        for (const [tabId, view] of views) {
+            if (view.webContents && !view.webContents.isDestroyed() && view.webContents.id === wc.id) {
+                return tabId;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 仅关闭「多标签下、仍停在下载链接触发页」的标签，避免误关用户正在浏览的当前页。
+     */
+    function shouldAutoCloseDownloadTab(tabId, itemUrl) {
+        const views = getBrowserViews();
+        if (views.size <= 1) return false;
+        const view = views.get(tabId);
+        if (!view || view.webContents.isDestroyed()) return false;
+        const pageUrl = view.webContents.getURL() || '';
+        if (!itemUrl || typeof itemUrl !== 'string') return false;
+        const isHttpItem = /^https?:\/\//i.test(itemUrl);
+        if (
+            isHttpItem &&
+            (!pageUrl || pageUrl === 'about:blank' || /^about:blank/i.test(pageUrl))
+        ) {
+            return true;
+        }
+        try {
+            const a = pageUrl.split('#')[0];
+            const b = itemUrl.split('#')[0];
+            if (a === b) return true;
+            const base = b.split('?')[0];
+            if (a === base) return true;
+        } catch (_e) {
+            /* ignore */
+        }
+        return false;
+    }
+
+    function closeDownloadInitiatorTab(record) {
+        const tabId = record._initiatorTabId;
+        // console.log('closeDownloadInitiatorTab', tabId);
+        if (tabId == null) return;
+        record._initiatorTabId = null;
+        if (!shouldAutoCloseDownloadTab(tabId, record.url)) return;
+        const mw = getMainWindow();
+        if (!mw || mw.isDestroyed()) return;
+        try {
+            console.log('close-tab', tabId);
+            mw.webContents.send('close-tab', tabId);
+        } catch (_e) {
+            /* ignore */
+        }
+    }
+
     /** @returns {string[]} 因超出条数上限被移出列表的 id */
     function pushRecent(record) {
         recentDownloads.unshift(record);
@@ -212,11 +279,67 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         }
     }
 
+    function removeDownloadRecordById(id) {
+        const i = recentDownloads.findIndex((r) => r.id === id);
+        if (i === -1) return false;
+        const rec = recentDownloads[i];
+        let activeItem = null;
+        if (rec.state === 'progressing' && rec._downloadItem) {
+            activeItem = rec._downloadItem;
+        }
+        recentDownloads.splice(i, 1);
+        notifyPanelItemRemoved(id);
+        schedulePersist(true);
+        if (activeItem) {
+            try {
+                activeItem.cancel();
+            } catch (_e) {
+                /* ignore */
+            }
+        }
+        return true;
+    }
+
+    function deleteFileAndDownloadRecord(id) {
+        const idx = recentDownloads.findIndex((r) => r.id === id);
+        if (idx === -1) return;
+        const rec = recentDownloads[idx];
+        let pathToDelete = rec.savePath || null;
+        if (!pathToDelete && rec._downloadItem) {
+            try {
+                pathToDelete = rec._downloadItem.getSavePath() || null;
+            } catch (_e) {
+                pathToDelete = null;
+            }
+        }
+        if (rec.state === 'progressing' && rec._downloadItem) {
+            try {
+                rec._downloadItem.cancel();
+            } catch (_e) {
+                /* ignore */
+            }
+        }
+        recentDownloads.splice(idx, 1);
+        notifyPanelItemRemoved(id);
+        schedulePersist(true);
+        if (pathToDelete) {
+            try {
+                if (fs.existsSync(pathToDelete)) {
+                    fs.unlinkSync(pathToDelete);
+                }
+            } catch (e) {
+                console.error('删除下载文件失败:', e);
+            }
+        }
+    }
+
     function attachWillDownload() {
         if (willDownloadAttached) return;
         willDownloadAttached = true;
-        session.defaultSession.on('will-download', (_event, item) => {
+        session.defaultSession.on('will-download', (_event, item, webContents) => {
             const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            const initiatorTabId = webContents ? findTabIdForWebContents(webContents) : null;
+            console.log('attachWillDownload', initiatorTabId);
             const record = {
                 id,
                 filename: item.getFilename() || 'download',
@@ -229,12 +352,29 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 savePath: null,
                 etaSeconds: null,
                 /** 不落盘，仅进行中有效 */
-                _downloadItem: item
+                _downloadItem: item,
+                /** 用户确认保存且开始传输后再写入列表，取消「另存为」则不记录 */
+                _listedInHistory: false,
+                /** 发起下载的标签页（多为 target=_blank 新标签），结束后尝试关闭 */
+                _initiatorTabId: initiatorTabId
             };
-            const removedIds = pushRecent(record);
-            notifyPanelItemUpdated(record);
-            for (const rid of removedIds) {
-                notifyPanelItemRemoved(rid);
+
+            function tryListOnProgress() {
+                if (record._listedInHistory) return;
+                let shouldList = false;
+                try {
+                    if (item.getReceivedBytes() > 0) shouldList = true;
+                    else if (item.getSavePath && item.getSavePath()) shouldList = true;
+                } catch (_e) {
+                    /* ignore */
+                }
+                if (!shouldList) return;
+                record._listedInHistory = true;
+                const removedIds = pushRecent(record);
+                notifyPanelItemUpdated(record);
+                for (const rid of removedIds) {
+                    notifyPanelItemRemoved(rid);
+                }
             }
 
             item.on('updated', (_e, state) => {
@@ -242,20 +382,60 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 record.totalBytes = item.getTotalBytes() || record.totalBytes;
                 if (state === 'interrupted') record.state = 'interrupted';
                 updateEta(record);
-                notifyPanelItemUpdated(record);
-                schedulePersist(false);
+                tryListOnProgress();
+                if (record._listedInHistory) {
+                    notifyPanelItemUpdated(record);
+                    schedulePersist(false);
+                }
+
+                console.log('item.on updated', state,record.receivedBytes);
+
+                closeDownloadInitiatorTab(record);
             });
 
             item.once('done', (_e, state) => {
+                console.log('item.once done', state);
+                const terminal = state === 'completed' ? 'completed' : state;
+
+                if (!record._listedInHistory) {
+                    if (terminal === 'cancelled' || terminal === 'interrupted') {
+                        record._downloadItem = null;
+                        closeDownloadInitiatorTab(record);
+                        return;
+                    }
+                    record.receivedBytes = item.getReceivedBytes();
+                    record.totalBytes = item.getTotalBytes() || record.receivedBytes;
+                    record.endTime = Date.now();
+                    record.savePath = item.getSavePath() || null;
+                    record.state = terminal;
+                    record.etaSeconds = null;
+                    record._downloadItem = null;
+                    record._listedInHistory = true;
+                    const removedIds = pushRecent(record);
+                    notifyPanelItemUpdated(record);
+                    for (const rid of removedIds) {
+                        notifyPanelItemRemoved(rid);
+                    }
+                    schedulePersist(true);
+                    closeDownloadInitiatorTab(record);
+                    return;
+                }
+
+                if (!recentDownloads.some((r) => r.id === record.id)) {
+                    record._downloadItem = null;
+                    closeDownloadInitiatorTab(record);
+                    return;
+                }
                 record.receivedBytes = item.getReceivedBytes();
                 record.totalBytes = item.getTotalBytes() || record.receivedBytes;
                 record.endTime = Date.now();
                 record.savePath = item.getSavePath() || null;
-                record.state = state === 'completed' ? 'completed' : state;
+                record.state = terminal;
                 record.etaSeconds = null;
                 record._downloadItem = null;
                 notifyPanelItemUpdated(record);
                 schedulePersist(true);
+                closeDownloadInitiatorTab(record);
             });
         });
     }
@@ -417,6 +597,98 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             console.error('downloads-item-cancel:', e);
             return { ok: false };
         }
+    });
+
+    ipcMain.handle('downloads-item-context-menu', async (event, payload) => {
+        if (!isDownloadsPanelWebContents(event.sender)) return;
+        const id = payload && payload.id;
+        if (!id || typeof id !== 'string') return;
+        const rec = recentDownloads.find((r) => r.id === id);
+        if (!rec) return;
+        const win = downloadsPanelWindow;
+        if (!win || win.isDestroyed()) return;
+
+        let livePath = rec.savePath || '';
+        if (!livePath && rec._downloadItem) {
+            try {
+                livePath = rec._downloadItem.getSavePath() || '';
+            } catch (_e) {
+                livePath = '';
+            }
+        }
+        const fileExists = Boolean(livePath && fs.existsSync(livePath));
+        const hasUrl = Boolean(rec.url && String(rec.url).trim().length);
+        const isProgressing = rec.state === 'progressing';
+
+        function resolvePathForId(targetId) {
+            const r = recentDownloads.find((x) => x.id === targetId);
+            if (!r) return '';
+            let p = r.savePath || '';
+            if (!p && r._downloadItem) {
+                try {
+                    p = r._downloadItem.getSavePath() || '';
+                } catch (_e) {
+                    p = '';
+                }
+            }
+            return p;
+        }
+
+        const template = [
+            {
+                label: '打开文件',
+                enabled: fileExists,
+                click: () => {
+                    const p = resolvePathForId(id);
+                    if (p && fs.existsSync(p)) {
+                        void shell.openPath(p);
+                    }
+                }
+            },
+            {
+                label: '打开文件所在目录',
+                enabled: Boolean(livePath),
+                click: () => {
+                    const p = resolvePathForId(id);
+                    if (p) {
+                        shell.showItemInFolder(p);
+                    }
+                }
+            },
+            {
+                label: '复制下载链接',
+                enabled: hasUrl,
+                click: () => {
+                    const r = recentDownloads.find((x) => x.id === id);
+                    if (r && r.url) {
+                        clipboard.writeText(String(r.url));
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '删除文件及下载记录',
+                click: () => {
+                    deleteFileAndDownloadRecord(id);
+                }
+            },
+            {
+                label: '仅删除下载记录',
+                visible: !isProgressing,
+                click: () => {
+                    removeDownloadRecordById(id);
+                }
+            }
+        ];
+        const menu = Menu.buildFromTemplate(template);
+        const opts = { window: win };
+        const x = payload && payload.x;
+        const y = payload && payload.y;
+        if (typeof x === 'number' && typeof y === 'number') {
+            opts.x = Math.round(x);
+            opts.y = Math.round(y);
+        }
+        menu.popup(opts);
     });
 
     return { hideDownloadsPanel };

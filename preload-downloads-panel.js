@@ -21,5 +21,7 @@ contextBridge.exposeInMainWorld('downloadsPanel', {
     revealItem: (id) => ipcRenderer.invoke('downloads-panel-reveal', id),
     openFile: (id) => ipcRenderer.invoke('downloads-panel-open-file', id),
     togglePause: (id) => ipcRenderer.invoke('downloads-item-toggle-pause', id),
-    cancelDownload: (id) => ipcRenderer.invoke('downloads-item-cancel', id)
+    cancelDownload: (id) => ipcRenderer.invoke('downloads-item-cancel', id),
+    showContextMenu: (id, x, y) =>
+        ipcRenderer.invoke('downloads-item-context-menu', { id, x, y })
 });
