@@ -5,6 +5,8 @@ const PANEL_W = 384;
 const PANEL_H = 420;
 const STORE_VERSION = 1;
 const SAVE_DEBOUNCE_MS = 400;
+/** true：走系统另存为；false：静默保存到下载目录（提前 setSavePath） */
+const USE_NATIVE_SAVE_DIALOG = true;
 
 module.exports = function registerDownloadsIpcHandlers(deps) {
     const {
@@ -186,7 +188,6 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
 
     function closeDownloadInitiatorTab(record) {
         const tabId = record._initiatorTabId;
-        // console.log('closeDownloadInitiatorTab', tabId);
         if (tabId == null) return;
         record._initiatorTabId = null;
         if (!shouldAutoCloseDownloadTab(tabId, record.url)) return;
@@ -196,6 +197,61 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             mw.webContents.send('close-tab', tabId);
         } catch (_e) {
             /* ignore */
+        }
+    }
+
+    /**
+     * 已识别为「另存为已出现」的流程：在 done 后等主窗口重新拿到焦点再关发起页，
+     * 避免在系统对话框尚未完全关闭时关页。
+     */
+    function shouldDeferCloseInitiatorTabUntilMainFocus(record) {
+        return Boolean(
+            record._usesNativeSaveDialog &&
+                record._dialogPhase === 'dialog_opened' &&
+                record._initiatorTabId != null
+        );
+    }
+
+    function tryFlushPendingCloseInitiatorTab(record) {
+        if (!record || !record._pendingCloseInitiatorTab) return;
+        const mw = getMainWindow();
+        if (mw && !mw.isDestroyed() && mw.isFocused()) {
+            record._pendingCloseInitiatorTab = false;
+            closeDownloadInitiatorTab(record);
+        }
+    }
+
+    function requestCloseInitiatorTabAfterUserDisposition(record) {
+        if (shouldDeferCloseInitiatorTabUntilMainFocus(record)) {
+            record._pendingCloseInitiatorTab = true;
+            console.log('download.close.tab.2', record);
+            tryFlushPendingCloseInitiatorTab(record);
+            return;
+        }
+        console.log('download.close.tab.1', record);
+        closeDownloadInitiatorTab(record);
+    }
+
+    /** 主窗口 blur：与 will-download、item updated 顺序配合，推断系统另存为已弹出 */
+    function onMainWindowBlur() {
+        const candidates = recentDownloads.filter(
+            (r) =>
+                r._usesNativeSaveDialog &&
+                r._dialogPhase === 'after_will' &&
+                r.state === 'progressing'
+        );
+        if (candidates.length === 0) return;
+        const latest = candidates.reduce((a, b) => (a.startTime >= b.startTime ? a : b));
+        latest._dialogPhase = 'after_blur';
+    }
+
+    /** 主窗口 focus：取消/保存后窗口回到前台时再尝试执行推迟的关标签 */
+    function onMainWindowFocus() {
+        for (const r of recentDownloads) {
+            if (r._usesNativeSaveDialog && r._dialogPhase === 'dialog_opened') {
+                r._mainWindowFocusedAfterNativeDialog = true;
+            }
+            tryFlushPendingCloseInitiatorTab(r);
         }
     }
 
@@ -355,14 +411,18 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         if (willDownloadAttached) return;
         willDownloadAttached = true;
         session.defaultSession.on('will-download', (_event, item, webContents) => {
+            console.log('will-download', item.getFilename(), item.getURL(), webContents);
             const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             const initiatorTabId = webContents ? findTabIdForWebContents(webContents) : null;
+            const useNativeSaveDialog = USE_NATIVE_SAVE_DIALOG;
             let presetSavePath = null;
-            try {
-                presetSavePath = allocateUniqueSavePath(item.getFilename());
-                item.setSavePath(presetSavePath);
-            } catch (e) {
-                console.error('预设下载保存路径失败:', e);
+            if (!useNativeSaveDialog) {
+                try {
+                    presetSavePath = allocateUniqueSavePath(item.getFilename());
+                    item.setSavePath(presetSavePath);
+                } catch (e) {
+                    console.error('预设下载保存路径失败:', e);
+                }
             }
             const record = {
                 id,
@@ -373,14 +433,23 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 state: 'progressing',
                 startTime: Date.now(),
                 endTime: null,
-                savePath: presetSavePath,
+                savePath: useNativeSaveDialog ? null : presetSavePath,
                 etaSeconds: null,
                 /** 不落盘，仅进行中有效 */
                 _downloadItem: item,
                 /** 有保存路径或开始传输后再写入列表 */
                 _listedInHistory: false,
                 /** 发起下载的标签页（多为 target=_blank 新标签），结束后尝试关闭 */
-                _initiatorTabId: initiatorTabId
+                _initiatorTabId: initiatorTabId,
+                /** 走系统另存为（未 setSavePath）时为 true */
+                _usesNativeSaveDialog: useNativeSaveDialog,
+                /**
+                 * idle | after_will | after_blur | dialog_opened
+                 * 另存为推断：will-download → 主窗口 blur → 本条 item 的 updated
+                 */
+                _dialogPhase: useNativeSaveDialog ? 'after_will' : 'idle',
+                _pendingCloseInitiatorTab: false,
+                _mainWindowFocusedAfterNativeDialog: false
             };
 
             function tryListOnProgress() {
@@ -402,6 +471,10 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             }
 
             item.on('updated', (_e, state) => {
+                console.log('download.item.on updated', state, record._usesNativeSaveDialog,record._dialogPhase);
+                if (record._usesNativeSaveDialog && record._dialogPhase === 'after_blur') {
+                    record._dialogPhase = 'dialog_opened';
+                }
                 record.receivedBytes = item.getReceivedBytes();
                 record.totalBytes = item.getTotalBytes() || record.totalBytes;
                 if (state === 'interrupted') record.state = 'interrupted';
@@ -411,20 +484,15 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                     notifyPanelItemUpdated(record);
                     schedulePersist(false);
                 }
-
-                console.log('item.on updated', state,record.receivedBytes);
-
-                closeDownloadInitiatorTab(record);
             });
 
             item.once('done', (_e, state) => {
-                console.log('item.once done', state);
                 const terminal = state === 'completed' ? 'completed' : state;
 
                 if (!record._listedInHistory) {
                     if (terminal === 'cancelled' || terminal === 'interrupted') {
                         record._downloadItem = null;
-                        closeDownloadInitiatorTab(record);
+                        requestCloseInitiatorTabAfterUserDisposition(record);
                         return;
                     }
                     record.receivedBytes = item.getReceivedBytes();
@@ -441,13 +509,13 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                         notifyPanelItemRemoved(rid);
                     }
                     schedulePersist(true);
-                    closeDownloadInitiatorTab(record);
+                    requestCloseInitiatorTabAfterUserDisposition(record);
                     return;
                 }
 
                 if (!recentDownloads.some((r) => r.id === record.id)) {
                     record._downloadItem = null;
-                    closeDownloadInitiatorTab(record);
+                    requestCloseInitiatorTabAfterUserDisposition(record);
                     return;
                 }
                 record.receivedBytes = item.getReceivedBytes();
@@ -459,7 +527,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 record._downloadItem = null;
                 notifyPanelItemUpdated(record);
                 schedulePersist(true);
-                closeDownloadInitiatorTab(record);
+                requestCloseInitiatorTabAfterUserDisposition(record);
             });
 
             tryListOnProgress();
@@ -717,5 +785,5 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         menu.popup(opts);
     });
 
-    return { hideDownloadsPanel };
+    return { hideDownloadsPanel, onMainWindowBlur, onMainWindowFocus };
 };

@@ -10,7 +10,9 @@ module.exports = function createWindowManager(deps) {
         hideDownloadsPanel,
         clearBrowserViews,
         resetTabIdCounter,
-        setMainWindow
+        setMainWindow,
+        onMainWindowBlur,
+        onMainWindowFocus
     } = deps;
 
     function newWindow() {
@@ -78,6 +80,11 @@ module.exports = function createWindowManager(deps) {
         }
 
         const handleFocus = () => {
+            try {
+                if (typeof onMainWindowFocus === 'function') onMainWindowFocus();
+            } catch (_e) {
+                /* ignore */
+            }
             console.log('窗口获得焦点，注册快捷键');
             registerAppShortcuts();
             
@@ -91,6 +98,11 @@ module.exports = function createWindowManager(deps) {
         myWindow.on('focus', handleFocus);
 
         const handleBlur = () => {
+            try {
+                if (typeof onMainWindowBlur === 'function') onMainWindowBlur();
+            } catch (_e) {
+                /* ignore */
+            }
             console.log('窗口失去焦点，注销快捷键');
             unregisterAppShortcuts();
             

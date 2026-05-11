@@ -975,6 +975,12 @@ let downloadsIpcApi = {
     hideDownloadsPanel: () => { }
 };
 
+/** 供下载模块感知主窗口焦点（系统另存为弹窗启发式），在 registerIpcHandlers 之后赋值 */
+let downloadsMainWindowHooks = {
+    onBlur: () => {},
+    onFocus: () => {}
+};
+
 const { newWindow } = createWindowManager({
     BrowserWindow,
     appRootDir: __dirname,
@@ -986,7 +992,9 @@ const { newWindow } = createWindowManager({
     hideDownloadsPanel: () => downloadsIpcApi.hideDownloadsPanel(),
     clearBrowserViews: () => browserViews.clear(),
     resetTabIdCounter: () => { tabIdCounter = 0; },
-    setMainWindow: (window) => { mainWindow = window; }
+    setMainWindow: (window) => { mainWindow = window; },
+    onMainWindowBlur: () => downloadsMainWindowHooks.onBlur(),
+    onMainWindowFocus: () => downloadsMainWindowHooks.onFocus()
 });
 
 // 存储已注册的快捷键
@@ -1300,6 +1308,12 @@ const ipcModules = registerIpcHandlers({
 });
 bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
 downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;
+if (ipcModules.downloads && typeof ipcModules.downloads.onMainWindowBlur === 'function') {
+    downloadsMainWindowHooks = {
+        onBlur: () => ipcModules.downloads.onMainWindowBlur(),
+        onFocus: () => ipcModules.downloads.onMainWindowFocus()
+    };
+}
 
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
