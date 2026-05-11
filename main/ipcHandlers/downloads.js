@@ -29,6 +29,11 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     let willDownloadAttached = false;
     /** @type {ReturnType<typeof setTimeout> | null} */
     let saveDebounceTimer = null;
+    /**
+     * 当前 will-download 里本条 DownloadItem 对应的 record。
+     * 主窗口 blur 只推进该条目的 _dialogPhase，避免与事件里的 item 脱节（不用 recentDownloads 猜 latest）。
+     */
+    let nativeSaveDialogBlurTargetRecord = null;
 
     function getStorePath() {
         return path.join(app.getPath('userData'), 'downloads-history.json');
@@ -222,27 +227,32 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     }
 
     function requestCloseInitiatorTabAfterUserDisposition(record) {
+        if(record._initiatorTabId==null) {
+            console.log('download.close.tab.3');
+            return;
+        };
+
         if (shouldDeferCloseInitiatorTabUntilMainFocus(record)) {
             record._pendingCloseInitiatorTab = true;
-            console.log('download.close.tab.2', record);
+            console.log('download.close.tab.2');
             tryFlushPendingCloseInitiatorTab(record);
             return;
         }
-        console.log('download.close.tab.1', record);
+        console.log('download.close.tab.1');
         closeDownloadInitiatorTab(record);
     }
 
-    /** 主窗口 blur：与 will-download、item updated 顺序配合，推断系统另存为已弹出 */
+    /** 主窗口 blur：只推进「当前 will-download 对应」的那条 record，与事件里的 item 一致 */
     function onMainWindowBlur() {
-        const candidates = recentDownloads.filter(
-            (r) =>
-                r._usesNativeSaveDialog &&
-                r._dialogPhase === 'after_will' &&
-                r.state === 'progressing'
-        );
-        if (candidates.length === 0) return;
-        const latest = candidates.reduce((a, b) => (a.startTime >= b.startTime ? a : b));
-        latest._dialogPhase = 'after_blur';
+        const t = nativeSaveDialogBlurTargetRecord;
+        if (
+            t &&
+            t._usesNativeSaveDialog &&
+            t._dialogPhase === 'after_will' &&
+            t.state === 'progressing'
+        ) {
+            t._dialogPhase = 'after_blur';
+        }
     }
 
     /** 主窗口 focus：取消/保存后窗口回到前台时再尝试执行推迟的关标签 */
@@ -451,6 +461,9 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 _pendingCloseInitiatorTab: false,
                 _mainWindowFocusedAfterNativeDialog: false
             };
+            if (useNativeSaveDialog) {
+                nativeSaveDialogBlurTargetRecord = record;
+            }
 
             function tryListOnProgress() {
                 if (record._listedInHistory) return;
@@ -484,9 +497,17 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                     notifyPanelItemUpdated(record);
                     schedulePersist(false);
                 }
+
+                //点了保存
+                if(record._mainWindowFocusedAfterNativeDialog){
+                    requestCloseInitiatorTabAfterUserDisposition(record);
+                }
             });
 
             item.once('done', (_e, state) => {
+                if (nativeSaveDialogBlurTargetRecord === record) {
+                    nativeSaveDialogBlurTargetRecord = null;
+                }
                 const terminal = state === 'completed' ? 'completed' : state;
 
                 if (!record._listedInHistory) {
