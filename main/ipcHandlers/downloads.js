@@ -193,7 +193,6 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         const mw = getMainWindow();
         if (!mw || mw.isDestroyed()) return;
         try {
-            console.log('close-tab', tabId);
             mw.webContents.send('close-tab', tabId);
         } catch (_e) {
             /* ignore */
@@ -300,6 +299,25 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         return true;
     }
 
+    /** 在系统「下载」目录内生成不冲突的绝对保存路径 */
+    function allocateUniqueSavePath(rawFilename) {
+        const downloadsDir = app.getPath('downloads');
+        if (!fs.existsSync(downloadsDir)) {
+            fs.mkdirSync(downloadsDir, { recursive: true });
+        }
+        let base = typeof rawFilename === 'string' ? path.basename(rawFilename) : '';
+        if (!base || base === '.' || base === '..') base = 'download';
+        const ext = path.extname(base);
+        const stem = ext ? base.slice(0, -ext.length) : base;
+        let candidate = path.join(downloadsDir, base);
+        if (!fs.existsSync(candidate)) return candidate;
+        for (let n = 1; n < 10000; n++) {
+            candidate = path.join(downloadsDir, `${stem} (${n})${ext}`);
+            if (!fs.existsSync(candidate)) return candidate;
+        }
+        return path.join(downloadsDir, `${stem}-${Date.now()}${ext}`);
+    }
+
     function deleteFileAndDownloadRecord(id) {
         const idx = recentDownloads.findIndex((r) => r.id === id);
         if (idx === -1) return;
@@ -339,7 +357,13 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         session.defaultSession.on('will-download', (_event, item, webContents) => {
             const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             const initiatorTabId = webContents ? findTabIdForWebContents(webContents) : null;
-            console.log('attachWillDownload', initiatorTabId);
+            let presetSavePath = null;
+            try {
+                presetSavePath = allocateUniqueSavePath(item.getFilename());
+                item.setSavePath(presetSavePath);
+            } catch (e) {
+                console.error('预设下载保存路径失败:', e);
+            }
             const record = {
                 id,
                 filename: item.getFilename() || 'download',
@@ -349,11 +373,11 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 state: 'progressing',
                 startTime: Date.now(),
                 endTime: null,
-                savePath: null,
+                savePath: presetSavePath,
                 etaSeconds: null,
                 /** 不落盘，仅进行中有效 */
                 _downloadItem: item,
-                /** 用户确认保存且开始传输后再写入列表，取消「另存为」则不记录 */
+                /** 有保存路径或开始传输后再写入列表 */
                 _listedInHistory: false,
                 /** 发起下载的标签页（多为 target=_blank 新标签），结束后尝试关闭 */
                 _initiatorTabId: initiatorTabId
@@ -437,6 +461,8 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 schedulePersist(true);
                 closeDownloadInitiatorTab(record);
             });
+
+            tryListOnProgress();
         });
     }
 
