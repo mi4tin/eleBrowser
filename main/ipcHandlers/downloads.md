@@ -5,4 +5,11 @@
 
 
 
-+待测试关闭标签
+==bug==
++运行，处理报错
+
+
+==基本==
+//设置对话弹窗的默认路径和标题
+const opts = { defaultPath: suggested, title: '另存为' };
+dialog.showSaveDialog(opts)

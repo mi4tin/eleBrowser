@@ -36,22 +36,22 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     /** @type {ReturnType<typeof setTimeout> | null} */
     let saveDebounceTimer = null;
     /**
-     * blur 推进对象：真实 DownloadItem 的 record，或另存为+.crdownload 第一阶段的 phase1BlurStub。
-     */
-    let nativeSaveDialogBlurTargetRecord = null;
-
-    /**
      * 「另存为 + .crdownload」：用户在 showSaveDialog 确认后进队，紧随其后的同 URL 的 will-download 消费。
-     * dialogPhaseSnapshot：第一阶段 stub 上 blur 推进后的 _dialogPhase，供第二阶段 record 继承。
-     * @type {{ url: string, finalPath: string, initiatorTabId: number | null, dialogPhaseSnapshot?: string }[]}
+     * @type {{ url: string, finalPath: string, initiatorTabId: number | null }[]}
      */
     const saveAsCrPassQueue = [];
+
+    /**
+     * 弹窗的正在下载的记录 key：record.id,value：_pendingRenameTo
+     */ 
+    const dialogDownloadingMap = new Map();
 
     function getStorePath() {
         return path.join(app.getPath('userData'), 'downloads-history.json');
     }
 
     function loadDownloadsHistory() {
+        console.log('download.loadDownloadsHistory');
         const storePath = getStorePath();
         try {
             if (!fs.existsSync(storePath)) return;
@@ -217,16 +217,6 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         }
     }
 
-    /**
-     * 已识别为「另存为已出现」的流程：在 done 后等主窗口重新拿到焦点再关发起页，
-     * 避免在系统对话框尚未完全关闭时关页。
-     */
-    function shouldDeferCloseInitiatorTabUntilMainFocus(record) {
-        return Boolean(
-            record._dialogPhase === 'dialog_opened' && record._initiatorTabId != null
-        );
-    }
-
     function tryFlushPendingCloseInitiatorTab(record) {
         if (!record || !record._pendingCloseInitiatorTab) return;
         const mw = getMainWindow();
@@ -238,7 +228,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
 
     function requestCloseInitiatorTabAfterUserDisposition(record) {
         if (record._initiatorTabId == null) return;
-        if (shouldDeferCloseInitiatorTabUntilMainFocus(record)) {
+        if (record._initiatorTabId!=null) {
             record._pendingCloseInitiatorTab = true;
             console.log('download.close.tab.2');
             tryFlushPendingCloseInitiatorTab(record);
@@ -246,37 +236,6 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         }
         console.log('download.close.tab.1');
         closeDownloadInitiatorTab(record);
-    }
-
-    /** 主窗口 blur：推进 nativeSaveDialogBlurTargetRecord（真实 record 或另存为第一阶段 stub）的 _dialogPhase */
-    function onMainWindowBlur() {
-        console.log('download.onMainWindowBlur',nativeSaveDialogBlurTargetRecord);
-        const t = nativeSaveDialogBlurTargetRecord;
-        if (!t || !USE_NATIVE_SAVE_DIALOG || t._dialogPhase !== 'after_will') return;
-        if (t._saveAsCrPhase1Stub) {
-            t._dialogPhase = 'after_blur';
-            return;
-        }
-        if (t.state === 'progressing') {
-            t._dialogPhase = 'after_blur';
-        }
-    }
-
-    /** 主窗口 focus：对列表中带 dialog_opened 的下载尝试推迟关标签 */
-    function onMainWindowFocus() {
-        console.log('download.onMainWindowFocus',nativeSaveDialogBlurTargetRecord);
-        // for (const rec of recentDownloads) {
-           
-        // }
-
-        if(!nativeSaveDialogBlurTargetRecord) return;
-        const rec = nativeSaveDialogBlurTargetRecord;
-        if (rec._dialogPhase === 'dialog_opened') {
-            rec._mainWindowFocusedAfterNativeDialog = true;
-        }
-        requestCloseInitiatorTabAfterUserDisposition(rec);
-
-        nativeSaveDialogBlurTargetRecord=null;//重置
     }
 
     /** @returns {string[]} 因超出条数上限被移出列表的 id */
@@ -379,6 +338,32 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         return true;
     }
 
+    /** 候选路径是否不可用：磁盘已存在，或另存为双阶段队列已预定的 finalPath */
+    function isAllocateSavePathTaken(candidate) {
+        try {
+            if (fs.existsSync(candidate)) return true;
+        } catch (_e) {
+            return true;
+        }
+        let norm;
+        try {
+            norm = path.normalize(candidate);
+        } catch (_e) {
+            return true;
+        }
+
+        console.log('download.isAllocateSavePathTaken.1',saveAsCrPassQueue);
+        for (const [key, finalPath] of dialogDownloadingMap) {
+            if (!finalPath) continue;
+            try {
+                if (path.normalize(finalPath) === norm) return true;
+            } catch (_e) {
+                /* ignore */
+            }
+        }
+        return false;
+    }
+
     /** 在系统「下载」目录内生成不冲突的绝对保存路径 */
     function allocateUniqueSavePath(rawFilename) {
         const downloadsDir = app.getPath('downloads');
@@ -390,12 +375,16 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         const ext = path.extname(base);
         const stem = ext ? base.slice(0, -ext.length) : base;
         let candidate = path.join(downloadsDir, base);
-        if (!fs.existsSync(candidate)) return candidate;
+        if (!isAllocateSavePathTaken(candidate)) return candidate;
         for (let n = 1; n < 10000; n++) {
             candidate = path.join(downloadsDir, `${stem} (${n})${ext}`);
-            if (!fs.existsSync(candidate)) return candidate;
+            if (!isAllocateSavePathTaken(candidate)) return candidate;
         }
-        return path.join(downloadsDir, `${stem}-${Date.now()}${ext}`);
+        for (let k = 0; k < 100; k++) {
+            candidate = path.join(downloadsDir, `${stem}-${Date.now()}-${k}${ext}`);
+            if (!isAllocateSavePathTaken(candidate)) return candidate;
+        }
+        return path.join(downloadsDir, `${stem}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`);
     }
 
     /** 与 Chrome 类似的进行中占位名：未确认 <随机数>.crdownload（中文系统与资源管理器展示一致） */
@@ -436,6 +425,8 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 console.error('下载完成后重命名为最终文件失败:', e);
                 record.savePath = tmpPath;
             }
+
+            dialogDownloadingMap.delete(record.id);//删除弹窗下载中记录
             record._pendingRenameTo = null;
             return;
         }
@@ -448,8 +439,12 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             }
             record.savePath = null;
             record._pendingRenameTo = null;
+
+            dialogDownloadingMap.delete(record.id);//删除弹窗下载中记录
             return;
         }
+
+        dialogDownloadingMap.delete(record.id);//删除弹窗下载中记录
 
         record.savePath = tmpPath != null ? tmpPath : record.savePath;
         record._pendingRenameTo = null;
@@ -489,7 +484,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     }
 
     function attachWillDownload() {
-        if (willDownloadAttached) return;
+        if (willDownloadAttached) {console.log('download.attachWillDownload.1');return};
         willDownloadAttached = true;
         session.defaultSession.on('will-download', (event, item, webContents) => {
             const url = item.getURL() || '';
@@ -511,7 +506,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                     saveAsCrPassQueue.shift();
                     secondPass = true;
                     useNativeSaveDialog = false;
-                    secondPassDialogPhase = head.dialogPhaseSnapshot || 'after_will';
+                    secondPassDialogPhase = 'after_will';
                     if (head.initiatorTabId != null) initiatorTabId = head.initiatorTabId;
                     pendingRenameTo = head.finalPath;
                     try {
@@ -535,15 +530,6 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
 
             if (wantSaveAsCr && !secondPass) {
                 event.preventDefault();
-                /** 第一阶段无 DownloadItem record，用 stub 承接 blur，避免 nativeSaveDialogBlurTargetRecord 一直为空 */
-                const phase1BlurStub = {
-                    initiatorTabId:initiatorTabId,
-                    url: url,
-                    _saveAsCrPhase1Stub: true,
-                    _dialogPhase: 'after_will',
-                    state: 'progressing'
-                };
-                nativeSaveDialogBlurTargetRecord = phase1BlurStub;
                 const filename = item.getFilename() || 'download';
                 const wc = webContents;
                 const initTab = initiatorTabId;
@@ -552,40 +538,34 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                         try {
                             const suggested = allocateUniqueSavePath(filename);
                             const mw = getMainWindow();
-                            const opts = { defaultPath: suggested, title: '另存为' };
+                            const opts = { defaultPath: suggested, title: '另存为' };//设置对话弹窗的默认路径和标题
                             if (mw && !mw.isDestroyed()) opts.window = mw;
                             const { canceled, filePath } = await dialog.showSaveDialog(opts);
                             if (canceled || !filePath) {
-                                if (nativeSaveDialogBlurTargetRecord === phase1BlurStub) {
-                                    nativeSaveDialogBlurTargetRecord = null;
-                                }
+                                
+                                console.log('download.downloadURL.2 取消',canceled,filePath);
                                 if (initTab != null) {
                                     const stub = { _initiatorTabId: initTab, url };
                                     closeDownloadInitiatorTab(stub);
                                 }
                                 return;
                             }
-                            const snap =
-                                nativeSaveDialogBlurTargetRecord === phase1BlurStub
-                                    ? phase1BlurStub._dialogPhase
-                                    : 'after_will';
-                            if (nativeSaveDialogBlurTargetRecord === phase1BlurStub) {
-                                nativeSaveDialogBlurTargetRecord = null;
-                            }
+
+                            console.log('download.downloadURL.3 保存',filePath);
+                            
                             saveAsCrPassQueue.push({
                                 url,
                                 finalPath: filePath,
                                 initiatorTabId: initTab,
-                                dialogPhaseSnapshot: snap
                             });
+                            
+                            console.log('download.downloadURL.1',wc.isDestroyed());
                             if (wc && !wc.isDestroyed()) {
+                                console.log('download.downloadURL',url);
                                 wc.downloadURL(url);
                             }
                         } catch (e) {
                             console.error('另存为对话框失败:', e);
-                            if (nativeSaveDialogBlurTargetRecord === phase1BlurStub) {
-                                nativeSaveDialogBlurTargetRecord = null;
-                            }
                         }
                     })();
                 });
@@ -655,10 +635,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 _pendingCloseInitiatorTab: false,
                 _mainWindowFocusedAfterNativeDialog: false
             };
-            if (useNativeSaveDialog || (wantSaveAsCr && secondPass)) {
-                nativeSaveDialogBlurTargetRecord = record;
-            }
-
+            
             function tryListOnProgress() {
                 if (record._listedInHistory) return;
                 let shouldList = false;
@@ -670,6 +647,8 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 }
                 if (!shouldList) return;
                 record._listedInHistory = true;
+
+                dialogDownloadingMap.set(record.id,record._pendingRenameTo);
                 const removedIds = pushRecent(record);
                 notifyPanelItemUpdated(record);
                 for (const rid of removedIds) {
@@ -678,7 +657,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             }
 
             item.on('updated', (_e, state) => {
-                console.log('download.item.on updated', state, record._dialogPhase);
+                console.log('download.item.on updated',state,record.url,record.id);
                 if (record._dialogPhase === 'after_blur') {
                     record._dialogPhase = 'dialog_opened';
                 }
@@ -691,14 +670,18 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                     notifyPanelItemUpdated(record);
                     schedulePersist(false);
                 }
+
+                //涉及弹窗才会有关闭
+                if(USE_NATIVE_SAVE_DIALOG&&record._pendingCloseInitiatorTab==false){
+                    requestCloseInitiatorTabAfterUserDisposition(record);//关闭标签
+                }
             });
 
             item.once('done', (_e, state) => {
-                if (nativeSaveDialogBlurTargetRecord === record) {
-                    nativeSaveDialogBlurTargetRecord = null;
-                }
-                const terminal = state === 'completed' ? 'completed' : state;
+                console.log('download.item.once done',state,record.url,record.id);
 
+                const terminal = state === 'completed' ? 'completed' : state;
+                
                 if (!record._listedInHistory) {
                     if (terminal === 'cancelled' || terminal === 'interrupted') {
                         assignFinalSavePathAfterTerminal(record, item, terminal);
@@ -893,6 +876,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     });
 
     ipcMain.handle('downloads-item-cancel', async (event, id) => {
+        console.log('download.downloads-item-cancel',id);
         if (!isDownloadsPanelWebContents(event.sender)) return { ok: false };
         const rec = recentDownloads.find((r) => r.id === id);
         if (!rec || rec.state !== 'progressing' || !rec._downloadItem) return { ok: false };
