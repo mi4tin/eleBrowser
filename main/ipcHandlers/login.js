@@ -114,7 +114,6 @@ module.exports = function registerLoginIpcHandlers(deps) {
                 stopAutoSync();
             }else{
                 saveUserData(userData);
-                startAutoSync();
             }
 
             const mainWindow = getMainWindow();
