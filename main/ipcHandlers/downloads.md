@@ -13,3 +13,7 @@
 //设置对话弹窗的默认路径和标题
 const opts = { defaultPath: suggested, title: '另存为' };
 dialog.showSaveDialog(opts)
+
+
+==temp==
+ipcTool.getEffectiveDownloadDir() || app.getPath('downloads'); 应该是一样的

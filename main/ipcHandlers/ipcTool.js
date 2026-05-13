@@ -108,14 +108,14 @@ function getDeviceId() {
 function defaultDownloadSettings() {
     return {
         version: 1,
-        downloadDir: '',
-        askBeforeDownload: true,
-        openAfterDownload: false,
-        showDownloadNotification: true,
-        playNotificationSound: false,
-        maxConcurrentDownloads: '4',
-        dangerousFileAction: 'ask',
-        keepHistoryDuration: '30'
+        downloadDir: '',//默认下载目录
+        askBeforeDownload: true,//下载前询问下载位置
+        openAfterDownload: false,//下载完成后打开文件
+        showDownloadNotification: true,//右下角显示下载进度
+        playNotificationSound: false,//下载完成播放提示音
+        maxConcurrentDownloads: '4',//同时下载完成
+        dangerousFileAction: 'ask',//下载危险文件询问/阻止/允许
+        keepHistoryDuration: '30'//保留下载天数
     };
 }
 

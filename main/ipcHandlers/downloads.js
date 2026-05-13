@@ -365,6 +365,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
 
     /** 在配置的默认下载目录内生成不冲突的绝对保存路径 */
     function allocateUniqueSavePath(rawFilename) {
+        console.log('download.allocateUniqueSavePath.1',ipcTool.getEffectiveDownloadDir(),app.getPath('downloads'));
         const downloadsDir = ipcTool.getEffectiveDownloadDir() || app.getPath('downloads');
         if (!fs.existsSync(downloadsDir)) {
             fs.mkdirSync(downloadsDir, { recursive: true });
