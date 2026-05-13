@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>下载设置</title>
+    <link rel="stylesheet" href="profile.css">
+    <link rel="stylesheet" href="download.css">
+</head>
+<body>
+    <div class="main-container">
+        <div id="sidebar-container"></div>
+        <div class="content">
+            <div class="content-section active" id="download-section">
+                <div class="section-title">下载内容</div>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">保存位置</span>
+                                <span class="setting-desc" id="downloadPathDisplay">加载中…</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <button class="btn-secondary" id="selectPathBtn">更改</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">下载前询问每个文件保存位置</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="askBeforeDownload">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">自动打开下载完成的文件</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="openAfterDownload">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">在屏幕右下角显示下载进度</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="showDownloadNotification" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">下载完成后播放提示音</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <label class="switch">
+                                <input type="checkbox" id="playNotificationSound">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <div class="section-title">下载内容限制</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">同时下载文件数</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <select class="select-input" id="maxConcurrentDownloads">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4" selected>4</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="0">无限制</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">危险文件下载</span>
+                                <span class="setting-desc">可能危害您的计算机</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <select class="select-input" id="dangerousFileAction">
+                                <option value="ask" selected>每次询问</option>
+                                <option value="block">阻止</option>
+                                <option value="allow">允许</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">文件类型过滤</span>
+                                <span class="setting-desc">阻止特定类型的文件</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <span class="arrow-icon">›</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <div class="section-title">下载历史</div>
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">保留下载历史记录</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <select class="select-input" id="keepHistoryDuration">
+                                <option value="7">7天</option>
+                                <option value="30" selected>30天</option>
+                                <option value="90">90天</option>
+                                <option value="365">1年</option>
+                                <option value="0">永久</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <div class="setting-left-content">
+                                <span class="setting-name">清除下载历史</span>
+                                <span class="setting-desc">仅删除记录，不删除文件</span>
+                            </div>
+                        </div>
+                        <div class="setting-right">
+                            <button class="btn-danger" id="clearHistoryBtn">清除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../common/toolkit.js"></script>
+    <script src="sidebar.js"></script>
+    <script src="download.js"></script>
+</body>
+</html>

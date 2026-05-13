@@ -1,16 +1,13 @@
 const { shell, clipboard, Menu, dialog } = require('electron');
+const ipcTool = require('./ipcTool');
 
 const MAX_ITEMS = 40;
 const PANEL_W = 384;
 const PANEL_H = 420;
 const STORE_VERSION = 1;
 const SAVE_DEBOUNCE_MS = 400;
-/** true：走系统另存为；false：静默保存到下载目录（提前 setSavePath） */
-const USE_NATIVE_SAVE_DIALOG = true;
 /**
- * 为 true 时：下载过程中磁盘文件名为「未确认 n.crdownload」，完成后再改为最终名。
- * - 静默下载：直接 setSavePath 到临时文件。
- * - 另存为：preventDefault + dialog.showSaveDialog 选路径后，第二次 will-download 再 setSavePath 到临时文件（Chromium 自带另存为无法同时强制 .crdownload）。
+ * 是否「下载前询问保存位置」由 profile 下载设置页写入的 download-settings.json（askBeforeDownload）控制。
  */
 const USE_CRDOWNLOAD_PLACEHOLDER = true;//这个不要修改
 
@@ -27,6 +24,8 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         getBrowserViews,
         getMainWindow
     } = deps;
+
+    ipcTool.initUserDataPath(app);
 
     /** @type {BrowserWindow | null} */
     let downloadsPanelWindow = null;
@@ -364,9 +363,9 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         return false;
     }
 
-    /** 在系统「下载」目录内生成不冲突的绝对保存路径 */
+    /** 在配置的默认下载目录内生成不冲突的绝对保存路径 */
     function allocateUniqueSavePath(rawFilename) {
-        const downloadsDir = app.getPath('downloads');
+        const downloadsDir = ipcTool.getEffectiveDownloadDir() || app.getPath('downloads');
         if (!fs.existsSync(downloadsDir)) {
             fs.mkdirSync(downloadsDir, { recursive: true });
         }
@@ -489,10 +488,13 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         session.defaultSession.on('will-download', (event, item, webContents) => {
             const url = item.getURL() || '';
             let initiatorTabId = webContents ? findTabIdForWebContents(webContents) : null;
-            const wantSaveAsCr = USE_NATIVE_SAVE_DIALOG && USE_CRDOWNLOAD_PLACEHOLDER;
+            const dlRead = ipcTool.readDownloadSettingsFile();
+            const dlData = dlRead.success && dlRead.data ? dlRead.data : ipcTool.defaultDownloadSettings();
+            const askNative = dlData.askBeforeDownload !== false;
+            const wantSaveAsCr = askNative && USE_CRDOWNLOAD_PLACEHOLDER;
 
             let secondPass = false;
-            let useNativeSaveDialog = USE_NATIVE_SAVE_DIALOG;
+            let useNativeSaveDialog = askNative;
             /** 另存为+.crdownload 第二阶段 record 的初始 _dialogPhase（继承第一阶段 blur 结果） */
             let secondPassDialogPhase = 'after_will';
             let presetSavePath = null;
@@ -572,7 +574,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 return;
             }
 
-            if (!secondPass && !USE_NATIVE_SAVE_DIALOG) {
+            if (!secondPass && !askNative) {
                 try {
                     presetSavePath = allocateUniqueSavePath(item.getFilename());
                     diskWritePath = presetSavePath;
@@ -587,7 +589,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                     diskWritePath = null;
                     pendingRenameTo = null;
                 }
-            } else if (!secondPass && USE_NATIVE_SAVE_DIALOG) {
+            } else if (!secondPass && askNative) {
                 try {
                     const suggestedPath = allocateUniqueSavePath(item.getFilename());
                     item.setSaveDialogOptions({ defaultPath: suggestedPath });
@@ -806,6 +808,47 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         });
     });
 
+    ipcMain.handle('download-settings-get', () => {
+        const r = ipcTool.readDownloadSettingsFile();
+        const data = r.success && r.data ? r.data : ipcTool.defaultDownloadSettings();
+        const effective = ipcTool.getEffectiveDownloadDir() || app.getPath('downloads');
+        const rawDir = data.downloadDir && String(data.downloadDir).trim();
+        const downloadDirDisplay = rawDir ? effective : `${app.getPath('downloads')}（系统默认）`;
+        return { ...data, downloadDirDisplay };
+    });
+
+    ipcMain.handle('download-settings-set', (_event, patch) => {
+        if (!patch || typeof patch !== 'object') return { ok: false };
+        const allowed = {};
+        if (typeof patch.downloadDir === 'string') allowed.downloadDir = patch.downloadDir;
+        if (typeof patch.askBeforeDownload === 'boolean') allowed.askBeforeDownload = patch.askBeforeDownload;
+        if (typeof patch.openAfterDownload === 'boolean') allowed.openAfterDownload = patch.openAfterDownload;
+        if (typeof patch.showDownloadNotification === 'boolean') {
+            allowed.showDownloadNotification = patch.showDownloadNotification;
+        }
+        if (typeof patch.playNotificationSound === 'boolean') {
+            allowed.playNotificationSound = patch.playNotificationSound;
+        }
+        if (patch.maxConcurrentDownloads != null) allowed.maxConcurrentDownloads = String(patch.maxConcurrentDownloads);
+        if (typeof patch.dangerousFileAction === 'string') allowed.dangerousFileAction = patch.dangerousFileAction;
+        if (patch.keepHistoryDuration != null) allowed.keepHistoryDuration = String(patch.keepHistoryDuration);
+        const res = ipcTool.patchDownloadSettingsFile(allowed);
+        return { ok: res.success, data: res.data };
+    });
+
+    ipcMain.handle('download-settings-pick-directory', async (event) => {
+        const senderWin = BrowserWindow.fromWebContents(event.sender);
+        const mw = senderWin && !senderWin.isDestroyed() ? senderWin : getMainWindow();
+        const res = await dialog.showOpenDialog(mw && !mw.isDestroyed() ? mw : undefined, {
+            title: '选择默认下载文件夹',
+            properties: ['openDirectory', 'createDirectory']
+        });
+        if (res.canceled || !res.filePaths || !res.filePaths[0]) {
+            return { canceled: true };
+        }
+        return { canceled: false, path: res.filePaths[0] };
+    });
+
     ipcMain.handle('toggle-downloads-panel', async (event, anchor) => {
         const mainWin = BrowserWindow.fromWebContents(event.sender);
         if (!mainWin) return { visible: false };
@@ -830,7 +873,7 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     });
 
     ipcMain.handle('downloads-panel-open-user-dir', async () => {
-        const p = app.getPath('downloads');
+        const p = ipcTool.getEffectiveDownloadDir() || app.getPath('downloads');
         await shell.openPath(p);
         return true;
     });

@@ -8,10 +8,15 @@ const API_BASE_URL = 'http://localhost:8011';
 // 用户数据管理
 let USER_DATA_PATH = null;
 let DEVICE_DATA_PATH = null;
+let DOWNLOAD_SETTINGS_PATH = null;
+/** @type {import('electron').App | null} */
+let APP_REF = null;
 
 function initUserDataPath(app) {
+    APP_REF = app;
     USER_DATA_PATH = path.join(app.getPath('userData'), 'user-auth.json');
     DEVICE_DATA_PATH = path.join(app.getPath('userData'), 'device-info.json');
+    DOWNLOAD_SETTINGS_PATH = path.join(app.getPath('userData'), 'download-settings.json');
     initDeviceInfo();
 }
 
@@ -99,6 +104,80 @@ function getDeviceId() {
     return deviceData?.data?.deviceId || null;
 }
 
+/** 下载设置（与 profile/download.html、download.js 字段一致） */
+function defaultDownloadSettings() {
+    return {
+        version: 1,
+        downloadDir: '',
+        askBeforeDownload: true,
+        openAfterDownload: false,
+        showDownloadNotification: true,
+        playNotificationSound: false,
+        maxConcurrentDownloads: '4',
+        dangerousFileAction: 'ask',
+        keepHistoryDuration: '30'
+    };
+}
+
+/** 读取 userData/download-settings.json，失败时返回默认对象 */
+function readDownloadSettingsFile() {
+    try {
+        const defaults = defaultDownloadSettings();
+        if (!DOWNLOAD_SETTINGS_PATH) {
+            return { success: true, data: { ...defaults } };
+        }
+        if (!fs.existsSync(DOWNLOAD_SETTINGS_PATH)) {
+            return { success: true, data: { ...defaults } };
+        }
+        const raw = fs.readFileSync(DOWNLOAD_SETTINGS_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return { success: true, data: { ...defaults } };
+        }
+        return { success: true, data: { ...defaults, ...parsed } };
+    } catch (error) {
+        console.error('读取下载设置失败:', error);
+        return { success: false, error: error.message, data: { ...defaultDownloadSettings() } };
+    }
+}
+
+/** 合并写入 download-settings.json */
+function patchDownloadSettingsFile(patch) {
+    try {
+        if (!DOWNLOAD_SETTINGS_PATH) {
+            return { success: false, error: 'DOWNLOAD_SETTINGS_PATH 未初始化' };
+        }
+        const cur = readDownloadSettingsFile();
+        const merged = { ...defaultDownloadSettings(), ...(cur.data || {}), ...(patch || {}) };
+        merged.version = defaultDownloadSettings().version;
+        fs.writeFileSync(DOWNLOAD_SETTINGS_PATH, JSON.stringify(merged, null, 2), 'utf8');
+        return { success: true, data: merged };
+    } catch (error) {
+        console.error('保存下载设置失败:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/** 默认下载目录：配置项或系统「下载」 */
+function getEffectiveDownloadDir() {
+    if (!APP_REF) return null;
+    const fallback = APP_REF.getPath('downloads');
+    try {
+        const r = readDownloadSettingsFile();
+        const dir =
+            r.success && r.data && typeof r.data.downloadDir === 'string'
+                ? r.data.downloadDir.trim()
+                : '';
+        if (!dir) return fallback;
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        return dir;
+    } catch (_e) {
+        return fallback;
+    }
+}
+
 // HTTP 请求工具函数
 function apiRequest(endpoint, data) {
     return new Promise((resolve, reject) => {
@@ -151,5 +230,9 @@ module.exports = {
     initUserDataPath,
     getLoginUserInfo,
     saveUserData,
-    getDeviceId
+    getDeviceId,
+    readDownloadSettingsFile,
+    patchDownloadSettingsFile,
+    getEffectiveDownloadDir,
+    defaultDownloadSettings
 };
