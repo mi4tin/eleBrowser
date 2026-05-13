@@ -12,7 +12,7 @@ const USE_NATIVE_SAVE_DIALOG = true;
  * - 静默下载：直接 setSavePath 到临时文件。
  * - 另存为：preventDefault + dialog.showSaveDialog 选路径后，第二次 will-download 再 setSavePath 到临时文件（Chromium 自带另存为无法同时强制 .crdownload）。
  */
-const USE_CRDOWNLOAD_PLACEHOLDER = true;
+const USE_CRDOWNLOAD_PLACEHOLDER = true;//这个不要修改
 
 module.exports = function registerDownloadsIpcHandlers(deps) {
     const {
@@ -656,8 +656,9 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 }
             }
 
+            //一阶段，不会触发该事件
             item.on('updated', (_e, state) => {
-                console.log('download.item.on updated',state,record.url,record.id);
+                console.log('download.item.on updated',state,record.url,record.id,record._pendingRenameTo);
                 if (record._dialogPhase === 'after_blur') {
                     record._dialogPhase = 'dialog_opened';
                 }
@@ -670,13 +671,13 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                     notifyPanelItemUpdated(record);
                     schedulePersist(false);
                 }
-
-                //涉及弹窗才会有关闭
-                if(USE_NATIVE_SAVE_DIALOG&&record._pendingCloseInitiatorTab==false){
+                
+                if(record._pendingCloseInitiatorTab==false){
                     requestCloseInitiatorTabAfterUserDisposition(record);//关闭标签
                 }
             });
 
+            //一阶段，不会触发该事件
             item.once('done', (_e, state) => {
                 console.log('download.item.once done',state,record.url,record.id);
 
@@ -981,5 +982,5 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         menu.popup(opts);
     });
 
-    return { hideDownloadsPanel, onMainWindowBlur, onMainWindowFocus };
+    return { hideDownloadsPanel };
 };

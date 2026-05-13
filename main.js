@@ -993,8 +993,6 @@ const { newWindow } = createWindowManager({
     clearBrowserViews: () => browserViews.clear(),
     resetTabIdCounter: () => { tabIdCounter = 0; },
     setMainWindow: (window) => { mainWindow = window; },
-    onMainWindowBlur: () => downloadsMainWindowHooks.onBlur(),
-    onMainWindowFocus: () => downloadsMainWindowHooks.onFocus()
 });
 
 // 存储已注册的快捷键
@@ -1308,13 +1306,6 @@ const ipcModules = registerIpcHandlers({
 });
 bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
 downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;
-if (ipcModules.downloads && typeof ipcModules.downloads.onMainWindowBlur === 'function') {
-    downloadsMainWindowHooks = {
-        onBlur: () => ipcModules.downloads.onMainWindowBlur(),
-        onFocus: () => ipcModules.downloads.onMainWindowFocus()
-    };
-}
-
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
 

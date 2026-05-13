@@ -11,8 +11,6 @@ module.exports = function createWindowManager(deps) {
         clearBrowserViews,
         resetTabIdCounter,
         setMainWindow,
-        onMainWindowBlur,
-        onMainWindowFocus
     } = deps;
 
     function newWindow() {
@@ -98,11 +96,6 @@ module.exports = function createWindowManager(deps) {
         myWindow.on('focus', handleFocus);
 
         const handleBlur = () => {
-            try {
-                if (typeof onMainWindowBlur === 'function') onMainWindowBlur();
-            } catch (_e) {
-                /* ignore */
-            }
             console.log('窗口失去焦点，注销快捷键');
             unregisterAppShortcuts();
             
