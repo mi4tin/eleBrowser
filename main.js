@@ -990,6 +990,8 @@ const { newWindow } = createWindowManager({
     unregisterAppShortcuts,
     hideFolderDropdown: (window) => bookmarksIpcApi.hideFolderDropdown(window),
     hideDownloadsPanel: () => downloadsIpcApi.hideDownloadsPanel(),
+    // 传递函数引用，以便后续可以更新
+    getDownloadsApi: () => downloadsIpcApi,
     clearBrowserViews: () => browserViews.clear(),
     resetTabIdCounter: () => { tabIdCounter = 0; },
     setMainWindow: (window) => { mainWindow = window; },
@@ -1302,7 +1304,9 @@ const ipcModules = registerIpcHandlers({
     destroySearchPanel,
     showHistoryAutocomplete,
     hideHistoryAutocomplete,
-    newWindow
+    newWindow,
+    // 传递函数引用，以便后续可以更新
+    getDownloadsApi: () => downloadsIpcApi
 });
 bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
 downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;

@@ -113,9 +113,9 @@ function defaultDownloadSettings() {
         openAfterDownload: false,//下载完成后打开文件
         showDownloadNotification: true,//右下角显示下载进度
         playNotificationSound: false,//下载完成播放提示音
-        maxConcurrentDownloads: '4',//同时下载完成
+        maxConcurrentDownloads: '4',//【未使用】同时下载完成。
         dangerousFileAction: 'ask',//下载危险文件询问/阻止/允许
-        keepHistoryDuration: '30'//保留下载天数
+        keepHistoryDuration: '30'//【未使用】保留下载天数。
     };
 }
 

@@ -34,6 +34,8 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     let willDownloadAttached = false;
     /** @type {ReturnType<typeof setTimeout> | null} */
     let saveDebounceTimer = null;
+    /** 防止 before-quit 重复处理 */
+    let quitInProgress = false;
     /**
      * 「另存为 + .crdownload」：用户在 showSaveDialog 确认后进队，紧随其后的同 URL 的 will-download 消费。
      * @type {{ url: string, finalPath: string, initiatorTabId: number | null }[]}
@@ -365,7 +367,6 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
 
     /** 在配置的默认下载目录内生成不冲突的绝对保存路径 */
     function allocateUniqueSavePath(rawFilename) {
-        console.log('download.allocateUniqueSavePath.1',ipcTool.getEffectiveDownloadDir(),app.getPath('downloads'));
         const downloadsDir = ipcTool.getEffectiveDownloadDir() || app.getPath('downloads');
         if (!fs.existsSync(downloadsDir)) {
             fs.mkdirSync(downloadsDir, { recursive: true });
@@ -737,6 +738,16 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         return 'file:///' + appRootDir.replace(/\\/g, '/') + '/html/downloads-panel/downloads-panel.html';
     }
 
+    /** 检查是否有正在进行的下载 */
+    function hasActiveDownloads() {
+        return recentDownloads.some(r => r.state === 'progressing' && r._downloadItem);
+    }
+
+    /** 获取正在下载的文件列表 */
+    function getActiveDownloads() {
+        return recentDownloads.filter(r => r.state === 'progressing' && r._downloadItem);
+    }
+
     function hideDownloadsPanel() {
         if (downloadsPanelWindow && !downloadsPanelWindow.isDestroyed()) {
             try {
@@ -800,7 +811,10 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
     void app.whenReady().then(() => {
         loadDownloadsHistory();
         attachWillDownload();
-        app.on('before-quit', () => {
+        app.on('before-quit', async (event) => {
+            if (quitInProgress) return;
+            
+            // 清理定时器并保存历史记录
             if (saveDebounceTimer) {
                 clearTimeout(saveDebounceTimer);
                 saveDebounceTimer = null;
@@ -1026,5 +1040,9 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
         menu.popup(opts);
     });
 
-    return { hideDownloadsPanel };
+    return { 
+        hideDownloadsPanel,
+        hasActiveDownloads,
+        getActiveDownloads
+    };
 };

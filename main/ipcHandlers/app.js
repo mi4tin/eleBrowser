@@ -212,11 +212,4 @@ module.exports = function registerAppIpcHandlers(deps) {
         }
         return false;
     });
-
-    ipcMain.handle('window-close', (event) => {
-        const window = BrowserWindow.fromWebContents(event.sender);
-        if (window) {
-            window.close();
-        }
-    });
 };

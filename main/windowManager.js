@@ -1,3 +1,5 @@
+const { dialog } = require('electron');
+
 module.exports = function createWindowManager(deps) {
     const {
         BrowserWindow,
@@ -8,6 +10,7 @@ module.exports = function createWindowManager(deps) {
         unregisterAppShortcuts,
         hideFolderDropdown,
         hideDownloadsPanel,
+        getDownloadsApi,
         clearBrowserViews,
         resetTabIdCounter,
         setMainWindow,
@@ -53,6 +56,35 @@ module.exports = function createWindowManager(deps) {
             console.log('主窗口加载完成，创建书签栏下拉菜单');
         });
 
+        // 监听窗口关闭事件，检查下载
+        myWindow.on('close', async (event) => {
+            // 获取最新的 downloads API
+            const downloadsApi = getDownloadsApi ? getDownloadsApi() : null;
+            if (downloadsApi && downloadsApi.hasActiveDownloads && downloadsApi.hasActiveDownloads()) {
+                event.preventDefault(); // 阻止默认关闭行为
+                
+                const activeDownloads = downloadsApi.getActiveDownloads ? downloadsApi.getActiveDownloads() : [];
+                const count = activeDownloads.length;
+                const filenames = activeDownloads.map(r => r.filename).join('、');
+                
+                const result = await dialog.showMessageBox(myWindow, {
+                    type: 'warning',
+                    title: '正在下载文件',
+                    message: `当前有 ${count} 个文件正在下载`,
+                    detail: `文件：${filenames}\n\n关闭应用后需要重新下载这些文件。`,
+                    buttons: ['继续下载', '关闭'],
+                    defaultId: 0,
+                    cancelId: 0,
+                    noLink: true// 不显示链接。为true时，buttons显示为一行，否则为两行。
+                });
+                
+                if (result.response === 1) {
+                    // 用户选择关闭应用，强制销毁窗口
+                    myWindow.destroy();
+                }
+            }
+        });
+
         // 监听窗口最大化/还原状态变化
         myWindow.on('maximize', () => {
             myWindow.webContents.send('window-maximized');
@@ -70,7 +102,7 @@ module.exports = function createWindowManager(deps) {
         if (shouldOpenTestPage) {
             setTimeout(() => {
                 if (myWindow && !myWindow.isDestroyed()) {
-                    const testPagePath = 'file:///' + appRootDir.replace(/\\/g, '/') + '/search-demo.html';
+                    const testPagePath = 'file://' + appRootDir.replace(/\\/g, '/') + '/search-demo.html';
                     console.log('打开测试页面:', testPagePath);
                     myWindow.webContents.send('open-url-in-new-tab', testPagePath);
                 }
