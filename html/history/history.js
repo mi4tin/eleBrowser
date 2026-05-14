@@ -276,8 +276,10 @@ class HistoryManager {
                     }
                     if (ipcRenderer && typeof ipcRenderer.send === 'function') {
                         ipcRenderer.send('open-url-in-new-tab', historyItem.url);
+                        console.log('打开链接1:', historyItem.url);
                     } else {
                         window.open(historyItem.url, '_blank');
+                        console.log('打开链接2:', historyItem.url);
                     }
                 }
             });

@@ -3,6 +3,7 @@ const path = require('path');
 const registerIpcHandlers = require('./main/ipcHandlers');
 const createWindowManager = require('./main/windowManager');
 const createUnderlineContextMenu = require('./main/underlineContextMenu');
+const { createShowDialog } = require('./main/dialog');
 
 /** 获取 preload 脚本的绝对路径（开发与打包均可用；打包且 asarUnpack 时指向 app.asar.unpacked 内文件） */
 function getPreloadPath(filename) {
@@ -259,6 +260,10 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     };
 
     function setupViewListeners(v) {
+        // 让 Electron 自动处理 beforeunload 事件，显示原生确认对话框
+        // 不调用 event.preventDefault()，这样 Electron 会显示默认对话框
+        // 当 webContents.close() 或导航时，会自动触发 beforeunload 检查
+
         v.webContents.on('did-navigate', (_event, navigationUrl, httpResponseCode) => {
             if (navigationUrl) {
                 viewData["url"] = navigationUrl;
@@ -406,6 +411,38 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 }
             }
         });
+
+          // 监听导航开始事件，获取导航类型
+        v.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId, navigationType) => {
+            // navigationType 可能的值: 'reload' | 'navigate' | 'backForward' | 'other'
+            lastNavigationType = navigationType;
+            console.log(`Navigation started: `,event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId, navigationType);
+        });
+
+        // 监听 will-prevent-unload 事件，这个事件优先于关闭时注册的will-prevent-unload事件执行
+        v.webContents.on('will-prevent-unload', (event,a) => {
+            console.log('will-prevent-unload 事件被触发2',event,a,v.webContents.getURL());
+
+
+            
+            return
+            event.preventDefault();//允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
+            
+            // 显示自定义对话框
+            // showDialog({
+            //     message: '系统可能不会保存您所做的更改2。',
+            //     confirmText: '离开',
+            //     cancelText: '取消',
+            //     parentWindow: mainWindow
+            // }).then((result) => {
+            //     if (result) {
+            //         // 用户选择离开，但是这里我们不能重新触发关闭
+            //         // 因为 will-prevent-unload 事件已经结束了
+            //         // 实际上，一旦我们 preventDefault，Electron 就不会继续关闭了
+            //         console.log('用户选择离开，但我们需要找到另一种方式');
+            //     }
+            // });
+        });
     }
 
     try {
@@ -466,7 +503,127 @@ function activateBrowserView(window, tabId) {
  * @param {BrowserWindow} window - 父窗口
  * @param {number} tabId - 要关闭的标签页ID
  */
-function closeBrowserView(window, tabId) {
+async function closeBrowserView(window, tabId) {
+    const view = browserViews.get(tabId);
+    if (!view) {
+        console.error(`未找到tabId为${tabId}的 WebContentsView`);
+        return true;
+    }
+
+    const wc = view.webContents;
+    if (wc.isDestroyed()) {
+        return true;
+    }
+
+    console.log('closeBrowserView.view', view);
+
+    // 清理函数
+    const cleanup = () => {
+        console.log('cleanup');
+        try {
+            if (view && window && !window.isDestroyed()) {
+                try {
+                    window.contentView.removeChildView(view);
+                } catch (e) {
+                    // 可能已经被移除了，忽略错误
+                }
+            }
+            if (view && view.webContents && !view.webContents.isDestroyed()) {
+                view.webContents.destroy();
+            }
+        } catch (e) {
+            console.error('清理 WebContentsView 失败:', e);
+        }
+        browserViews.delete(tabId);
+        console.log(`关闭 WebContentsView，tabId: ${tabId}`);
+    };
+
+    try {
+        console.log('closeBrowserView', wc.getURL());
+
+        // 使用 will-prevent-unload 事件来检测
+        let shouldPrompt = false;
+
+        const handleWillPreventUnload = (event) => {
+            console.log('will-prevent-unload 事件被触发1');
+            shouldPrompt = true;
+
+            return
+            event.preventDefault(); //允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
+        };
+
+        wc.once('will-prevent-unload', handleWillPreventUnload);
+
+        // 保存当前 URL
+        const currentUrl = wc.getURL();
+
+        try {
+            // 尝试导航到 about:blank 来触发 beforeunload
+            // 设置一个超时
+            await new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    resolve();
+                }, 300);
+
+                wc.loadURL('about:blank').then(() => {
+                    clearTimeout(timeout);
+                    resolve();
+                }).catch(() => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+            });
+        } catch (e) {
+            console.log('导航到 about:blank 出错:', e.message);
+        }
+
+        // 移除监听器
+        wc.removeListener('will-prevent-unload', handleWillPreventUnload);
+
+        console.log('shouldPrompt:', shouldPrompt);
+
+        if (shouldPrompt) {
+            // 如果之前导航成功，先恢复原页面
+            // if (!wc.isDestroyed() && wc.getURL() === 'about:blank') {
+            //     try {
+            //         await wc.loadURL(currentUrl);
+            //     } catch (e) {
+            //         console.log('恢复原页面出错:', e.message);
+            //     }
+            // }
+
+            // 显示自定义对话框
+            const result = await showDialog({
+                message: '系统可能不会保存您所做的更改1。',
+                confirmText: '离开',
+                cancelText: '取消',
+                parentWindow: window
+            });
+
+            console.log('will-prevent-unload 事件被触发.result', result);
+
+            if (result) {
+                cleanup();
+                return true;
+            }else{
+                console.log('will-prevent-unload 事件被触发.result.else');
+                return false;
+            }
+        } else {
+            // 没有 beforeunload，直接关闭
+            cleanup();
+            return true;
+        }
+
+    } catch (e) {
+        console.error('关闭标签页时出错:', e);
+        // 出错时直接关闭
+        cleanup();
+    }
+    return true;
+}
+
+function closeBrowserView2(window, tabId) {
     const view = browserViews.get(tabId);
     if (!view) {
         console.error(`未找到tabId为${tabId}的 WebContentsView`);
@@ -981,7 +1138,9 @@ let downloadsMainWindowHooks = {
     onFocus: () => {}
 };
 
+let showDialog = null;
 const { newWindow } = createWindowManager({
+
     BrowserWindow,
     appRootDir: __dirname,
     setupProtocolBlocking,
@@ -995,7 +1154,9 @@ const { newWindow } = createWindowManager({
     clearBrowserViews: () => browserViews.clear(),
     resetTabIdCounter: () => { tabIdCounter = 0; },
     setMainWindow: (window) => { mainWindow = window; },
+    getMainWindow: () => mainWindow,
 });
+showDialog = createShowDialog(() => mainWindow);
 
 // 存储已注册的快捷键
 let registeredShortcuts = [];
@@ -1291,6 +1452,7 @@ const ipcModules = registerIpcHandlers({
     getPreloadPath,
     historyFilePath,
     getMainWindow: () => mainWindow,
+    getShowDialog: () => showDialog,
     getBrowserViews: () => browserViews,
     getLastActiveTabId: () => lastActiveTabId,
     getSearchPanelView: () => searchPanelView,

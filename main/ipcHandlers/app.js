@@ -29,12 +29,12 @@ module.exports = function registerAppIpcHandlers(deps) {
         activateBrowserView(window, tabId);
     });
 
-    ipcMain.handle('close-browser-view', (event, tabId) => {
+    ipcMain.handle('close-browser-view', async (event, tabId) => {
         const window = BrowserWindow.fromWebContents(event.sender);
         if (!window) {
             throw new Error('无法获取窗口实例');
         }
-        closeBrowserView(window, tabId);
+        return await closeBrowserView(window, tabId);
     });
 
     ipcMain.handle('browser-view-go-back', (event, tabId) => {

@@ -1,4 +1,5 @@
 const { dialog } = require('electron');
+const { createShowDialog } = require('./dialog');
 
 module.exports = function createWindowManager(deps) {
     const {
@@ -14,7 +15,10 @@ module.exports = function createWindowManager(deps) {
         clearBrowserViews,
         resetTabIdCounter,
         setMainWindow,
+        getMainWindow,
     } = deps;
+
+    const showDialog = createShowDialog(getMainWindow);
 
     function newWindow() {
         const iconPath = appRootDir + '/assets/ico1.png';
@@ -67,18 +71,14 @@ module.exports = function createWindowManager(deps) {
                 const count = activeDownloads.length;
                 const filenames = activeDownloads.map(r => r.filename).join('、');
                 
-                const result = await dialog.showMessageBox(myWindow, {
-                    type: 'warning',
-                    title: '正在下载文件',
-                    message: `当前有 ${count} 个文件正在下载`,
-                    detail: `文件：${filenames}\n\n关闭应用后需要重新下载这些文件。`,
-                    buttons: ['继续下载', '关闭'],
-                    defaultId: 0,
-                    cancelId: 0,
-                    noLink: true// 不显示链接。为true时，buttons显示为一行，否则为两行。
+                const result = await showDialog({
+                    message: `当前有 ${count} 个文件正在下载\n文件：${filenames}\n\n关闭应用后需要重新下载这些文件。`,
+                    confirmText: '继续下载',
+                    cancelText: '关闭',
+                    parentWindow: myWindow
                 });
                 
-                if (result.response === 1) {
+                if (!result) {
                     // 用户选择关闭应用，强制销毁窗口
                     myWindow.destroy();
                 }

@@ -4,6 +4,7 @@ const registerSearchPanelIpcHandlers = require('./searchPanel');
 const registerHistoryIpcHandlers = require('./history');
 const registerLoginIpcHandlers = require('./login');
 const registerDownloadsIpcHandlers = require('./downloads');
+const registerDialogIpcHandlers = require('./dialog');
 
 module.exports = function registerIpcHandlers(deps) {
     const downloads = registerDownloadsIpcHandlers(deps);
@@ -17,6 +18,7 @@ module.exports = function registerIpcHandlers(deps) {
     registerHistoryIpcHandlers(deps);
     registerLoginIpcHandlers(deps);
     const bookmarks = registerBookmarksIpcHandlers({ ...deps, hideDownloadsPanel: downloads.hideDownloadsPanel });
+    registerDialogIpcHandlers(deps);
     
     return { bookmarks, downloads };
 };

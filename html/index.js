@@ -744,7 +744,7 @@ async function closeAllTabs() {
 function recordHistory(title, url) {
     console.log('记录历史:', title, url);
     // 避免记录内部协议页面
-    if (url.startsWith(appUrlStart) || url.startsWith('file://')) {
+    if (url.startsWith(appUrlStart) ) {//|| url.startsWith('file://')
         return;
     }
 
@@ -947,7 +947,12 @@ async function closeTab(id) {
 
     // 通知主进程关闭对应的 BrowserView
     try {
-        await ipcRenderer.invoke('close-browser-view', id);
+        const result = await ipcRenderer.invoke('close-browser-view', id);
+        if (!result) {
+            console.log('关闭BrowserView标签页失败.不允许关闭:', id);
+            return;
+        }
+
         console.log('成功关闭BrowserView标签页:', id);
     } catch (error) {
         console.error('关闭BrowserView标签页失败:', error);
@@ -1086,7 +1091,7 @@ addressInput.addEventListener('keydown', (e) => {
 // 主进程要求在新标签中打开链接
 ipcRenderer.on('open-url-in-new-tab', (_event, url) => {
     console.log("主窗口收到打开URL请求:", url);
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    if (url && (url.startsWith('http://') || url.startsWith('https://')||url.startsWith('file://'))) {
         console.log("创建新标签页:", url);
         createTab(url, url);
     } else {
