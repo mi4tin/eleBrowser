@@ -197,7 +197,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     const view = new WebContentsView({
         webPreferences: {
             nodeIntegration: false,
-            contextIsolation: true,
+            contextIsolation: true,//与渲染层隔离，主进程preload里的方法无法直接操作渲染层，除非通过contextBridge暴露方法，让渲染层调用
             // 指定 preload 脚本以暴露受限的 ipc API
             preload: getPreloadPath('preload-browserview.js'),
             // 禁用外部协议处理，防止系统弹窗
@@ -418,14 +418,16 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             lastNavigationType = navigationType;
             console.log(`Navigation started: `,event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId, navigationType);
         });
-
+        
         // 监听 will-prevent-unload 事件，这个事件优先于关闭时注册的will-prevent-unload事件执行
         v.webContents.on('will-prevent-unload', (event,a) => {
-            console.log('will-prevent-unload 事件被触发2',event,a,v.webContents.getURL());
+            console.log('will-prevent-unload 事件被触发2a1',event,a,v.webContents.getURL());
+            console.dir(event);
+            console.log('will-prevent-unload 事件被触发2a1.end')
 
 
             
-            return
+            // return
             event.preventDefault();//允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
             
             // 显示自定义对话框
@@ -821,8 +823,9 @@ function setupProtocolBlocking(contents) {
     });
 
     // 拦截导航到自定义协议
-    contents.on('will-navigate', (event, navigationUrl) => {
-        console.log('will-navigate 事件:', navigationUrl);
+    contents.on('will-navigate', (event, navigationUrl,a,b,c,d,e,f,g) => {
+        console.log('will-navigate.a1 事件:', navigationUrl,a,b,c,d,e,f,g);
+        // event.preventDefault();
         if (isCustomProtocol(navigationUrl)) {
             event.preventDefault();
             console.log('✓ 阻止导航到自定义协议:', navigationUrl);
