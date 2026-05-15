@@ -323,8 +323,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
 
-        v.webContents.on('did-start-loading', () => {
-            console.log("did-start-loading")
+        v.webContents.on('did-start-loading', (event, a, b, c, d) => {
+            console.log("did-start-loading", event, v.webContents.getURL())
             try {
                 if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: true });
@@ -375,7 +375,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
         });
 
-        v.webContents.on('did-stop-loading', async () => {
+        v.webContents.on('did-stop-loading', async (event,a,b,c,d) => {
+            console.log("did-stop-loading.a11",event,v.webContents.getURL())
             try {
                 if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: false });
@@ -412,12 +413,15 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
 
-          // 监听导航开始事件，获取导航类型
-        v.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId, navigationType) => {
-            // navigationType 可能的值: 'reload' | 'navigate' | 'backForward' | 'other'
-            lastNavigationType = navigationType;
-            console.log(`Navigation started: `,event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId, navigationType);
+          // 监听导航开始事件，这个事件在跳转时触发
+        v.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId,x) => {
+            console.log(`did-start-navigation: `,event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId,v.webContents.getURL(),x);
+            //todo:暂时根据地址判断是否刷新还是跳转，但无法区分window.reload与location.href=locaton.href 
         });
+
+        v.webContents.on('will-redirect', (event, url) => {
+            console.log('will-redirect', event, url);
+        })
         
         // 监听 will-prevent-unload 事件，这个事件优先于关闭时注册的will-prevent-unload事件执行
         v.webContents.on('will-prevent-unload', (event,a) => {
@@ -822,10 +826,10 @@ function setupProtocolBlocking(contents) {
         }
     });
 
-    // 拦截导航到自定义协议
+    // 拦截导航到自定义协议,目前发现只有will-prevent-unload触发才会触发本事件
     contents.on('will-navigate', (event, navigationUrl,a,b,c,d,e,f,g) => {
-        console.log('will-navigate.a1 事件:', navigationUrl,a,b,c,d,e,f,g);
-        // event.preventDefault();
+        console.log('will-navigate.a1 事件:', event,navigationUrl,contents.getURL());
+        event.preventDefault();
         if (isCustomProtocol(navigationUrl)) {
             event.preventDefault();
             console.log('✓ 阻止导航到自定义协议:', navigationUrl);
