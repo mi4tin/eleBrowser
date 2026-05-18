@@ -9,10 +9,13 @@ function escapeHtml(s) {
 }
 
 ipcRenderer.on('dialog-init', (event, data) => {
-    const { message, confirmText, cancelText } = data;
+    const { title,message, confirmText, cancelText } = data;
     
+    const titleEl = document.getElementById('dialog-title');
+    titleEl.innerHTML = title;
+
     const messageEl = document.getElementById('dialog-message');
-    messageEl.textContent = message;
+    messageEl.innerHTML = message;
     
     const footerEl = document.getElementById('dialog-footer');
     let buttonsHtml = '';

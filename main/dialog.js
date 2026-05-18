@@ -13,6 +13,7 @@ function createShowDialog(getMainWindow) {
             }
 
             const {
+                title = '',
                 message = '',
                 confirmText = '确定',
                 cancelText = null,
@@ -27,6 +28,7 @@ function createShowDialog(getMainWindow) {
                 height: 180,
                 minWidth: 320,
                 minHeight: 150,
+                transparent: true,
                 frame: false,
                 resizable: false,
                 modal: parent !== null,
@@ -45,6 +47,7 @@ function createShowDialog(getMainWindow) {
             dialogWindow.once('ready-to-show', () => {
                 dialogWindow.show();
                 dialogWindow.webContents.send('dialog-init', {
+                    title,
                     message,
                     confirmText,
                     cancelText,

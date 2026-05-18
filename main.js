@@ -572,7 +572,7 @@ async function closeBrowserView(window, tabId) {
             event.preventDefault(); //允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
         };
 
-        wc.once('will-prevent-unload', handleWillPreventUnload);
+        wc.prependOnceListener('will-prevent-unload', handleWillPreventUnload);//使用prependOnceListener，让该事件先于已绑定的相同事件执行
 
         // 保存当前 URL
         const currentUrl = wc.getURL();
@@ -614,7 +614,8 @@ async function closeBrowserView(window, tabId) {
 
             // 显示自定义对话框
             const result = await showDialog({
-                message: '系统可能不会保存您所做的更改1。',
+                title: '离开页面？',
+                message: '系统可能不会保存您所做的更改。',
                 confirmText: '离开',
                 cancelText: '取消',
                 parentWindow: window
@@ -855,7 +856,8 @@ function setupProtocolBlocking(contents,window,tabId) {
             willPreventUnloadMap.delete(tabId);//删除willPreventUnloadMap中的tabId
 
             const result = await showDialog({
-                message: '确定离开或重新加载页面？',
+                title: '离开或重新加载页面？',
+                message: '系统可能不会保存您所做的更改。',
                 confirmText: '确定',
                 cancelText: '取消',
                 parentWindow: window
