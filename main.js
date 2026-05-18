@@ -331,7 +331,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             // event.preventDefault();
             // return;
             try {
-                if (mainWindow && !mainWindow.isDestroyed()) {
+                if (mainWindow && !mainWindow.isDestroyed()&&!willPreventUnloadMap.get(tabId)) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: true });
                 }
             } catch (err) {
@@ -851,6 +851,8 @@ function setupProtocolBlocking(contents,window,tabId) {
         // 显示自定义对话框
         if(window&&willPreventUnloadMap.get(tabId)){
             event.preventDefault();//先取消跳转
+
+            willPreventUnloadMap.delete(tabId);//删除willPreventUnloadMap中的tabId
 
             const result = await showDialog({
                 message: '确定离开或重新加载页面？',
