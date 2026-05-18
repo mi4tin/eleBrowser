@@ -184,6 +184,9 @@ function destroyHistoryAutocompleteView() {
     }
 }
 
+
+const willPreventUnloadMap=new Map();
+
 /**
  * 创建新的 WebContentsView（标签页）
  * @param {BrowserWindow} window -
@@ -231,7 +234,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
     view.webContents.loadURL(url);
     // 设置协议拦截和其他安全处理
     try {
-        setupProtocolBlocking(view.webContents);
+        setupProtocolBlocking(view.webContents,window,tabId);
     } catch (e) {
         console.error('设置 WebContentsView 协议拦截失败:', e);
     }
@@ -325,6 +328,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
 
         v.webContents.on('did-start-loading', (event, a, b, c, d) => {
             console.log("did-start-loading", event, v.webContents.getURL())
+            // event.preventDefault();
+            // return;
             try {
                 if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: true });
@@ -417,6 +422,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         v.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId,x) => {
             console.log(`did-start-navigation: `,event, url, isInPlace, isMainFrame, frameProcessId, frameRoutingId,v.webContents.getURL(),x);
             //todo:暂时根据地址判断是否刷新还是跳转，但无法区分window.reload与location.href=locaton.href 
+            // event.preventDefault();
         });
 
         v.webContents.on('will-redirect', (event, url) => {
@@ -424,15 +430,20 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         })
         
         // 监听 will-prevent-unload 事件，这个事件优先于关闭时注册的will-prevent-unload事件执行
-        v.webContents.on('will-prevent-unload', (event,a) => {
+        v.webContents.on('will-prevent-unload',async (event,a) => {
             console.log('will-prevent-unload 事件被触发2a1',event,a,v.webContents.getURL());
             console.dir(event);
             console.log('will-prevent-unload 事件被触发2a1.end')
 
+            if(closeMap.get(tabId)){
+                closeMap.delete(tabId);//删除closeMap中的tabId
+                return;
+            }
 
-            
-            // return
+            willPreventUnloadMap.set(tabId,true);
             event.preventDefault();//允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
+            return
+            // event.preventDefault();//允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
             
             // 显示自定义对话框
             // showDialog({
@@ -504,6 +515,7 @@ function activateBrowserView(window, tabId) {
     }
 }
 
+const closeMap=new Map();
 /**
  * 关闭指定的 WebContentsView（标签页）
  * @param {BrowserWindow} window - 父窗口
@@ -553,6 +565,8 @@ async function closeBrowserView(window, tabId) {
         const handleWillPreventUnload = (event) => {
             console.log('will-prevent-unload 事件被触发1');
             shouldPrompt = true;
+
+            closeMap.set(tabId,true);
 
             return
             event.preventDefault(); //允许关闭。即阻止 阻止关闭，阻止关闭是默认行为，这里阻止默认行为（阻止关闭），就等于允许关闭
@@ -815,8 +829,10 @@ if (process.platform === 'win32') {
 }
 
 // 为 webContents 设置协议拦截
-function setupProtocolBlocking(contents) {
+function setupProtocolBlocking(contents,window,tabId) {
     console.log('设置协议拦截，webContents ID:', contents.id);
+
+    // console.trace()
 
     // 监听控制台消息以调试问题（使用新的 Event 对象格式）
     contents.on('console-message', (event) => {
@@ -826,10 +842,33 @@ function setupProtocolBlocking(contents) {
         }
     });
 
-    // 拦截导航到自定义协议,目前发现只有will-prevent-unload触发才会触发本事件
-    contents.on('will-navigate', (event, navigationUrl,a,b,c,d,e,f,g) => {
-        console.log('will-navigate.a1 事件:', event,navigationUrl,contents.getURL());
-        event.preventDefault();
+    // 拦截导航到自定义协议,目前发现will-prevent-unload必然触发触发本事件,同一页面内跳转也会触发。关闭时的about:blank不会触发
+    // 事件顺序will-prevent-unload>did-start-loading>did-start-navigation>will-navigate 。但只有will-navigate里 event.preventDefault()才能阻止导航。
+    contents.on('will-navigate',async (event, navigationUrl,a,b,c,d,e,f,g) => {
+        console.log('will-navigate.a1 事件:', event,navigationUrl,contents.getURL(),contents.id);
+        // event.preventDefault();
+
+        // 显示自定义对话框
+        if(window&&willPreventUnloadMap.get(tabId)){
+            event.preventDefault();//先取消跳转
+
+            const result = await showDialog({
+                message: '确定离开或重新加载页面？',
+                confirmText: '确定',
+                cancelText: '取消',
+                parentWindow: window
+            });
+
+            if (result) {
+                console.log('will-navigate 事件被触发.result.true');
+                contents.loadURL(navigationUrl);
+            }else{
+                console.log('will-navigate 事件被触发.result.false');
+            }
+            
+            return
+        }
+
         if (isCustomProtocol(navigationUrl)) {
             event.preventDefault();
             console.log('✓ 阻止导航到自定义协议:', navigationUrl);

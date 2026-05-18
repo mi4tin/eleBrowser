@@ -1122,7 +1122,7 @@ module.exports = function createUnderlineContextMenu(deps) {
 
     function registerWebContentsHandlers() {
         app.on('web-contents-created', (event, contents) => {
-            setupProtocolBlocking(contents);
+            // setupProtocolBlocking(contents);
             contents.session.webRequest.onHeadersReceived((details, callback) => {
                 const responseHeaders = details.responseHeaders || {};
                 if (responseHeaders['content-security-policy']) {
