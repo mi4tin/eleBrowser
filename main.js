@@ -4,6 +4,7 @@ const registerIpcHandlers = require('./main/ipcHandlers');
 const createWindowManager = require('./main/windowManager');
 const createUnderlineContextMenu = require('./main/underlineContextMenu');
 const { createShowDialog } = require('./main/dialog');
+const { initPasswordManager } = require('./main/passwordManager');
 
 /** 获取 preload 脚本的绝对路径（开发与打包均可用；打包且 asarUnpack 时指向 app.asar.unpacked 内文件） */
 function getPreloadPath(filename) {
@@ -27,6 +28,8 @@ let lastActiveTabId = null;
 let searchPanelView = null;
 // 历史记录自动匹配 WebContentsView
 let historyAutocompleteView = null;
+// 密码管理模块 API
+let passwordManagerIpcApi = null;
 
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
@@ -370,6 +373,12 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             }
         });
 
+        //这个事件跳转可能不触发
+        v.webContents.on('ready-to-show', async (event,navigationUrl) => {
+            console.log("ready-to-show", event,navigationUrl,v.webContents.getURL())
+            
+        });
+
         v.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
             if (isMainFrame) {
                 console.warn(`[WebContentsView tabId=${tabId}] 主框架加载失败: ${errorCode} ${errorDescription} ${validatedURL}`);
@@ -388,7 +397,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 }
                 const url = v.webContents.getURL();
 
-                console.log("@@@did-stop-loading", url)
+                // console.log("@@@did-stop-loading", url)
                 lastActiveTabId = tabId;
 
                 const title = v.webContents.getTitle();
@@ -400,6 +409,16 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                 setTimeout(async () => {
                     await loadAndRestoreUnderline(url, v.webContents);
                 }, 0);
+
+
+                // 检查并显示保存密码弹窗
+                try {
+                    if (passwordManagerIpcApi && passwordManagerIpcApi.checkAndShowSavePasswordDialog) {
+                        await passwordManagerIpcApi.checkAndShowSavePasswordDialog();
+                    }
+                } catch (e) {
+                    // 忽略错误
+                }
 
             } catch (e) {
                 console.error('加载并恢复划线信息失败:', e);
@@ -951,6 +970,9 @@ const loadAndRestoreUnderline = (...args) => underlineContextMenu.loadAndRestore
 
 app.whenReady().then(() => {
     app.setAppUserModelId('com.elebrowser.app');
+    
+    // 初始化密码管理器
+    initPasswordManager(app);
 
     // 在 session 级别设置 User-Agent，使主文档和所有子资源请求均生效（避免 onBeforeSendHeaders 对部分子资源不生效）
     session.defaultSession.setUserAgent(CUSTOM_USER_AGENT);
@@ -1522,6 +1544,7 @@ const ipcModules = registerIpcHandlers({
 });
 bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
 downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;
+passwordManagerIpcApi = ipcModules.passwordManager;
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
 

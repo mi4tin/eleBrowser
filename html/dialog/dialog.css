@@ -82,3 +82,73 @@ body {
 .dialog-btn-cancel:active {
     background: #d9d9d9;
 }
+/*保存用户名密码*/
+.dialog-save-user-pwd {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.dialog-save-user-pwd.show {
+    display: flex;
+}
+
+.save-pwd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.save-pwd-label {
+    font-size: 13px;
+    color: #666;
+}
+
+.save-pwd-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.save-pwd-input:focus {
+    border-color: #4b8bff;
+}
+
+.save-pwd-password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.save-pwd-password-wrapper .save-pwd-input {
+    padding-right: 40px;
+}
+
+.save-pwd-toggle {
+    position: absolute;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.save-pwd-toggle::after {
+    content: '👁';
+    font-size: 16px;
+}
+
+.save-pwd-toggle.show::after {
+    content: '🙈';
+}

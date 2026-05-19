@@ -18,16 +18,21 @@ function createShowDialog(getMainWindow) {
                 confirmText = '确定',
                 cancelText = null,
                 parentWindow = null,
+                type = 'default',
+                username = '',
+                password = '',
             } = options;
 
             const mainWindow = typeof getMainWindow === 'function' ? getMainWindow() : null;
             const parent = parentWindow || mainWindow;
 
+            const windowHeight = type === 'save-password' ? 320 : 180;
+
             dialogWindow = new BrowserWindow({
                 width: 420,
-                height: 180,
+                height: windowHeight,
                 minWidth: 320,
-                minHeight: 150,
+                minHeight: type === 'save-password' ? 280 : 150,
                 transparent: true,
                 frame: false,
                 resizable: false,
@@ -51,6 +56,9 @@ function createShowDialog(getMainWindow) {
                     message,
                     confirmText,
                     cancelText,
+                    type,
+                    username,
+                    password,
                 });
             });
 
@@ -72,7 +80,11 @@ function createShowDialog(getMainWindow) {
 
             dialogWindow.on('closed', () => {
                 if (dialogResolve) {
-                    dialogResolve(false);
+                    if (type === 'save-password') {
+                        dialogResolve({ confirmed: false });
+                    } else {
+                        dialogResolve(false);
+                    }
                     dialogResolve = null;
                 }
                 dialogWindow = null;
