@@ -12,6 +12,9 @@ function createShowDialog(getMainWindow) {
                 return;
             }
 
+
+            console.log("createShowDialog",options);
+
             const {
                 title = '',
                 message = '',
@@ -21,6 +24,7 @@ function createShowDialog(getMainWindow) {
                 type = 'default',
                 username = '',
                 password = '',
+                modal = true,//是否为模态弹窗，为true时，其他窗口不能操作
             } = options;
 
             const mainWindow = typeof getMainWindow === 'function' ? getMainWindow() : null;
@@ -36,7 +40,7 @@ function createShowDialog(getMainWindow) {
                 transparent: true,
                 frame: false,
                 resizable: false,
-                modal: parent !== null,
+                modal: modal,
                 parent: parent,
                 show: false,
                 webPreferences: {

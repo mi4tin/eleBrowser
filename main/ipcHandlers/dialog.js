@@ -23,6 +23,7 @@ function registerDialogIpcHandlers(deps) {
         return result;
     });
 
+    //目前只有测试用例在用
     ipcMain.handle('show-save-password-dialog', async (event, options) => {
         const showDialogFunc = getShowDialog();
         const mainWindow = getMainWindow();
@@ -32,17 +33,22 @@ function registerDialogIpcHandlers(deps) {
             return { confirmed: false };
         }
 
+
+        console.log('show-save-password-dialog', options);
+
         const { 
             title = '要保存密码吗？',
             message = '', 
             confirmText = '保存', 
             cancelText = '一律不',
             username = '',
-            password = ''
+            password = '',
+            modal = false,
         } = options;
         
         const result = await showDialogFunc({
             title,
+            modal,
             message,
             confirmText,
             cancelText,

@@ -24,7 +24,8 @@ async function showSavePasswordDialog() {
         parentWindow: getMainWindowFunc(),
         type: 'save-password',
         username: pendingLoginInfo.username,
-        password: pendingLoginInfo.password
+        password: pendingLoginInfo.password,
+        modal: false,
     });
     
     // 处理用户选择
@@ -122,7 +123,8 @@ module.exports = function registerPasswordManagerIpcHandlers(deps) {
             parentWindow: getMainWindowFunc(),
             type: 'save-password',
             username: loginInfo.username,
-            password: loginInfo.password
+            password: loginInfo.password,
+            modal: false,
         });
         
         if (result && typeof result === 'object' && result.confirmed) {
