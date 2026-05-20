@@ -13,12 +13,12 @@ module.exports = function registerAppIpcHandlers(deps) {
         newWindow
     } = deps;
 
-    ipcMain.handle('create-browser-view', (event, url) => {
+    ipcMain.handle('create-browser-view', (event, url,isAppPage) => {
         const window = BrowserWindow.fromWebContents(event.sender);
         if (!window) {
             throw new Error('无法获取窗口实例');
         }
-        return createBrowserView(window, url);
+        return createBrowserView(window, url,isAppPage);
     });
 
     ipcMain.handle('activate-browser-view', (event, tabId) => {

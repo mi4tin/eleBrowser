@@ -35,6 +35,7 @@
       "main.js",
       "main/**/*",
       "preload-browserview.js",
+      "preload-browserview-app.js",
       "preload-search-panel.js",
       "preload-history-autocomplete.js",
       "preload-downloads-panel.js",
@@ -47,6 +48,7 @@
     ],
     "asarUnpack": [
       "preload-browserview.js",
+      "preload-browserview-app.js",
       "preload-search-panel.js",
       "preload-history-autocomplete.js",
       "preload-downloads-panel.js"

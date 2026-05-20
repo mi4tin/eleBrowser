@@ -194,10 +194,18 @@ const willPreventUnloadMap=new Map();
  * 创建新的 WebContentsView（标签页）
  * @param {BrowserWindow} window -
  * @param {string} url -的URL
+ * @param {boolean} isAppPage - 是否为应用内部页面
  * @returns {number} tabId - 新创建的标签页ID
  */
-function createBrowserView(window, url = 'https://www.baidu.com') {
+function createBrowserView(window, url = 'https://www.baidu.com',isAppPage) {
     const tabId = ++tabIdCounter;
+
+    console.log(`创建新的 WebContentsView，URL: ${url}，name: ${__dirname}`);
+
+    let preload = getPreloadPath('preload-browserview.js');
+    if (isAppPage) {
+        preload = getPreloadPath('preload-browserview-app.js');
+    }
 
     // 创建 WebContentsView 实例
     const view = new WebContentsView({
@@ -205,7 +213,7 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
             nodeIntegration: false,
             contextIsolation: true,//与渲染层隔离，主进程preload里的方法无法直接操作渲染层，除非通过contextBridge暴露方法，让渲染层调用
             // 指定 preload 脚本以暴露受限的 ipc API
-            preload: getPreloadPath('preload-browserview.js'),
+            preload: preload,
             // 禁用外部协议处理，防止系统弹窗
             disableDialogs: false,
             //  disableBlinkFeatures: 'Autofill'
@@ -285,8 +293,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
                             const newView = new WebContentsView({
                                 webPreferences: {
                                     nodeIntegration: false,
-                                    contextIsolation: false,//contextIsolation为false时，preload脚本不能加载
-                                    // preload: getPreloadPath('preload-browserview.js'),
+                                    contextIsolation: false,//contextIsolation为false
+                                    // preload: preload,//preload脚本有contextBridge时，contextIsolation必须为true，否则不能加载。安全要求高的网站也不能加载preload
                                     disableDialogs: false,
                                 }
                             });
@@ -386,7 +394,8 @@ function createBrowserView(window, url = 'https://www.baidu.com') {
         });
       
         v.webContents.on('console-message', (_event, level, message) => {
-            if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
+            // if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
+            console.log(`[WebContentsView tabId=${tabId} console]`, message,v.webContents.getURL());
         });
 
         v.webContents.on('did-stop-loading', async (event,a,b,c,d) => {

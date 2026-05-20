@@ -58,7 +58,10 @@ function sendLoginInfo() {
     if (detectedLoginInfo) {
         try {
             ipcRenderer.send('login-form-submitted', detectedLoginInfo);
+           console.log(console.trace()) 
             console.log('发送登录信息:', detectedLoginInfo);
+            // 发送成功后清除，防止页面刷新或导航时重复发送
+            detectedLoginInfo = null;
         } catch (e) {
             console.error('发送登录信息失败:', e);
         }
@@ -110,7 +113,7 @@ function setupButtonListeners() {
         button.addEventListener('click', (event) => {
             updateLoginInfo();
             if (detectedLoginInfo) {
-                console.log('检测到登录按钮点击:', detectedLoginInfo);
+                console.log('检测到登录按钮点击 发送登录信息:', detectedLoginInfo);
                 // 延迟发送，确保页面可能开始导航
                 setTimeout(sendLoginInfo, 300);
             }
@@ -127,7 +130,7 @@ function setupKeyboardListener() {
             if (passwordInput && document.activeElement === passwordInput) {
                 updateLoginInfo();
                 if (detectedLoginInfo) {
-                    console.log('检测到密码输入框回车:', detectedLoginInfo);
+                    console.log('检测到密码输入框回车 发送登录信息:', detectedLoginInfo);
                     setTimeout(sendLoginInfo, 300);
                 }
             }
@@ -197,7 +200,7 @@ function setupAjaxListener() {
         if (event.data && event.data.type === 'ELE_LOGIN_REQUEST') {
             updateLoginInfo();
             if (detectedLoginInfo) {
-                console.log('检测到登录AJAX/fetch请求:', detectedLoginInfo);
+                console.log('检测到登录AJAX/fetch请求 发送登录信息:', detectedLoginInfo);
                 setTimeout(sendLoginInfo, 500);
             }
         }
@@ -215,7 +218,7 @@ function setupInputListeners() {
             form.addEventListener('submit', (event) => {
                 updateLoginInfo();
                 if (detectedLoginInfo) {
-                    console.log('检测到登录表单提交:', detectedLoginInfo);
+                    console.log('检测到登录表单提交 发送登录信息:', detectedLoginInfo);
                     setTimeout(sendLoginInfo, 200);
                 }
             }, { capture: true });
@@ -286,17 +289,5 @@ window.addEventListener('beforeunload', () => {
     if (detectedLoginInfo && lastNavigationUrl !== window.location.href) {
         lastNavigationUrl = window.location.href;
         sendLoginInfo();
-    }
-});
-
-// 暴露一个受限的 API 给 BrowserView 中的页面，避免开启 nodeIntegration
-contextBridge.exposeInMainWorld('electronAPI', {
-    send: (channel, ...args) => ipcRenderer.send(channel, ...args),
-    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
-    once: (channel, listener) => ipcRenderer.once(channel, (event, ...args) => listener(event, ...args)),
-    on: (channel, listener) => {
-        const wrapped = (event, ...args) => listener(event, ...args);
-        ipcRenderer.on(channel, wrapped);
-        return () => ipcRenderer.removeListener(channel, wrapped);
     }
 });

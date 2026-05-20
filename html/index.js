@@ -226,7 +226,7 @@ async function openBookmarksTab() {
     try {
         // 使用主进程的 createBrowserView 创建书签管理器
         const bookmarksUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/bookmarks/bookmarks.html';
-        const tabId = await ipcRenderer.invoke('create-browser-view', bookmarksUrl);
+        const tabId = await ipcRenderer.invoke('create-browser-view', bookmarksUrl, true);
         // console.log('创建书签管理器标签页成功，tabId:', tabId);
         console.trace('创建书签管理器标签页成功，tabId:', tabId);
 
@@ -319,7 +319,7 @@ async function openHistoryTab() {
         // 使用主进程的 createBrowserView 创建历史记录管理器
         console.log('createHistoryTab.dirname:', __dirname);
         const historyUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/history/history.html';
-        const tabId = await ipcRenderer.invoke('create-browser-view', historyUrl);
+        const tabId = await ipcRenderer.invoke('create-browser-view', historyUrl,true);
         console.log('创建历史记录标签页成功，tabId:', tabId);
 
         // 创建 tab 按钮
@@ -409,7 +409,7 @@ async function openUnderlineTab() {
     try {
         // 使用主进程的 createBrowserView 创建划线记录管理器
         const underlineUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/underline/underline.html';
-        const tabId = await ipcRenderer.invoke('create-browser-view', underlineUrl);
+        const tabId = await ipcRenderer.invoke('create-browser-view', underlineUrl,true);
         console.log('创建划线记录标签页成功，tabId:', tabId);
 
         // 创建 tab 按钮
@@ -500,7 +500,7 @@ async function openProfileTab() {
     try {
         // 使用主进程的 createBrowserView 创建个人中心
         const profileUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/profile/profile.html';
-        const tabId = await ipcRenderer.invoke('create-browser-view', profileUrl);
+        const tabId = await ipcRenderer.invoke('create-browser-view', profileUrl,true);
         console.log('创建个人中心标签页成功，tabId:', tabId);
 
         // 创建 tab 按钮
@@ -591,7 +591,7 @@ async function openSyncTab() {
     try {
         // 使用主进程的 createBrowserView 创建云同步页面
         const syncUrl = 'file:///' + __dirname.replace(/\\/g, '/') + '/profile/sync.html';
-        const tabId = await ipcRenderer.invoke('create-browser-view', syncUrl);
+        const tabId = await ipcRenderer.invoke('create-browser-view', syncUrl,true);
         console.log('创建云同步标签页成功，tabId:', tabId);
 
         // 创建 tab 按钮

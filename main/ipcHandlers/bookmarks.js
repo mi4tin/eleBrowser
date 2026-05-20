@@ -333,7 +333,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true,
-                    preload: getPreloadPath('preload-browserview.js')
+                    preload: getPreloadPath('preload-browserview-app.js')
                 }
             });
 
@@ -653,7 +653,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
-                preload: getPreloadPath('preload-browserview.js')
+                preload: getPreloadPath('preload-browserview-app.js')
             }
         });
         
