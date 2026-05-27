@@ -24,22 +24,31 @@ function createShowDialog(getMainWindow) {
                 type = 'default',
                 username = '',
                 password = '',
+                savedPasswords = [],
                 modal = true,//是否为模态弹窗，为true时，其他窗口不能操作
             } = options;
 
             const mainWindow = typeof getMainWindow === 'function' ? getMainWindow() : null;
             const parent = parentWindow || mainWindow;
 
-            const windowHeight = type === 'save-password' ? 320 : 180;
+            let windowHeight = 180;
+            if (type === 'save-password') {
+                windowHeight = 320;
+            } else if (type === 'show-saved-passwords') {
+                const itemHeight = 60;
+                const manageHeight = 60;
+                const contentHeight = Math.min(savedPasswords.length * itemHeight + manageHeight, 280);
+                windowHeight = contentHeight + 20;
+            }
 
             dialogWindow = new BrowserWindow({
-                width: 420,
+                width: 320,
                 height: windowHeight,
-                minWidth: 320,
+                minWidth: 280,
                 minHeight: type === 'save-password' ? 280 : 150,
                 transparent: true,
                 frame: false,
-                resizable: false,
+                resizable: true,
                 modal: modal,
                 parent: parent,
                 show: false,
@@ -63,6 +72,7 @@ function createShowDialog(getMainWindow) {
                     type,
                     username,
                     password,
+                    savedPasswords,
                 });
             });
 
@@ -84,7 +94,7 @@ function createShowDialog(getMainWindow) {
 
             dialogWindow.on('closed', () => {
                 if (dialogResolve) {
-                    if (type === 'save-password') {
+                    if (type === 'save-password' || type === 'show-saved-passwords') {
                         dialogResolve({ confirmed: false });
                     } else {
                         dialogResolve(false);

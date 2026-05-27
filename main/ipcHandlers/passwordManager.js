@@ -4,6 +4,7 @@ const { getSavedPasswords, savePassword, deletePassword, getPasswordsByUrl } = r
 let pendingLoginInfo = null;
 let getShowDialogFunc = null;
 let getMainWindowFunc = null;
+let activeWebContents = null;
 
 // 显示保存密码弹窗的函数
 async function showSavePasswordDialog() {
@@ -52,6 +53,54 @@ async function showSavePasswordDialog() {
     return true;
 }
 
+// 显示已保存密码列表的函数
+async function showSavedPasswordsDialog(url) {
+    const showDialogFunc = getShowDialogFunc();
+    if (!showDialogFunc) {
+        console.error('showDialog function not available');
+        return false;
+    }
+    
+    // 获取该URL的已保存密码
+    const result = getPasswordsByUrl(url);
+    const savedPasswords = result.data || [];
+    
+    if (savedPasswords.length === 0) {
+        console.log('没有保存的密码');
+        return false;
+    }
+    
+    // 显示已保存密码弹窗
+    const dialogResult = await showDialogFunc({
+        title: '',
+        message: '',
+        confirmText: '',
+        cancelText: '',
+        parentWindow: getMainWindowFunc(),
+        type: 'show-saved-passwords',
+        savedPasswords: savedPasswords,
+        modal: false,
+    });
+    
+    // 处理用户选择
+    if (dialogResult && typeof dialogResult === 'object') {
+        if (dialogResult.action === 'fill' && dialogResult.username && dialogResult.password) {
+            // 填充密码
+            if (activeWebContents && !activeWebContents.isDestroyed()) {
+                activeWebContents.send('fill-login-form', {
+                    username: dialogResult.username,
+                    password: dialogResult.password
+                });
+            }
+        } else if (dialogResult.action === 'manage') {
+            // 打开密码管理页面（待实现）
+            console.log('打开密码管理');
+        }
+    }
+    
+    return true;
+}
+
 // 检查并显示保存密码弹窗（供 main.js 直接调用）
 async function checkAndShowSavePasswordDialog() {
     console.log('checkAndShowSavePasswordDialog', pendingLoginInfo);
@@ -80,6 +129,13 @@ module.exports = function registerPasswordManagerIpcHandlers(deps) {
         }
         
         pendingLoginInfo = loginInfo;
+    });
+    
+    // 输入框获得焦点时
+    ipcMain.on('input-box-focused', async (event, { url }) => {
+        console.log('input-box-focused收到事件:', url);
+        activeWebContents = event.sender;
+        await showSavedPasswordsDialog(url);
     });
     
     // 检查并显示保存密码弹窗（供渲染进程调用）

@@ -255,11 +255,75 @@ function setupNavigationListener() {
     });
 }
 
+// 存储当前找到的用户名和密码输入框
+let currentUsernameInput = null;
+let currentPasswordInput = null;
+let lastUsernameInput = null;
+let lastPasswordInput = null;
+
+// 监听输入框 focus 事件
+function setupFocusListeners() {
+    const { usernameInput, passwordInput } = findLoginInputs();
+    
+    // 如果输入框没变，就不用重新添加监听器
+    if (usernameInput === lastUsernameInput && passwordInput === lastPasswordInput) {
+        return;
+    }
+    
+    // 移除旧的监听器
+    if (lastUsernameInput && lastUsernameInput !== usernameInput) {
+        lastUsernameInput.removeEventListener('focus', handleInputFocus, { capture: true });
+    }
+    if (lastPasswordInput && lastPasswordInput !== passwordInput) {
+        lastPasswordInput.removeEventListener('focus', handleInputFocus, { capture: true });
+    }
+    
+    // 更新引用
+    currentUsernameInput = usernameInput;
+    currentPasswordInput = passwordInput;
+    lastUsernameInput = usernameInput;
+    lastPasswordInput = passwordInput;
+    
+    // 添加新的监听器
+    if (usernameInput) {
+        usernameInput.addEventListener('focus', handleInputFocus, { capture: true });
+    }
+    
+    if (passwordInput) {
+        passwordInput.addEventListener('focus', handleInputFocus, { capture: true });
+    }
+}
+
+// 处理输入框 focus
+function handleInputFocus() {
+    try {
+        ipcRenderer.send('input-box-focused', { url: window.location.href });
+    } catch (e) {
+        console.error('发送输入框focus事件失败:', e);
+    }
+}
+
+// 监听来自主进程的填充密码消息
+ipcRenderer.on('fill-login-form', (_event, { username, password }) => {
+    if (currentUsernameInput && username) {
+        currentUsernameInput.value = username;
+        currentUsernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        currentUsernameInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    if (currentPasswordInput && password) {
+        currentPasswordInput.value = password;
+        currentPasswordInput.dispatchEvent(new Event('input', { bubbles: true }));
+        currentPasswordInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+});
+
 // 观察DOM变化，查找新增的登录元素
 function setupMutationObserver() {
     const observer = new MutationObserver(() => {
         setupInputListeners();
         setupButtonListeners();
+        setupFocusListeners();
     });
     
     observer.observe(document.body, {
@@ -276,6 +340,7 @@ function initializeListeners() {
     setupAjaxListener();
     setupNavigationListener();
     setupMutationObserver();
+    setupFocusListeners();
 
 
     console.log('初始化所有监听');

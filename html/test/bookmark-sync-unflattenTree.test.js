@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const BookmarkSync = require('../html/bookmarks/bookmark-sync.js');
+const BookmarkSync = require('../bookmarks/bookmark-sync.js');
 const { json } = require('node:stream/consumers');
 
 global.localStorage = global.localStorage || {
