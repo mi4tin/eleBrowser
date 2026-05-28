@@ -5,6 +5,9 @@ let pendingLoginInfo = null;
 let getShowDialogFunc = null;
 let getMainWindowFunc = null;
 let activeWebContents = null;
+let lastFillTime = 0;
+let lastInputRect = null;
+const IGNORE_FOCUS_TIME = 2000; // 2000ms内忽略focus事件
 
 // 显示保存密码弹窗的函数
 async function showSavePasswordDialog() {
@@ -54,7 +57,7 @@ async function showSavePasswordDialog() {
 }
 
 // 显示已保存密码列表的函数
-async function showSavedPasswordsDialog(url) {
+async function showSavedPasswordsDialog(url, inputRect) {
     const showDialogFunc = getShowDialogFunc();
     if (!showDialogFunc) {
         console.error('showDialog function not available');
@@ -80,12 +83,14 @@ async function showSavedPasswordsDialog(url) {
         type: 'show-saved-passwords',
         savedPasswords: savedPasswords,
         modal: false,
+        inputRect: inputRect
     });
     
     // 处理用户选择
     if (dialogResult && typeof dialogResult === 'object') {
         if (dialogResult.action === 'fill' && dialogResult.username && dialogResult.password) {
             // 填充密码
+            lastFillTime = Date.now();
             if (activeWebContents && !activeWebContents.isDestroyed()) {
                 activeWebContents.send('fill-login-form', {
                     username: dialogResult.username,
@@ -132,10 +137,16 @@ module.exports = function registerPasswordManagerIpcHandlers(deps) {
     });
     
     // 输入框获得焦点时
-    ipcMain.on('input-box-focused', async (event, { url }) => {
-        console.log('input-box-focused收到事件:', url);
+    ipcMain.on('input-box-focused', async (event, { url, inputRect }) => {
+        console.log('input-box-focused收到事件:', url, inputRect);
+        const now = Date.now();
+        if (now - lastFillTime < IGNORE_FOCUS_TIME) {
+            console.log('忽略focus事件: 刚填充完密码，忽略', now - lastFillTime);
+            return;
+        }
         activeWebContents = event.sender;
-        await showSavedPasswordsDialog(url);
+        lastInputRect = inputRect;
+        await showSavedPasswordsDialog(url, inputRect);
     });
     
     // 检查并显示保存密码弹窗（供渲染进程调用）

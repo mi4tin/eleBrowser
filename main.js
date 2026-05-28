@@ -3,7 +3,7 @@ const path = require('path');
 const registerIpcHandlers = require('./main/ipcHandlers');
 const createWindowManager = require('./main/windowManager');
 const createUnderlineContextMenu = require('./main/underlineContextMenu');
-const { createShowDialog } = require('./main/dialog');
+const { createShowDialog, closeDialog, isShowingSavedPasswords } = require('./main/dialog');
 const { initPasswordManager } = require('./main/passwordManager');
 
 /** 获取 preload 脚本的绝对路径（开发与打包均可用；打包且 asarUnpack 时指向 app.asar.unpacked 内文件） */
@@ -1534,6 +1534,8 @@ const ipcModules = registerIpcHandlers({
     historyFilePath,
     getMainWindow: () => mainWindow,
     getShowDialog: () => showDialog,
+    closeDialog,
+    isShowingSavedPasswords,
     getBrowserViews: () => browserViews,
     getLastActiveTabId: () => lastActiveTabId,
     getSearchPanelView: () => searchPanelView,

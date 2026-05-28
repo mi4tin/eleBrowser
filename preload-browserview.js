@@ -298,7 +298,7 @@ function setupFocusListeners() {
 }
 
 // 处理输入框 focus
-function handleInputFocus() {
+function handleInputFocus(event) {
     const now = Date.now();
     
     // 防抖检查和填充状态检查
@@ -310,7 +310,19 @@ function handleInputFocus() {
     lastFocusTime = now;
     
     try {
-        ipcRenderer.send('input-box-focused', { url: window.location.href });
+        // 获取输入框的位置信息
+        const inputElement = event.target;
+        const rect = inputElement.getBoundingClientRect();
+
+        ipcRenderer.send('input-box-focused', {
+            url: window.location.href,
+            inputRect: {
+                x: rect.left,
+                y: rect.top,
+                width: rect.width,
+                height: rect.height
+            }
+        });
     } catch (e) {
         console.error('发送输入框focus事件失败:', e);
     }

@@ -3,6 +3,7 @@ const path = require('path');
 
 let dialogWindow = null;
 let dialogResolve = null;
+let currentDialogType = null;
 
 function createShowDialog(getMainWindow) {
     return function showDialog(options) {
@@ -12,8 +13,7 @@ function createShowDialog(getMainWindow) {
                 return;
             }
 
-
-            console.log("createShowDialog",options);
+            console.log("createShowDialog", options);
 
             const {
                 title = '',
@@ -26,12 +26,16 @@ function createShowDialog(getMainWindow) {
                 password = '',
                 savedPasswords = [],
                 modal = true,//是否为模态弹窗，为true时，其他窗口不能操作
+                inputRect = null
             } = options;
+
+            currentDialogType = type;
 
             const mainWindow = typeof getMainWindow === 'function' ? getMainWindow() : null;
             const parent = parentWindow || mainWindow;
 
             let windowHeight = 180;
+            let windowWidth = 320;
             if (type === 'save-password') {
                 windowHeight = 320;
             } else if (type === 'show-saved-passwords') {
@@ -39,10 +43,41 @@ function createShowDialog(getMainWindow) {
                 const manageHeight = 60;
                 const contentHeight = Math.min(savedPasswords.length * itemHeight + manageHeight, 280);
                 windowHeight = contentHeight + 20;
+                // 调整宽度为输入框宽度或最小宽度
+                if (inputRect && inputRect.width) {
+                    windowWidth = Math.max(280, Math.min(inputRect.width, 400));
+                }
+            }
+
+            // 计算对话框位置
+            let x = undefined;
+            let y = undefined;
+            const viewY = 82 + 50; // WebContentsView 的起始 y 坐标
+
+             const contentBounds = parent.getContentBounds();
+            const scaleFactor = parent.getContentSize()[0] / contentBounds.width; // 处理缩放
+            if (parent && inputRect && inputRect.x !== undefined && inputRect.y !== undefined) {
+               
+                // 计算对话框的 x 位置（对齐输入框左侧）
+                x = Math.round(inputRect.x / scaleFactor);
+
+                // 计算对话框的 y 位置（显示在输入框下方）
+                y = Math.round((viewY + inputRect.y + inputRect.height) / scaleFactor + 2);
+
+                console.log('对话框位置计算:', {
+                    inputRect,
+                    contentBounds,
+                    scaleFactor,
+                    viewY,
+                    x,
+                    y
+                });
             }
 
             dialogWindow = new BrowserWindow({
-                width: 320,
+                x: x+contentBounds.x,
+                y: y+contentBounds.y,
+                width: windowWidth,
                 height: windowHeight,
                 minWidth: 280,
                 minHeight: type === 'save-password' ? 280 : 150,
@@ -87,6 +122,7 @@ function createShowDialog(getMainWindow) {
                     dialogWindow.destroy();
                 }
                 dialogWindow = null;
+                currentDialogType = null;
                 ipcMain.removeListener('dialog-result', handleDialogResult);
             };
 
@@ -102,12 +138,38 @@ function createShowDialog(getMainWindow) {
                     dialogResolve = null;
                 }
                 dialogWindow = null;
+                currentDialogType = null;
                 ipcMain.removeListener('dialog-result', handleDialogResult);
             });
         });
     };
 }
 
+// 关闭对话框的函数
+function closeDialog() {
+    console.log('closeDialog() 被调用');
+    if (dialogWindow && !dialogWindow.isDestroyed()) {
+        console.log('正在关闭对话框，类型:', currentDialogType);
+        if (dialogResolve && currentDialogType === 'show-saved-passwords') {
+            dialogResolve({ confirmed: false, action: 'cancel' });
+            dialogResolve = null;
+        }
+        dialogWindow.destroy();
+        dialogWindow = null;
+        currentDialogType = null;
+        console.log('对话框已关闭');
+    } else {
+        console.log('没有打开的对话框可关闭');
+    }
+}
+
+// 检查当前是否显示的是密码列表
+function isShowingSavedPasswords() {
+    return dialogWindow && !dialogWindow.isDestroyed() && currentDialogType === 'show-saved-passwords';
+}
+
 module.exports = {
-    createShowDialog
+    createShowDialog,
+    closeDialog,
+    isShowingSavedPasswords
 };
