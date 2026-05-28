@@ -17,6 +17,15 @@ window.addEventListener(
 let detectedLoginInfo = null;
 let lastNavigationUrl = null;
 
+// 存储当前找到的用户名和密码输入框
+let currentUsernameInput = null;
+let currentPasswordInput = null;
+let lastUsernameInput = null;
+let lastPasswordInput = null;
+let isFillingPassword = false;
+let lastFocusTime = 0;
+const DEBOUNCE_TIME = 500; // 500ms内的重复focus忽略
+
 // 查找表单中的用户名和密码输入框
 function findLoginInputs() {
     const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
@@ -255,12 +264,6 @@ function setupNavigationListener() {
     });
 }
 
-// 存储当前找到的用户名和密码输入框
-let currentUsernameInput = null;
-let currentPasswordInput = null;
-let lastUsernameInput = null;
-let lastPasswordInput = null;
-
 // 监听输入框 focus 事件
 function setupFocusListeners() {
     const { usernameInput, passwordInput } = findLoginInputs();
@@ -296,6 +299,16 @@ function setupFocusListeners() {
 
 // 处理输入框 focus
 function handleInputFocus() {
+    const now = Date.now();
+    
+    // 防抖检查和填充状态检查
+    if (isFillingPassword || (now - lastFocusTime < DEBOUNCE_TIME)) {
+        console.log('忽略focus事件:', isFillingPassword ? '正在填充密码' : '防抖');
+        return;
+    }
+    
+    lastFocusTime = now;
+    
     try {
         ipcRenderer.send('input-box-focused', { url: window.location.href });
     } catch (e) {
@@ -305,6 +318,8 @@ function handleInputFocus() {
 
 // 监听来自主进程的填充密码消息
 ipcRenderer.on('fill-login-form', (_event, { username, password }) => {
+    isFillingPassword = true;
+    
     if (currentUsernameInput && username) {
         currentUsernameInput.value = username;
         currentUsernameInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -316,6 +331,11 @@ ipcRenderer.on('fill-login-form', (_event, { username, password }) => {
         currentPasswordInput.dispatchEvent(new Event('input', { bubbles: true }));
         currentPasswordInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    
+    // 延迟重置标志
+    setTimeout(() => {
+        isFillingPassword = false;
+    }, 1000);
 });
 
 // 观察DOM变化，查找新增的登录元素
