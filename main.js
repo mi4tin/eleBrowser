@@ -395,7 +395,7 @@ function createBrowserView(window, url = 'https://www.baidu.com',isAppPage) {
       
         v.webContents.on('console-message', (_event, level, message) => {
             // if (level >= 3) console.log(`[WebContentsView tabId=${tabId} console]`, message);
-            console.log(`[WebContentsView tabId=${tabId} console]`, message,v.webContents.getURL());
+            // console.log(`[WebContentsView tabId=${tabId} console]`, message,v.webContents.getURL());
         });
 
         v.webContents.on('did-stop-loading', async (event,a,b,c,d) => {

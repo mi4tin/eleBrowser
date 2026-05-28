@@ -7,7 +7,9 @@ let getMainWindowFunc = null;
 let activeWebContents = null;
 let lastFillTime = 0;
 let lastInputRect = null;
+let lastFilledCredentials = null; // 记录最后填充的账号密码
 const IGNORE_FOCUS_TIME = 2000; // 2000ms内忽略focus事件
+const IGNORE_SAVE_TIME = 5000; // 5000ms内忽略保存密码
 
 // 显示保存密码弹窗的函数
 async function showSavePasswordDialog() {
@@ -91,6 +93,11 @@ async function showSavedPasswordsDialog(url, inputRect) {
         if (dialogResult.action === 'fill' && dialogResult.username && dialogResult.password) {
             // 填充密码
             lastFillTime = Date.now();
+            lastFilledCredentials = {
+                username: dialogResult.username,
+                password: dialogResult.password,
+                fillTime: Date.now()
+            };
             if (activeWebContents && !activeWebContents.isDestroyed()) {
                 activeWebContents.send('fill-login-form', {
                     username: dialogResult.username,
@@ -130,6 +137,18 @@ module.exports = function registerPasswordManagerIpcHandlers(deps) {
     ipcMain.on('login-form-submitted', async (_event, loginInfo) => {
         console.log('login-form-submitted收到登录信息:', loginInfo);
         if (!loginInfo || !loginInfo.username || !loginInfo.password) {
+            return;
+        }
+        
+        // 检查是否是刚刚填充的账号密码
+        const now = Date.now();
+        if (lastFilledCredentials && 
+            now - lastFilledCredentials.fillTime < IGNORE_SAVE_TIME &&
+            lastFilledCredentials.username === loginInfo.username && 
+            lastFilledCredentials.password === loginInfo.password) {
+            console.log('忽略保存密码：使用的是已保存的密码');
+            // 清除填充记录
+            lastFilledCredentials = null;
             return;
         }
         

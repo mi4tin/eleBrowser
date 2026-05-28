@@ -570,7 +570,7 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
     });
 
     ipcMain.on('dismiss-overlays-from-browser-view', (event) => {
-        console.log('收到 dismiss-overlays-from-browser-view 事件');
+        console.log('bookmarks.js: 收到 dismiss-overlays-from-browser-view 事件');
         const wc = event.sender;
         let fromTab = false;
         for (const v of getBrowserViews().values()) {
@@ -580,11 +580,11 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
             }
         }
         if (!fromTab) {
-            console.log('不是来自标签页的事件，忽略');
+            console.log('bookmarks.js: 不是来自标签页的事件，忽略');
             return;
         }
 
-        console.log('开始关闭浮层...');
+        console.log('bookmarks.js: 开始关闭浮层...');
         const win = BrowserWindow.fromWebContents(wc);
         if (win && !win.isDestroyed()) {
             hideFolderDropdown(win);
@@ -596,13 +596,6 @@ module.exports = function registerBookmarksIpcHandlers(deps) {
         if (mainWindow && !mainWindow.isDestroyed()) {
             hideHistoryAutocomplete(mainWindow);
             mainWindow.webContents.send('browser-view-interacted');
-        }
-        // 关闭密码列表
-        if (typeof closeDialog === 'function') {
-            console.log('调用 closeDialog() 关闭密码列表');
-            closeDialog();
-        } else {
-            console.log('closeDialog 函数未定义');
         }
     });
     

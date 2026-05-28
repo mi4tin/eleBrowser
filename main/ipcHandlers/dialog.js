@@ -1,5 +1,7 @@
+const { closeDialog } = require('../dialog');
+
 function registerDialogIpcHandlers(deps) {
-    const { ipcMain, getShowDialog, getMainWindow } = deps;
+    const { ipcMain, getShowDialog, getMainWindow, getBrowserViews } = deps;
 
     ipcMain.handle('show-dialog', async (event, options) => {
         const showDialogFunc = getShowDialog();
@@ -59,6 +61,29 @@ function registerDialogIpcHandlers(deps) {
         });
         
         return result;
+    });
+
+    // 关闭密码列表
+    ipcMain.on('dismiss-overlays-from-browser-view', (event) => {
+        console.log('dialog.js: 收到 dismiss-overlays-from-browser-view 事件');
+        const wc = event.sender;
+        let fromTab = false;
+        if (getBrowserViews) {
+            for (const v of getBrowserViews().values()) {
+                if (v.webContents && !v.webContents.isDestroyed() && v.webContents.id === wc.id) {
+                    fromTab = true;
+                    break;
+                }
+            }
+        }
+        if (!fromTab) {
+            console.log('dialog.js: 不是来自标签页的事件，忽略');
+            return;
+        }
+
+        console.log('dialog.js: 开始关闭密码列表...');
+        // 关闭密码列表
+        closeDialog();
     });
 
     return {};
