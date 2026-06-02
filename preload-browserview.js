@@ -56,8 +56,8 @@ function findLoginInputs() {
     }
 
 
-    console.log('找到用户名输入框:', usernameInput);
-    console.log('找到密码输入框:', passwordInput);
+    // console.log('找到用户名输入框:', usernameInput);
+    // console.log('找到密码输入框:', passwordInput);
     
     return { usernameInput, passwordInput };
 }
