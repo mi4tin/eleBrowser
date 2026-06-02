@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Full Underline</title>
+    <style>
+        .underline-fb3b780f { 
+            text-decoration: underline; 
+            text-decoration-color: green; 
+            text-decoration-style: solid; 
+            text-decoration-thickness: 2px; 
+            text-underline-offset: 3px; 
+        }
+    </style>
+</head>
+<body>
+    <p class="ds-markdown-paragraph"><strong><span class="">一句话总结</span></strong>
+  <span class="">：技术红利不是赌运气，而是</span>
+  <strong><span class="">系统性地寻找“成本下降一个数量级且用户获取成本极低”的交汇点</span></strong>
+  <span class="">。一旦找到，你的业务就会像坐上火箭——但前提是你能忍受前18个月几乎没收入的“黎明前的黑暗”。</span></p>
+
+    <script>
+        const underlineInfo = {
+            text: '技术红利不是赌运气，而是系统性地寻找“成本下降一个数量级且用户获取成本极低”的交汇点。',
+            timestamp: 1780370524234,
+            url: 'https://chat.deepseek.com/a/chat/s/93c719e3-c750-4b2e-ad05-5dbcfaf81702',
+            mode: 1,
+            occurrenceIndex: 0
+        };
+
+        // 复制原始代码中的函数
+        function getTextNodeAtPosition(container, offset) {
+            const walker = document.createTreeWalker(
+                container,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+
+            let currentPos = 0;
+            let node;
+            while ((node = walker.nextNode())) {
+                if (/^\s+$/.test(node.textContent)) continue;
+                const nodeLength = node.textContent.length;
+                if (offset < currentPos + nodeLength) {
+                    return {
+                        node: node,
+                        offset: offset - currentPos
+                    };
+                }
+                currentPos += nodeLength;
+            }
+            throw new Error('Offset out of range');
+        }
+
+        function underlineAllMatches(container, text, mode, matchIndex) {
+            if (!container || !text) return 0;
+
+            console.log('=== underlineAllMatches 开始 ===');
+            console.log('要查找的文本:', text);
+
+            // 1. 基于当前实时文本查找所有匹配位置
+            let fullText = '';
+            const tw = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+            let tn;
+            while ((tn = tw.nextNode())) {
+                console.log('文本节点:', JSON.stringify(tn.textContent));
+                if (!/^\s+$/.test(tn.textContent)) fullText += tn.textContent;
+            }
+            
+            console.log('构建的 fullText:', JSON.stringify(fullText));
+            console.log('fullText 中查找目标:', fullText.indexOf(text));
+
+            const matches = [];
+            let pos = 0;
+            while ((pos = fullText.indexOf(text, pos)) !== -1) {
+                matches.push({ start: pos, end: pos + text.length });
+                pos += text.length;
+            }
+            console.log('找到的匹配:', matches);
+            
+            if (matches.length === 0) return 0;
+
+            // 2. 确定要处理的匹配列表
+            let matchesToProcess = [];
+            if (mode === 1 && matchIndex >= 0) {
+                if (matchIndex >= 0 && matchIndex < matches.length) {
+                    matchesToProcess = [matches[matchIndex]];
+                } else {
+                    console.warn("匹配索引超出范围");
+                    return 0;
+                }
+            } else {
+                matchesToProcess = matches.slice();
+            }
+
+            return matchesToProcess.length;
+        }
+
+        // 测试
+        const result = underlineAllMatches(document.body, underlineInfo.text, underlineInfo.mode, underlineInfo.occurrenceIndex);
+        console.log('处理结果:', result);
+    </script>
+</body>
+</html>

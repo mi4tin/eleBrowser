@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Underline</title>
+</head>
+<body>
+    <p class="ds-markdown-paragraph"><strong><span class="">一句话总结</span></strong>
+  <span class="">：技术红利不是赌运气，而是</span>
+  <strong><span class="">系统性地寻找“成本下降一个数量级且用户获取成本极低”的交汇点</span></strong>
+  <span class="">。一旦找到，你的业务就会像坐上火箭——但前提是你能忍受前18个月几乎没收入的“黎明前的黑暗”。</span></p>
+
+    <script>
+        const targetText = '技术红利不是赌运气，而是系统性地寻找“成本下降一个数量级且用户获取成本极低”的交汇点。';
+        
+        console.log('目标文本:', targetText);
+        console.log('目标文本长度:', targetText.length);
+        
+        // 构建 fullText
+        let fullText = '';
+        const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let tn;
+        const allTextNodes = [];
+        while ((tn = tw.nextNode())) {
+            console.log('文本节点内容:', JSON.stringify(tn.textContent), '长度:', tn.textContent.length);
+            allTextNodes.push(tn.textContent);
+            if (!/^\s+$/.test(tn.textContent)) fullText += tn.textContent;
+        }
+        
+        console.log('\n构建的 fullText:', JSON.stringify(fullText));
+        console.log('fullText 长度:', fullText.length);
+        console.log('是否匹配:', fullText.indexOf(targetText) !== -1);
+        console.log('匹配位置:', fullText.indexOf(targetText));
+        
+        // 显示所有文本节点内容
+        console.log('\n所有文本节点:');
+        allTextNodes.forEach((text, index) => {
+            console.log(`节点 ${index}:`, JSON.stringify(text));
+        });
+    </script>
+</body>
+</html>
