@@ -1167,11 +1167,69 @@ module.exports = function createUnderlineContextMenu(deps) {
 
                     contents.executeJavaScript(
                         `(function() {
-                        const element = document.elementFromPoint(${params.x}, ${params.y});
+                        //根据x,y获取最小范围的元素节点
+                        function getMinimalElementAtPoint(x, y) {
+                        // 1. 尝试获取该点下的精确节点（可能是文本节点或元素节点）
+                        let node = null;
+                        if (document.caretPositionFromPoint) {
+                            const pos = document.caretPositionFromPoint(x, y);
+                            node = pos?.offsetNode;
+                        } else if (document.caretRangeFromPoint) {
+                            const range = document.caretRangeFromPoint(x, y);
+                            node = range?.startContainer;
+                        }
+
+                        // 2. 如果上面方法都不支持或返回 null，降级使用 elementFromPoint
+                        if (!node) {
+                            return document.elementFromPoint(x, y);
+                        }
+
+                        // 3. 根据节点类型返回最接近的元素节点
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            // 文本节点：返回其父元素（即包含该文本的最小元素）
+                            return node.parentElement;
+                        }
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            // 元素节点：直接返回（已经是该点下最深的元素）
+                            return node;
+                        }
+                        // 其他节点类型（如注释节点）：尝试返回父元素，否则返回 null
+                        return node.parentElement || null;
+                        }
+                        
+                        const element = getMinimalElementAtPoint(${params.x}, ${params.y});
+                        // console.log("underline element:", element,${params.x}, ${params.y});
                         if (!element) return { hasUnderline: false, underlineText: '', isTab: false, hasLeftTab: false, hasRightTab: false, isImage: false, imageSrc: '' };
+                        
+                        // 1. 首先检查当前元素本身
                         if (element.classList && element.classList.contains('underline-fb3b780f')) {
                             return { hasUnderline: true, underlineText: element.textContent || element.innerText || '', isTab: false, hasLeftTab: false, hasRightTab: false, isImage: false, imageSrc: '' };
                         }
+                        
+                        let underlineElement = null;
+                        // 2. 如果父元素链中没找到，检查两层子元素（向下查找）
+                        if (!underlineElement) {
+                            for (let child of element.children) {
+                                if (child.classList && child.classList.contains('underline-fb3b780f')) {
+                                    underlineElement = child;
+                                    break;
+                                }
+                                // 检查直接子元素的直接子元素
+                                for (let grandChild of child.children) {
+                                    if (grandChild.classList && grandChild.classList.contains('underline-fb3b780f')) {
+                                        underlineElement = grandChild;
+                                        break;
+                                    }
+                                }
+                                if (underlineElement) break;
+                            }
+                        }
+                        
+                        // 3. 如果找到下划线元素，返回结果
+                        if (underlineElement) {
+                            return { hasUnderline: true, underlineText: underlineElement.textContent || underlineElement.innerText || '', isTab: false, hasLeftTab: false, hasRightTab: false, isImage: false, imageSrc: '' };
+                        }
+
                         let hasLeftTab = false, hasRightTab = false;
                         if ((element.previousElementSibling && element.previousElementSibling.classList.contains('tab')) ||
                             (element.parentElement && element.parentElement.previousElementSibling && element.parentElement.previousElementSibling.classList.contains('tab'))) hasLeftTab = true;
@@ -1194,6 +1252,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                         return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc };
                     })()`
                     ).then((elementCheckResult) => {
+                        console.log('元素检查结果:', elementCheckResult,hasSelection);
                         if (elementCheckResult.hasUnderline || hasSelection) {
                             underlineMenu = [{
                                 label: elementCheckResult.hasUnderline ? '取消划线' : '添加下划线',
