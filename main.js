@@ -1443,6 +1443,26 @@ function openBookmarksWindow() {
     }
 }
 
+function openDialogTestWindow() {
+    // 创建一个新窗口来显示对话框测试页面
+    const testWindow = new BrowserWindow({
+        width: 1000,
+        height: 700,
+        minWidth: 800,
+        minHeight: 500,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+    
+    const testPath = path.join(__dirname, 'html', 'dialog', 'dialog-test.html');
+    testWindow.loadFile(testPath);
+    
+    // 打开开发者工具方便调试
+    testWindow.webContents.openDevTools();
+}
+
 
 function reloadBrowserView(tabId) {
     const view = browserViews.get(tabId);
@@ -1695,6 +1715,22 @@ const template = [
     }
 ];
 
+
+// 开发测试菜单（仅在开发模式显示）
+if (!app.isPackaged) {
+    template.push({
+        label: '开发',
+        submenu: [
+            {
+                label: '对话框测试页面',
+                accelerator: isMac ? 'Cmd+Shift+D' : 'Ctrl+Shift+D',
+                click: () => {
+                    openDialogTestWindow();
+                }
+            }
+        ]
+    });
+}
 
 const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);

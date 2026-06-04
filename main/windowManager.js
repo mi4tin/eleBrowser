@@ -1,5 +1,5 @@
 const { dialog } = require('electron');
-const { createShowDialog } = require('./dialog');
+const { createShowDialog, closeDialog } = require('./dialog');
 
 module.exports = function createWindowManager(deps) {
     const {
@@ -135,6 +135,8 @@ module.exports = function createWindowManager(deps) {
             //测试专用时，可注释
             hideFolderDropdown(myWindow);
             hideDownloadsPanel(myWindow);
+            // 关闭密码列表
+            closeDialog();
         };
         myWindow.on('blur', handleBlur);
 

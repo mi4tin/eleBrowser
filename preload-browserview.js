@@ -236,6 +236,12 @@ function setupInputListeners() {
         // 监听输入框变化
         const handleInput = () => {
             updateLoginInfo();
+            // 输入时关闭密码列表
+            try {
+                ipcRenderer.send('dismiss-overlays-from-browser-view');
+            } catch (e) {
+                console.error('关闭密码列表失败:', e);
+            }
         };
         
         usernameInput.addEventListener('input', handleInput);

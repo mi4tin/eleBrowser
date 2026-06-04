@@ -84,9 +84,11 @@ function createShowDialog(getMainWindow) {
                 transparent: true,
                 frame: false,
                 resizable: true,
-                modal: modal,
+                modal: type === 'show-saved-passwords' ? false : modal, // 密码列表非模态
                 parent: parent,
                 show: false,
+                focusable: type !== 'show-saved-passwords', // 密码列表不可获取焦点
+                acceptFirstMouse: true, // 允许点击直接激活而不获取焦点
                 webPreferences: {
                     nodeIntegration: true,
                     contextIsolation: false,
@@ -98,7 +100,11 @@ function createShowDialog(getMainWindow) {
             dialogWindow.loadFile(dialogHtmlPath);
 
             dialogWindow.once('ready-to-show', () => {
-                dialogWindow.show();
+                if (type === 'show-saved-passwords') {
+                    dialogWindow.showInactive(); // 显示但不获取焦点
+                } else {
+                    dialogWindow.show();
+                }
                 dialogWindow.webContents.send('dialog-init', {
                     title,
                     message,
