@@ -4,6 +4,10 @@ const path = require('path');
 let dialogWindow = null;
 let dialogResolve = null;
 let currentDialogType = null;
+let parentWindowRef = null;
+let initialDialogOffsetX = null;
+let initialDialogOffsetY = null;
+let parentMoveListener = null;
 
 function createShowDialog(getMainWindow) {
     return function showDialog(options) {
@@ -117,6 +121,25 @@ function createShowDialog(getMainWindow) {
                 });
             });
 
+            // 保存初始偏移量
+            if (parent && x !== undefined && y !== undefined) {
+                parentWindowRef = parent;
+                initialDialogOffsetX = (x + contentBounds.x) - parent.getPosition()[0];
+                initialDialogOffsetY = (y + contentBounds.y) - parent.getPosition()[1];
+
+                // 监听父窗口移动事件
+                parentMoveListener = () => {
+                    if (dialogWindow && !dialogWindow.isDestroyed() && parentWindowRef && !parentWindowRef.isDestroyed()) {
+                        const [parentX, parentY] = parentWindowRef.getPosition();
+                        dialogWindow.setPosition(
+                            parentX + initialDialogOffsetX,
+                            parentY + initialDialogOffsetY
+                        );
+                    }
+                };
+                parent.on('move', parentMoveListener);
+            }
+
             dialogResolve = resolve;
 
             const handleDialogResult = (event, result) => {
@@ -143,8 +166,20 @@ function createShowDialog(getMainWindow) {
                     }
                     dialogResolve = null;
                 }
+                
+                // 清理父窗口移动监听器
+                if (parentWindowRef && !parentWindowRef.isDestroyed() && parentMoveListener) {
+                    parentWindowRef.removeListener('move', parentMoveListener);
+                }
+                
+                // 清理引用
                 dialogWindow = null;
                 currentDialogType = null;
+                parentWindowRef = null;
+                initialDialogOffsetX = null;
+                initialDialogOffsetY = null;
+                parentMoveListener = null;
+                
                 ipcMain.removeListener('dialog-result', handleDialogResult);
             });
         });
@@ -160,9 +195,19 @@ function closeDialog() {
             dialogResolve({ confirmed: false, action: 'cancel' });
             dialogResolve = null;
         }
+        
+        // 清理父窗口移动监听器
+        if (parentWindowRef && !parentWindowRef.isDestroyed() && parentMoveListener) {
+            parentWindowRef.removeListener('move', parentMoveListener);
+        }
+        
         dialogWindow.destroy();
         dialogWindow = null;
         currentDialogType = null;
+        parentWindowRef = null;
+        initialDialogOffsetX = null;
+        initialDialogOffsetY = null;
+        parentMoveListener = null;
         console.log('对话框已关闭');
     } else {
         console.log('没有打开的对话框可关闭');
