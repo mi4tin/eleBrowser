@@ -387,8 +387,15 @@ function initializeListeners() {
 // 页面加载完成后设置监听
 document.addEventListener('DOMContentLoaded', initializeListeners);
 
-// 页面将要导航时，发送检测到的登录信息
+// 页面将要导航时，发送检测到的登录信息，并关闭密码列表
 window.addEventListener('beforeunload', () => {
+    // 关闭密码列表对话框
+    try {
+        ipcRenderer.send('dismiss-overlays-from-browser-view');
+    } catch (_e) {
+        /* ignore */
+    }
+    
     if (detectedLoginInfo && lastNavigationUrl !== window.location.href) {
         lastNavigationUrl = window.location.href;
         sendLoginInfo();

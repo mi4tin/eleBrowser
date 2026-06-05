@@ -13,6 +13,15 @@ window.addEventListener(
     true
 );
 
+// 页面将要导航时，关闭密码列表等浮层
+window.addEventListener('beforeunload', () => {
+    try {
+        ipcRenderer.send('dismiss-overlays-from-browser-view');
+    } catch (_e) {
+        /* ignore */
+    }
+});
+
 // 暴露一个受限的 API 给 BrowserView 中的页面，contextIsolation必须为true
 contextBridge.exposeInMainWorld('electronAPI', {
     send: (channel, ...args) => ipcRenderer.send(channel, ...args),
