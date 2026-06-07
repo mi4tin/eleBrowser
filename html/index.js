@@ -1886,7 +1886,7 @@ async function renderBookmarkBar() {
         hiddenBookmarks = [];
 
         if (allItems.length === 0) {
-            bookmarkBarContent.innerHTML = '<div style="color:#999;padding:10px;">暂无书签</div>';
+            bookmarkBarContent.innerHTML = '<div class="bookmark-bar-empty" style="color:#999;padding:10px;">暂无书签</div>';
             return;
         }
 
@@ -2435,7 +2435,18 @@ function generateBookmarkId(url) {
 
 // 添加URL到书签栏
 function addUrlToBookmarkBar(urlInfo, targetIndex) {
-    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
+    if (!bookmarksTreeData) {
+        bookmarksTreeData = {
+            id: 'root',
+            title: '书签',
+            name: '书签',
+            type: 'folder',
+            items: []
+        };
+    }
+    if (!bookmarksTreeData.items) {
+        bookmarksTreeData.items = [];
+    }
 
     const title = urlInfo.title || urlInfo.url;
 
@@ -2474,9 +2485,17 @@ function addUrlToBookmarkBar(urlInfo, targetIndex) {
 
 // 添加URL到指定文件夹
  function addUrlToFolder(urlInfo, folderId) {
-    if (!bookmarksTreeData || !bookmarksTreeData.items) {
-        console.log('添加URL到指定文件夹.书签树数据为空');
-        return;
+    if (!bookmarksTreeData) {
+        bookmarksTreeData = {
+            id: 'root',
+            title: '书签',
+            name: '书签',
+            type: 'folder',
+            items: []
+        };
+    }
+    if (!bookmarksTreeData.items) {
+        bookmarksTreeData.items = [];
     }
     const cleanUrl = urlInfo.url;
     const title =  urlInfo.title || urlInfo.url;//extractTitleFromUrl(cleanUrl);
