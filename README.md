@@ -40,34 +40,29 @@ pnpm install
 npm start
 ```
 
-**使用 pnpm：**
-```bash
-pnpm start
-```
-
 ### 打包项目
 
 #### 打包所有平台
 ```bash
-pnpm dist
+npm run dist
 ```
 
 #### 打包 Windows 版本
 ```bash
-pnpm dist:win
+npm run dist:win
 ```
 
 #### 打包 Mac 版本
 ```bash
-pnpm dist:mac
+npm run dist:mac
 ```
 
 #### 打包 Linux 版本
 ```bash
-pnpm dist:linux
+npm run dist:linux
 ```
 
 #### 构建并打包到目录（不打包成安装包）
 ```bash
-pnpm build:unpack
+npm run build:unpack
 ```
