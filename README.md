@@ -3,8 +3,11 @@
 
 ## 环境要求
 
-- **Node.js**: 推荐 v20.x LTS 或更高版本
+- **Node.js**: 推荐 v20.x LTS (下载地址：https://nodejs.org/dist/latest-v20.x/)或更高版本
 - **包管理器**: npm 或 pnpm（推荐 npm）
+npm install 依赖安装成功版本：
+node v20.20.2
+npm 10.8.2
 
 > **注意**: 
 > - 如果使用 pnpm，请确保版本与 Node.js 兼容
@@ -18,7 +21,7 @@
 
 **方式一：使用 npm（推荐）**
 ```bash
-npm install --legacy-peer-deps
+npm install --legacy-peer-deps   //--legacy-peer-deps 绕过严格的依赖检查
 ```
 
 **方式二：使用 pnpm**
