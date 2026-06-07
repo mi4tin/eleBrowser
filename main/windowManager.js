@@ -20,7 +20,7 @@ module.exports = function createWindowManager(deps) {
 
     const showDialog = createShowDialog(getMainWindow);
 
-    function newWindow() {
+    function newWindow(initialUrl) {
         const iconPath = appRootDir + '/assets/ico1.png';
         console.log('icon', iconPath);
 
@@ -54,11 +54,17 @@ module.exports = function createWindowManager(deps) {
         setupProtocolBlocking(myWindow.webContents);
         myWindow.loadFile('html/index.html');
 
-        
-
-        myWindow.webContents.once('did-finish-load', () => {
-            console.log('主窗口加载完成，创建书签栏下拉菜单');
-        });
+        // 如果传入了初始URL，在窗口加载完成后打开该URL
+        if (initialUrl) {
+            myWindow.webContents.once('did-finish-load', () => {
+                console.log('主窗口加载完成，打开初始URL:', initialUrl);
+                myWindow.webContents.send('open-url-in-new-tab', initialUrl);
+            });
+        } else {
+            myWindow.webContents.once('did-finish-load', () => {
+                console.log('主窗口加载完成，创建书签栏下拉菜单');
+            });
+        }
 
         // 监听窗口关闭事件，检查下载
         myWindow.on('close', async (event) => {

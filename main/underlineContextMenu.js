@@ -8,7 +8,8 @@ module.exports = function createUnderlineContextMenu(deps) {
         path,
         setupProtocolBlocking,
         getMainWindow,
-        getLastActiveTabId
+        getLastActiveTabId,
+        newWindow
     } = deps;
 
     const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
@@ -1249,7 +1250,21 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 imageSrc = match[1];
                             }
                         }
-                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc };
+                        
+                        let isLink = false;
+                        let linkHref = '';
+                        if (element.tagName === 'A') {
+                            isLink = true;
+                            linkHref = element.href || '';
+                        } else {
+                            const parentLink = element.closest('A');
+                            if (parentLink) {
+                                isLink = true;
+                                linkHref = parentLink.href || '';
+                            }
+                        }
+                        
+                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc, isLink, linkHref };
                     })()`
                     ).then((elementCheckResult) => {
                         console.log('元素检查结果:', elementCheckResult,hasSelection);
@@ -1406,8 +1421,27 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 }
                             }, { type: 'separator' }];
                         }
+                        
+                        let linkMenu = [];
+                        if (elementCheckResult.isLink && elementCheckResult.linkHref) {
+                            linkMenu = [{
+                                label: '在新标签页打开链接',
+                                click: () => {
+                                    const mainWindow = getMainWindow();
+                                    if (mainWindow && !mainWindow.isDestroyed()) {
+                                        mainWindow.webContents.send('open-url-in-new-tab', elementCheckResult.linkHref);
+                                    }
+                                }
+                            }, {
+                                label: '在新窗口中打开链接',
+                                click: () => {
+                                    // 使用主进程传入的 newWindow 函数创建完整功能的浏览器窗口
+                                    newWindow(elementCheckResult.linkHref);
+                                }
+                            }, { type: 'separator' }];
+                        }
 
-                        const menu = Menu.buildFromTemplate([...imageMenu, ...underlineMenu, ...selectedMenu, ...baseMenu, ...closeTabMenu]);
+                        const menu = Menu.buildFromTemplate([...imageMenu, ...linkMenu, ...underlineMenu, ...selectedMenu, ...baseMenu, ...closeTabMenu]);
                         menu.popup();
                     }).catch(() => {
                         const menu = Menu.buildFromTemplate([...selectedMenu, ...underlineMenu, ...baseMenu]);

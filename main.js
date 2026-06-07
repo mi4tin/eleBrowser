@@ -31,6 +31,27 @@ let historyAutocompleteView = null;
 // 密码管理模块 API
 let passwordManagerIpcApi = null;
 
+// 主窗口引用
+let mainWindow = null;
+// 书签模块 API（延迟初始化）
+let bookmarksIpcApi = {
+    updateBookmarkDropdownBounds: () => { },
+    hideFolderDropdown: () => { }
+};
+// 下载模块 API（延迟初始化）
+let downloadsIpcApi = {
+    hideDownloadsPanel: () => { }
+};
+/** 供下载模块感知主窗口焦点（系统另存为弹窗启发式），在 registerIpcHandlers 之后赋值 */
+let downloadsMainWindowHooks = {
+    onBlur: () => {},
+    onFocus: () => {}
+};
+let showDialog = null;
+
+// 历史记录数据文件路径（需要在 app.whenReady 之后才能正确获取 userData 路径，但定义在这里用于后续使用）
+let historyFilePath = null;
+
 // 辅助函数：检查是否为自定义协议
 function isCustomProtocol(url) {
     if (!url) return false;
@@ -824,12 +845,12 @@ app.on('open-url', (event, url) => {
 // Windows 上处理协议请求（通过命令行参数）
 if (process.platform === 'win32') {
     // 单实例锁定 - 必须在处理协议参数之前
-    const gotTheLock = app.requestSingleInstanceLock();
-    if (!gotTheLock) {
-        // 如果已经有实例在运行，退出当前实例
-        app.quit();
-        return;
-    }
+    // const gotTheLock = app.requestSingleInstanceLock();
+    // if (!gotTheLock) {
+    //     // 如果已经有实例在运行，退出当前实例
+    //     app.quit();
+    //     return;
+    // }
 
     // 处理第二个实例（可能是通过协议启动）
     app.on('second-instance', (event, commandLine, workingDirectory) => {
@@ -840,7 +861,7 @@ if (process.platform === 'win32') {
             // 不创建新窗口，直接返回
             return;
         }
-        // 如果没有协议参数，激活现有窗口
+        // 如果没有协议参数，激活现有窗口（可选行为，保留以支持从快捷方式启动时激活已有窗口）
         const win = BrowserWindow.getAllWindows()[0];
         if (win) {
             if (win.isMinimized()) win.restore();
@@ -963,6 +984,8 @@ function setupProtocolBlocking(contents,window,tabId) {
     });
 }
 
+// 延迟获取 newWindow 的引用，因为它在后面才被定义
+let getNewWindow;
 const underlineContextMenu = createUnderlineContextMenu({
     app,
     ipcMain,
@@ -972,13 +995,17 @@ const underlineContextMenu = createUnderlineContextMenu({
     path,
     setupProtocolBlocking,
     getMainWindow: () => mainWindow,
-    getLastActiveTabId: () => lastActiveTabId
+    getLastActiveTabId: () => lastActiveTabId,
+    newWindow: (url) => getNewWindow()(url)
 });
 underlineContextMenu.init();
 const loadAndRestoreUnderline = (...args) => underlineContextMenu.loadAndRestoreUnderline(...args);
 
 app.whenReady().then(() => {
     app.setAppUserModelId('com.elebrowser.app');
+    
+    // 设置历史记录数据文件路径（必须在 app.whenReady 之后）
+    historyFilePath = path.join(app.getPath('userData'), 'history.json');
     
     // 初始化密码管理器
     initPasswordManager(app);
@@ -1197,47 +1224,68 @@ app.whenReady().then(() => {
         return callback({});
     });
 
+    // 创建窗口管理器
+    const { newWindow: createNewWindow } = createWindowManager({
+        BrowserWindow,
+        appRootDir: __dirname,
+        setupProtocolBlocking,
+        resizeBrowserViews,
+        registerAppShortcuts,
+        unregisterAppShortcuts,
+        hideFolderDropdown: (window) => bookmarksIpcApi.hideFolderDropdown(window),
+        hideDownloadsPanel: () => downloadsIpcApi.hideDownloadsPanel(),
+        getDownloadsApi: () => downloadsIpcApi,
+        clearBrowserViews: () => browserViews.clear(),
+        resetTabIdCounter: () => { tabIdCounter = 0; },
+        setMainWindow: (window) => { mainWindow = window; },
+        getMainWindow: () => mainWindow,
+    });
+    newWindow = createNewWindow;
+    
+    // 设置延迟获取 newWindow 的函数（供 underlineContextMenu 使用）
+    getNewWindow = () => newWindow;
+    showDialog = createShowDialog(() => mainWindow);
+
+    // 注册 IPC 处理器（需要在 newWindow 定义之后）
+    ipcModules = registerIpcHandlers({
+        app,
+        ipcMain,
+        BrowserWindow,
+        WebContentsView,
+        session,
+        path,
+        fs: require('fs'),
+        appRootDir: __dirname,
+        getPreloadPath,
+        historyFilePath,
+        getMainWindow: () => mainWindow,
+        getShowDialog: () => showDialog,
+        closeDialog,
+        isShowingSavedPasswords,
+        getBrowserViews: () => browserViews,
+        getLastActiveTabId: () => lastActiveTabId,
+        getSearchPanelView: () => searchPanelView,
+        getHistoryAutocompleteView: () => historyAutocompleteView,
+        createBrowserView,
+        activateBrowserView,
+        closeBrowserView,
+        reloadBrowserView,
+        reloadBrowserViewIgnoringCache,
+        createSearchPanel,
+        destroySearchPanel,
+        showHistoryAutocomplete,
+        hideHistoryAutocomplete,
+        newWindow,
+        getDownloadsApi: () => downloadsIpcApi
+    });
+    bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
+    downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;
+    passwordManagerIpcApi = ipcModules.passwordManager;
+
     // 应用启动时不立即注册快捷键，等待窗口创建后再注册
 
     newWindow();
 });
-
-
-let mainWindow = null;
-let bookmarksIpcApi = {
-    updateBookmarkDropdownBounds: () => { },
-    hideFolderDropdown: () => { }
-};
-
-let downloadsIpcApi = {
-    hideDownloadsPanel: () => { }
-};
-
-/** 供下载模块感知主窗口焦点（系统另存为弹窗启发式），在 registerIpcHandlers 之后赋值 */
-let downloadsMainWindowHooks = {
-    onBlur: () => {},
-    onFocus: () => {}
-};
-
-let showDialog = null;
-const { newWindow } = createWindowManager({
-
-    BrowserWindow,
-    appRootDir: __dirname,
-    setupProtocolBlocking,
-    resizeBrowserViews,
-    registerAppShortcuts,
-    unregisterAppShortcuts,
-    hideFolderDropdown: (window) => bookmarksIpcApi.hideFolderDropdown(window),
-    hideDownloadsPanel: () => downloadsIpcApi.hideDownloadsPanel(),
-    // 传递函数引用，以便后续可以更新
-    getDownloadsApi: () => downloadsIpcApi,
-    clearBrowserViews: () => browserViews.clear(),
-    resetTabIdCounter: () => { tabIdCounter = 0; },
-    setMainWindow: (window) => { mainWindow = window; },
-    getMainWindow: () => mainWindow,
-});
-showDialog = createShowDialog(() => mainWindow);
 
 // 存储已注册的快捷键
 let registeredShortcuts = [];
@@ -1538,44 +1586,6 @@ function showSearchPanelWithText(selectedText) {
 
 const fs = require('fs');
 
-// 历史记录数据文件路径
-const historyFilePath = path.join(app.getPath('userData'), 'history.json');
-
-const ipcModules = registerIpcHandlers({
-    app,
-    ipcMain,
-    BrowserWindow,
-    WebContentsView,
-    session,
-    path,
-    fs,
-    appRootDir: __dirname,
-    getPreloadPath,
-    historyFilePath,
-    getMainWindow: () => mainWindow,
-    getShowDialog: () => showDialog,
-    closeDialog,
-    isShowingSavedPasswords,
-    getBrowserViews: () => browserViews,
-    getLastActiveTabId: () => lastActiveTabId,
-    getSearchPanelView: () => searchPanelView,
-    getHistoryAutocompleteView: () => historyAutocompleteView,
-    createBrowserView,
-    activateBrowserView,
-    closeBrowserView,
-    reloadBrowserView,
-    reloadBrowserViewIgnoringCache,
-    createSearchPanel,
-    destroySearchPanel,
-    showHistoryAutocomplete,
-    hideHistoryAutocomplete,
-    newWindow,
-    // 传递函数引用，以便后续可以更新
-    getDownloadsApi: () => downloadsIpcApi
-});
-bookmarksIpcApi = ipcModules.bookmarks || bookmarksIpcApi;
-downloadsIpcApi = ipcModules.downloads || downloadsIpcApi;
-passwordManagerIpcApi = ipcModules.passwordManager;
 // 自定义应用菜单（包括 File / 文件 菜单）
 const isMac = process.platform === 'darwin';
 
