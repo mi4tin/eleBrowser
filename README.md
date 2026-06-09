@@ -9,7 +9,7 @@ npm install 依赖安装成功版本：
 node v20.20.2
 npm 10.8.2
 
-> **注意**: 
+> **注意[未验证]**: 
 > - 如果使用 pnpm，请确保版本与 Node.js 兼容
 > - pnpm 7.x 不支持 Node.js 24+
 > - pnpm 11.x 需要 Node.js 22+
