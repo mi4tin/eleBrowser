@@ -1,7 +1,7 @@
 ## 项目介绍
 这是一个浏览器，具有常用的浏览器功能。
 
-## 环境要求
+## 开发环境要求
 
 - **Node.js**: 推荐 v20.x LTS (下载地址：https://nodejs.org/dist/latest-v20.x/)或更高版本
 nodejs 安装里包含npm

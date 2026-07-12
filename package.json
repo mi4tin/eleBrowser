@@ -44,6 +44,7 @@
       "!node_modules/.bin",
       "!node_modules/.cache",
       "assets/**/*",
+      "common/**/*",
       "package.json"
     ],
     "asarUnpack": [
