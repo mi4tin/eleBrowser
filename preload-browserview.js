@@ -155,6 +155,7 @@ function setupAjaxListener() {
         (function() {
             const originalXHR = window.XMLHttpRequest;
             const originalFetch = window.fetch;
+            const XHR_OPEN_SYMBOL = '__xhrOpenPatched';
             
             // 发送消息给preload
             function notifyLoginRequest(url) {
@@ -164,28 +165,23 @@ function setupAjaxListener() {
                 }, '*');
             }
             
-            // 监听XMLHttpRequest
-            window.XMLHttpRequest = function() {
-                const xhr = new originalXHR();
-                const originalOpen = xhr.open;
-                const originalSend = xhr.send;
-                
-                xhr.open = function(method, url, ...args) {
-                    xhr._url = url;
-                    return originalOpen.apply(this, arguments);
-                };
-                
-                xhr.send = function(...args) {
-                    if (xhr._url) {
-                        const urlLower = xhr._url.toLowerCase();
-                        if (urlLower.includes('login') || urlLower.includes('signin') || urlLower.includes('auth')) {
-                            notifyLoginRequest(xhr._url);
-                        }
+            // 监听XMLHttpRequest - 仅代理 open/send 方法，不替换构造函数
+            const origProtoOpen = originalXHR.prototype.open;
+            const origProtoSend = originalXHR.prototype.send;
+            
+            originalXHR.prototype.open = function(method, url) {
+                this._url = url;
+                return origProtoOpen.apply(this, arguments);
+            };
+            
+            originalXHR.prototype.send = function(body) {
+                if (this._url) {
+                    const urlLower = this._url.toLowerCase();
+                    if (urlLower.includes('login') || urlLower.includes('signin') || urlLower.includes('auth')) {
+                        notifyLoginRequest(this._url);
                     }
-                    return originalSend.apply(this, arguments);
-                };
-                
-                return xhr;
+                }
+                return origProtoSend.apply(this, arguments);
             };
             
             // 监听fetch
@@ -216,14 +212,18 @@ function setupAjaxListener() {
     });
 }
 
+let _inputListenersAttached = false;
+
 // 监听输入框变化
 function setupInputListeners() {
+    if (_inputListenersAttached) return; // 防止重复添加监听器
     const { usernameInput, passwordInput } = findLoginInputs();
     
     if (usernameInput && passwordInput) {
         // 监听表单提交
         const form = passwordInput.closest('form');
-        if (form) {
+        if (form && !form._formSubmitAttached) {
+            form._formSubmitAttached = true;
             form.addEventListener('submit', (event) => {
                 updateLoginInfo();
                 if (detectedLoginInfo) {
@@ -246,6 +246,7 @@ function setupInputListeners() {
         
         usernameInput.addEventListener('input', handleInput);
         passwordInput.addEventListener('input', handleInput);
+        _inputListenersAttached = true;
     }
 }
 
@@ -358,12 +359,17 @@ ipcRenderer.on('fill-login-form', (_event, { username, password }) => {
 
 // 观察DOM变化，查找新增的登录元素和重新加载划线
 function setupMutationObserver() {
+    let debounceTimer = null;
     let underlineCheckTimer = null;
 
     const observer = new MutationObserver(() => {
-        setupInputListeners();
-        setupButtonListeners();
-        setupFocusListeners();
+        // 使用防抖避免高频 DOM 变化导致堆栈溢出
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            setupInputListeners();
+            setupButtonListeners();
+            setupFocusListeners();
+        }, 200);
 
         // 检测 DOM 变化后重新加载划线（防抖 500ms）
         if (underlineCheckTimer) clearTimeout(underlineCheckTimer);
@@ -383,7 +389,8 @@ function setupMutationObserver() {
     observer.observe(document.body, {
         childList: true,
         subtree: true,
-        characterData: true
+        // 注意：不要设置 characterData: true，否则文本输入会反复触发观察器，
+        // 某些框架（如React/Vue）的批量更新可能导致无限递归和堆栈溢出
     });
 }
 
