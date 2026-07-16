@@ -964,9 +964,6 @@ function setupProtocolBlocking(contents,window,tabId) {
 
     // 额外拦截：监听所有导航请求
     contents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-        if (isCustomProtocol(validatedURL)) {
-            console.log('✓ 阻止加载失败的自定义协议:', validatedURL);
-        }
         // 记录加载失败信息（排除 xmtls.wasm）
         if (!validatedURL.includes('xmtls.wasm') && errorCode !== 0 && errorCode !== -3) {
             console.log(`页面加载失败: ${validatedURL}, 错误代码: ${errorCode}, 描述: ${errorDescription}`);
@@ -1132,7 +1129,7 @@ app.whenReady().then(() => {
     });
 
     // 在应用内注册空协议处理器，避免抛给系统
-    const customProtocols = ['bytedance', 'douyin', 'snssdk', 'ms-store', 'microsoft-edge'];    
+    const customProtocols = ['bytedance', 'douyin', 'snssdk'];    
     customProtocols.forEach((scheme) => {
         try {
             protocol.registerStringProtocol(scheme, (request, callback) => {
@@ -1213,18 +1210,15 @@ app.whenReady().then(() => {
         console.log('dxbrowser protocol handler register failed:', e.message);
     }
 
-    // 全局请求拦截：阻止非 http/https/file 协议，防止系统弹窗
-    // 使用更宽泛的 filter 匹配所有请求，包括无 "//" 的协议
-    const filterAll = { urls: ['<all_urls>'] };
-    session.defaultSession.webRequest.onBeforeRequest(filterAll, (details, callback) => {
-        const url = details.url || '';
-        if (isCustomProtocol(url)) {
-            console.log('webRequest 阻止自定义协议:', url);
-            return callback({ cancel: true });
+    // 阻止外部协议弹窗（如 ms-windows-store://），Chromium 通过 openExternal 权限请求处理
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        if (permission === 'openExternal') {
+            console.log('setPermissionRequestHandler 阻止外部协议请求:', webContents.getURL());
+            return callback(false);
         }
-        return callback({});
+        callback(true);
     });
-
+    
     // 创建窗口管理器
     const { newWindow: createNewWindow } = createWindowManager({
         BrowserWindow,
