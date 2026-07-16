@@ -2408,6 +2408,22 @@ function saveBookmarkBarData() {
     ipcRenderer.send('save-bookmarks', bookmarksTreeData);
 }
 
+// 通过 bookmarksTreeData 删除书签栏项目（供主进程右键菜单调用）
+window.deleteBookmarkBarItem = function(id, type) {
+    if (!bookmarksTreeData || !bookmarksTreeData.items) return;
+    const itemIndex = bookmarksTreeData.items.findIndex(i => {
+        if (type === 'folder') return i.id === id;
+        else return i.id === id || i.url === id;
+    });
+    if (itemIndex === -1) return;
+    const removedItem = bookmarksTreeData.items.splice(itemIndex, 1)[0];
+    if (bookmarkSync) {
+        bookmarkSync.recordChange('delete', removedItem, bookmarksTreeData.id);
+    }
+    saveBookmarkBarData();
+    renderBookmarkBar();
+};
+
 // 验证URL是否有效
 function isUrlValid(url) {
     try {

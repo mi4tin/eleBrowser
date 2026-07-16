@@ -15,8 +15,7 @@ module.exports = function createUnderlineContextMenu(deps) {
     const underlineFilePath = path.join(app.getPath('userData'), 'underline.json');
     const webviewContentsMap = new Map();
     const underlineMode = 1;// 划线模式，1、只加载指定出现次数的文本划线(即选中处文本的划线)，2、加载所有匹配文本的划线
-    let resetUnerlineNameIndexMap = {};//用于同一页面的不同下划线的命名标识重置映射，key为url,value为underlineNameIndex
-    
+
     //用于同一页面的不同下划线的命名标识，即同一命名标识表示同一划线。
     // 而occurrenceIndex即data-occurrence-index表示同一划线内容的不同匹配的位置
     let underlineNameIndex = 1;
@@ -244,14 +243,6 @@ module.exports = function createUnderlineContextMenu(deps) {
 
         console.log('恢复划线完成数量:', underlineCount);
 
-            if (underlineCount === 0) {
-                setTimeout(() => {
-                    if (resetUnerlineNameIndexMap[underlineNameIndexP]) return;
-                    resetUnerlineNameIndexMap[underlineNameIndexP] = 1;
-                    restoreUnderlineInBrowserView(contents, underlineInfo, underlineNameIndexP);
-                }, 1000);
-            }
-
             if (!hasUnderlineNameIndexP) {
                 underlineNameIndex++;
             }
@@ -273,7 +264,6 @@ module.exports = function createUnderlineContextMenu(deps) {
             const underlines = underlineData[url] || [];
             if (underlines && underlines.length > 0) {
                 underlineNameIndex = 1;
-                resetUnerlineNameIndexMap = {};
                 for (const underlineInfo of underlines) {
                     await restoreUnderlineInBrowserView(contents, underlineInfo);
                 }
@@ -846,6 +836,25 @@ module.exports = function createUnderlineContextMenu(deps) {
                 return {};
             }
         });
+
+        // 监听 DOM 变化通知，重新加载划线
+        ipcMain.on('underline-dom-changed', async (event, url) => {
+            console.log('收到 DOM 变化通知，重新加载划线:', url);
+            const contents = event.sender;
+            try {
+                await loadAndRestoreUnderline(url, contents);
+            } catch (e) {
+                console.error('重新加载划线失败:', e);
+            }
+        });
+
+        // 手动加载划线 IPC 处理器
+        ipcMain.handle('reload-underline', async (event, url) => {
+            console.log('手动重新加载划线:', url);
+            const contents = event.sender;
+            await loadAndRestoreUnderline(url, contents);
+            return { success: true };
+        });
     }
 
     function copyImageToClipboard(contents, imageUrl, x, y) {
@@ -1130,6 +1139,9 @@ module.exports = function createUnderlineContextMenu(deps) {
                         click: () => contents.reloadIgnoringCache()
                     }];
 
+                    // 检查是否在书签栏上，添加删除选项
+                    let bookmarkBarMenu = [];
+
                     if (hasSelection) {
                         underlineMenu = [{
                             label: '添加下划线',
@@ -1264,7 +1276,24 @@ module.exports = function createUnderlineContextMenu(deps) {
                             }
                         }
                         
-                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc, isLink, linkHref };
+                        // 检查是否在书签栏上（仅主窗口）
+                        let isBookmarkBar = false;
+                        let bookmarkItemId = '';
+                        let bookmarkItemType = '';
+                        const isMainWindow = ${contents === getMainWindow().webContents};
+                        if (isMainWindow) {
+                            const bookmarkBarContainer = document.getElementById('bookmarkBarContainer');
+                            if (bookmarkBarContainer && bookmarkBarContainer.contains(element)) {
+                                isBookmarkBar = true;
+                                const bookmarkBarItem = element.closest('.bookmark-bar-item');
+                                if (bookmarkBarItem) {
+                                    bookmarkItemId = bookmarkBarItem.dataset.id || '';
+                                    bookmarkItemType = bookmarkBarItem.dataset.itemType || '';
+                                }
+                            }
+                        }
+                        
+                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc, isLink, linkHref, isBookmarkBar, bookmarkItemId, bookmarkItemType };
                     })()`
                     ).then((elementCheckResult) => {
                         console.log('元素检查结果:', elementCheckResult,hasSelection);
@@ -1281,6 +1310,15 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 }
                             }];
                         }
+                        // 始终添加"加载划线"菜单项（即使有选中文本也保留）
+                        underlineMenu = [...underlineMenu, { type: 'separator' }, {
+                            label: '加载划线',
+                            click: () => {
+                                contents.executeJavaScript(`
+                                    window.postMessage({ type: 'ELE_RELOAD_UNDERLINE' }, '*');
+                                `).catch(e => console.log('加载划线执行失败:', e));
+                            }
+                        }];
                         if (hasSelection && elementCheckResult.hasUnderline === false) {
                             underlineMenu = [...underlineMenu, { type: 'separator' }];
                         }
@@ -1441,10 +1479,25 @@ module.exports = function createUnderlineContextMenu(deps) {
                             }, { type: 'separator' }];
                         }
 
-                        const menu = Menu.buildFromTemplate([...imageMenu, ...linkMenu, ...underlineMenu, ...selectedMenu, ...baseMenu, ...closeTabMenu]);
+                        // 书签栏右键菜单：删除
+                        if (elementCheckResult.isBookmarkBar && elementCheckResult.bookmarkItemId) {
+                            const label = elementCheckResult.bookmarkItemType === 'folder' ? '删除文件夹' : '删除书签';
+                            bookmarkBarMenu = [{
+                                type: 'separator'
+                            }, {
+                                label: label,
+                                click: () => {
+                                    const id = JSON.stringify(elementCheckResult.bookmarkItemId);
+                                    const type = JSON.stringify(elementCheckResult.bookmarkItemType);
+                                    contents.executeJavaScript(`window.deleteBookmarkBarItem(${id}, ${type})`);
+                                }
+                            }];
+                        }
+
+                        const menu = Menu.buildFromTemplate([...imageMenu, ...linkMenu, ...underlineMenu, ...selectedMenu, ...bookmarkBarMenu, ...baseMenu, ...closeTabMenu]);
                         menu.popup();
                     }).catch(() => {
-                        const menu = Menu.buildFromTemplate([...selectedMenu, ...underlineMenu, ...baseMenu]);
+                        const menu = Menu.buildFromTemplate([...selectedMenu, ...underlineMenu, ...bookmarkBarMenu, ...baseMenu]);
                         menu.popup();
                     });
                 });

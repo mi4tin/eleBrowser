@@ -1,72 +1,40 @@
-## 项目介绍
-这是一个浏览器，具有常用的浏览器功能。
+## 项目概览：eleBrowser
 
-## 开发环境要求
+这是一个基于 **Electron v41** 构建的**功能完整的现代网页浏览器**，项目位于 `h:/Self/SRC/gitee.com/mistin/eleBrowser/`。
 
-- **Node.js**: 推荐 v20.x LTS (下载地址：https://nodejs.org/dist/latest-v20.x/)或更高版本
-nodejs 安装里包含npm
-安装参考 https://chat.deepseek.com/a/chat/s/4d169388-0700-4023-a18c-46ef4c1c7894
-- 安装成功版本：
-node v20.20.2
-npm 10.8.2
-- **包管理器**: npm 或 pnpm（推荐 npm）
-npm install 依赖
+### 核心架构
 
+采用经典 Electron 三层架构：
 
-> **注意[未验证]**: 
-> - 如果使用 pnpm，请确保版本与 Node.js 兼容
-> - pnpm 7.x 不支持 Node.js 24+
-> - pnpm 11.x 需要 Node.js 22+
-> - 推荐使用 npm 以避免兼容性问题
+| 层 | 关键文件 | 职责 |
+|---|---|---|
+| **主进程** | `main.js` + `main/` 目录 | 窗口管理、标签页创建、IPC 处理、划线、密码管理 |
+| **预加载脚本** | `preload-*.js`（6个） | 通过 `contextBridge` 暴露受限 API 给渲染进程 |
+| **渲染进程** | `html/` 目录（78个文件） | 主界面、标签栏、地址栏、书签栏等 UI |
 
-## 开发相关
+### 关键技术实现
 
-### 安装依赖
+- **多标签页**：使用 Electron 的 `WebContentsView` API（非过时的 `BrowserView`）
+- **无框窗口**：`frame: false` + 自定义标题栏 + Windows `titleBarOverlay`
+- **通信**：通过 `ipcMain.handle()` / `ipcMain.on()` + `ipcRenderer` 双向通信
+- **技术栈**：纯原生 JavaScript（无前端框架），无打包工具依赖
 
-**方式一：使用 npm（推荐）**
-```bash
-npm install --legacy-peer-deps   //--legacy-peer-deps 绕过严格的依赖检查
-```
+### 主要功能
 
-**方式二：使用 pnpm**
-```bash
-pnpm install
-```
+1. **多标签页浏览** — 创建/切换/关闭标签页，支持拖拽排序、外部 URL 拖入
+2. **地址栏导航** — URL 输入、历史自动补全（独立 WebContentsView 渲染）、后退/前进/刷新
+3. **书签管理** — 书签栏、文件夹下拉菜单、拖拽排序/移动、云同步
+4. **划线功能** — 选中文本添加下划线标注，持久化存储，刷新后自动恢复
+5. **密码管理器** — 自动检测登录表单、拦截提交、保存/自动填充密码
+6. **下载管理** — 完整的下载面板，支持暂停/继续/取消
+7. **页面内搜索** — Ctrl+F 触发，独立的搜索面板 WebContentsView
+8. **历史记录** — 自动记录、地址栏自动补全、独立管理页面
+9. **SSL/安全** — SSL 警告页面、自定义 User-Agent 伪装 Chrome、协议拦截
+10. **用户系统** — 登录、个人中心、云同步
 
-> 如果遇到 `Cannot read properties of null (reading 'matches')` 错误：
-> - 清理缓存：`npm cache clean --force`
-> - 然后重新运行 `npm install --legacy-peer-deps`
+### 项目规模
 
-### 运行项目
+- 主进程核心模块约 19 个 JS 文件
+- 渲染进程 78 个文件（37 个 HTML、18 个 JS、11 个 CSS）
+- 最大的模块 `main/underlineContextMenu.js` 约 80KB
 
-**使用 npm：**
-```bash
-npm start
-```
-
-### 打包项目
-
-#### 打包所有平台
-```bash
-npm run dist
-```
-
-#### 打包 Windows 版本
-```bash
-npm run dist:win
-```
-
-#### 打包 Mac 版本
-```bash
-npm run dist:mac
-```
-
-#### 打包 Linux 版本
-```bash
-npm run dist:linux
-```
-
-#### 构建并打包到目录（不打包成安装包）
-```bash
-npm run build:unpack
-```

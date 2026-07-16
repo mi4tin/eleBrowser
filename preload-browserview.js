@@ -356,17 +356,34 @@ ipcRenderer.on('fill-login-form', (_event, { username, password }) => {
     }, 1000);
 });
 
-// 观察DOM变化，查找新增的登录元素
+// 观察DOM变化，查找新增的登录元素和重新加载划线
 function setupMutationObserver() {
+    let underlineCheckTimer = null;
+
     const observer = new MutationObserver(() => {
         setupInputListeners();
         setupButtonListeners();
         setupFocusListeners();
+
+        // 检测 DOM 变化后重新加载划线（防抖 500ms）
+        if (underlineCheckTimer) clearTimeout(underlineCheckTimer);
+        underlineCheckTimer = setTimeout(() => {
+            const existingUnderlines = document.querySelectorAll('.underline-fb3b780f');
+            if (existingUnderlines.length === 0) {
+                try {
+                    console.log('检测到DOM变化，通知主进程重新加载划线');
+                    ipcRenderer.send('underline-dom-changed', window.location.href);
+                } catch (e) {
+                    console.error('通知主进程重新加载划线失败:', e);
+                }
+            }
+        }, 500);
     });
-    
+
     observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        characterData: true
     });
 }
 
@@ -383,6 +400,18 @@ function initializeListeners() {
 
     console.log('初始化所有监听');
 }
+
+// 监听页面内划线重新加载请求（来自 MutationObserver）
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'ELE_RELOAD_UNDERLINE') {
+        console.log('收到划线重新加载请求，通知主进程');
+        try {
+            ipcRenderer.send('underline-dom-changed', window.location.href);
+        } catch (e) {
+            console.error('通知主进程重新加载划线失败:', e);
+        }
+    }
+});
 
 // 页面加载完成后设置监听
 document.addEventListener('DOMContentLoaded', initializeListeners);
