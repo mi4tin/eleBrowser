@@ -410,7 +410,7 @@ function createBrowserView(window, url = 'https://www.baidu.com',isAppPage) {
 
         v.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
             if (isMainFrame) {
-                console.warn(`[WebContentsView tabId=${tabId}] 主框架加载失败: ${errorCode} ${errorDescription} ${validatedURL}`);
+                console.warn(`[WebContentsView tabId=${tabId}] 主框架加载失败: ${errorCode} ${errorDescription} ,validatedURL:${validatedURL}`);
             }
         });
       
