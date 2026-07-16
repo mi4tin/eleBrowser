@@ -493,7 +493,9 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             const dlRead = ipcTool.readDownloadSettingsFile();
             const dlData = dlRead.success && dlRead.data ? dlRead.data : ipcTool.defaultDownloadSettings();
             const askNative = dlData.askBeforeDownload !== false;
-            const wantSaveAsCr = askNative && USE_CRDOWNLOAD_PLACEHOLDER;
+            // blob: URL 是临时内存对象，不能延迟下载（双阶段另存为会丢失数据），强制走原生对话框或静默下载
+            const isBlobUrl = /^blob:/i.test(url);
+            const wantSaveAsCr = askNative && USE_CRDOWNLOAD_PLACEHOLDER && !isBlobUrl;
 
             let secondPass = false;
             let useNativeSaveDialog = askNative;
@@ -580,7 +582,9 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
                 try {
                     presetSavePath = allocateUniqueSavePath(item.getFilename());
                     diskWritePath = presetSavePath;
-                    if (USE_CRDOWNLOAD_PLACEHOLDER) {
+                    // blob: URL 不支持 crdownload 占位 + rename，直接保存到最终路径
+                    const isBlobUrl = /^blob:/i.test(url);
+                    if (USE_CRDOWNLOAD_PLACEHOLDER && !isBlobUrl) {
                         pendingRenameTo = presetSavePath;
                         diskWritePath = allocateUniqueTempCrdownloadPath(path.dirname(presetSavePath));
                     }
@@ -685,7 +689,23 @@ module.exports = function registerDownloadsIpcHandlers(deps) {
             item.once('done', (_e, state) => {
                 console.log('download.item.once done',state,record.url,record.id);
 
-                const terminal = state === 'completed' ? 'completed' : state;
+                let terminal = state === 'completed' ? 'completed' : state;
+
+                // blob: URL 下载完成后 Chromium 可能报告 interrupted 而非 completed，
+                // 但文件实际已保存成功。检查文件是否存在且有内容，若如此视为 completed。
+                if (terminal === 'interrupted' && /^blob:/i.test(record.url)) {
+                    let savedPath = null;
+                    try { savedPath = item.getSavePath() || null; } catch (_e) { /* ignore */ }
+                    if (!savedPath && record.savePath) savedPath = record.savePath;
+                    if (savedPath) {
+                        try {
+                            if (fs.existsSync(savedPath) && fs.statSync(savedPath).size > 0) {
+                                console.log('download.item.once done blob: 文件已保存，视为 completed', savedPath);
+                                terminal = 'completed';
+                            }
+                        } catch (_e) { /* ignore */ }
+                    }
+                }
                 
                 if (!record._listedInHistory) {
                     if (terminal === 'cancelled' || terminal === 'interrupted') {

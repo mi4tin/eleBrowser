@@ -1132,7 +1132,7 @@ app.whenReady().then(() => {
     });
 
     // 在应用内注册空协议处理器，避免抛给系统
-    const customProtocols = ['bytedance', 'douyin', 'snssdk'];
+    const customProtocols = ['bytedance', 'douyin', 'snssdk', 'ms-store', 'microsoft-edge'];    
     customProtocols.forEach((scheme) => {
         try {
             protocol.registerStringProtocol(scheme, (request, callback) => {
@@ -1214,8 +1214,9 @@ app.whenReady().then(() => {
     }
 
     // 全局请求拦截：阻止非 http/https/file 协议，防止系统弹窗
-    const filter = { urls: ['*://*/*'] };
-    session.defaultSession.webRequest.onBeforeRequest(filter, (details, callback) => {
+    // 使用更宽泛的 filter 匹配所有请求，包括无 "//" 的协议
+    const filterAll = { urls: ['<all_urls>'] };
+    session.defaultSession.webRequest.onBeforeRequest(filterAll, (details, callback) => {
         const url = details.url || '';
         if (isCustomProtocol(url)) {
             console.log('webRequest 阻止自定义协议:', url);
