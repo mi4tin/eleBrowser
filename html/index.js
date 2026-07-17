@@ -850,6 +850,8 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
             e.dataTransfer.setData('text/plain', 'tab:' + tabId);
             _dragSourceTabId = tabId;
             tabEl.classList.add('dragging');
+            // 拖拽开始即激活该标签
+            activateTab(tabId);
 
             // 创建拖拽图像：克隆被拖标签，使其跟随鼠标
             const clone = tabEl.cloneNode(true);
