@@ -14,6 +14,7 @@ function createShowDialog(getMainWindow) {
         return new Promise((resolve) => {
             if (dialogWindow && !dialogWindow.isDestroyed()) {
                 dialogWindow.focus();
+                console.log('对话框已存在，focus');
                 return;
             }
 

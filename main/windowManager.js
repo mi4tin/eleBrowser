@@ -1,5 +1,5 @@
 const { dialog } = require('electron');
-const { createShowDialog, closeDialog } = require('./dialog');
+const { createShowDialog, closeDialog, isShowingSavedPasswords } = require('./dialog');
 
 module.exports = function createWindowManager(deps) {
     const {
@@ -141,8 +141,11 @@ module.exports = function createWindowManager(deps) {
             //测试专用时，可注释
             hideFolderDropdown(myWindow);
             hideDownloadsPanel(myWindow);
-            // 关闭密码列表
-            closeDialog();
+            
+            // 仅当显示的是密码列表时才自动关闭
+            if (isShowingSavedPasswords()) {
+                closeDialog();
+            }
         };
         myWindow.on('blur', handleBlur);
 

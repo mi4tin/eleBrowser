@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>离开弹窗测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { color: #e74c3c; }
+        .info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .status {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-enable { background: #e74c3c; color: white; }
+        .btn-disable { background: #6c757d; color: white; }
+        .btn-link { background: #3498db; color: white; }
+        .btn-reload { background: #2ecc71; color: white; }
+        .log {
+            background: #2d2d2d;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔴 离开弹窗测试页面</h1>
+
+    <div class="info">
+        <strong>说明：</strong>本页面注册了 <code>beforeunload</code> 事件，
+        当你关闭标签页、刷新页面、或导航到其他页面时，会触发"离开确认"弹窗。
+    </div>
+
+    <div class="status">
+        <strong>状态：</strong> <span id="statusText" style="color:red">已启用离开弹窗</span>
+    </div>
+
+    <div>
+        <button class="btn-enable" onclick="enableBeforeUnload()">启用弹窗</button>
+        <button class="btn-disable" onclick="disableBeforeUnload()">禁用弹窗</button>
+        <button class="btn-link" onclick="navigateAway()">导航到其他页面</button>
+        <button class="btn-reload" onclick="location.reload()">刷新页面</button>
+    </div>
+
+    <p>当前时间戳：<span id="timestamp"></span></p>
+
+    <h3>操作日志</h3>
+    <div class="log" id="log"></div>
+
+    <script>
+        let beforeUnloadEnabled = true;
+
+        function log(msg) {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logEl.textContent += `[${time}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function updateTimestamp() {
+            document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        }
+
+        function enableBeforeUnload() {
+            beforeUnloadEnabled = true;
+            document.getElementById('statusText').textContent = '已启用离开弹窗';
+            document.getElementById('statusText').style.color = 'red';
+            log('✅ 离开弹窗已启用');
+        }
+
+        function disableBeforeUnload() {
+            beforeUnloadEnabled = false;
+            document.getElementById('statusText').textContent = '已禁用离开弹窗';
+            document.getElementById('statusText').style.color = 'green';
+            log('❌ 离开弹窗已禁用');
+        }
+
+        function navigateAway() {
+            log('🚀 正在导航到 example.com...');
+            window.location.href = 'https://example.com';
+        }
+
+        // 注册 beforeunload 事件
+        window.addEventListener('beforeunload', function(e) {
+            if (!beforeUnloadEnabled) return;
+            log('⚠️ beforeunload 事件被触发！');
+            e.preventDefault();
+            // Chrome 要求设置 returnValue
+            e.returnValue = '';
+            return '';
+        });
+
+        // 监听 unload 事件
+        window.addEventListener('unload', function() {
+            // 注意：unload 中不能使用 alert/confirm
+            // 这里仅用于记录（通过同步写入 localStorage）
+            try {
+                localStorage.setItem('unload_triggered', Date.now());
+            } catch(e) {}
+        });
+
+        // 监听 pageshow/pagehide
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) {
+                log('🔄 页面从 bfcache 恢复');
+            } else {
+                log('📄 页面已加载');
+            }
+            updateTimestamp();
+        });
+
+        window.addEventListener('pagehide', function(e) {
+            log('👋 页面正在隐藏');
+        });
+
+        // 初始加载
+        log('📄 页面已加载完成');
+        log('🔄 尝试关闭标签页、刷新或导航以触发弹窗');
+        updateTimestamp();
+    </script>
+</body>
+</html>
