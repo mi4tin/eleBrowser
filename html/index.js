@@ -7,7 +7,8 @@ const tabDropZone = document.getElementById('tab-drop-zone');
 const addTabBtn = document.getElementById('add-tab');
 const addressInput = document.getElementById('address-input');
 const bookmarkBarContainer = document.getElementById('bookmarkBarContainer');
-// const goBtn = document.getElementById('address-go');
+let _dragSourceTabId = null; // 拖拽中的标签ID，用于 dragover 中判断
+let _dragClone = null; // 拖拽图像克隆，dragend 时清理
 const backBtn = document.getElementById('nav-back');
 const forwardBtn = document.getElementById('nav-forward');
 const refreshBtn = document.getElementById('nav-refresh');
@@ -840,6 +841,120 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
         const tabEl = document.createElement('div');
         tabEl.className = 'tab';
         tabEl.dataset.id = tabId;
+        tabEl.draggable = true;
+
+        // 标签拖拽排序
+        tabEl.addEventListener('dragstart', (e) => {
+            e.stopPropagation();
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'tab:' + tabId);
+            _dragSourceTabId = tabId;
+            tabEl.classList.add('dragging');
+
+            // 创建拖拽图像：克隆被拖标签，使其跟随鼠标
+            const clone = tabEl.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.left = '-9999px';
+            clone.style.top = '-9999px';
+            clone.style.opacity = '1';
+            clone.style.width = tabEl.offsetWidth + 'px';
+            clone.style.height = tabEl.offsetHeight + 'px';
+            clone.style.zIndex = '9999';
+            clone.style.pointerEvents = 'none';
+            clone.style.borderRadius = '4px';
+            clone.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            clone.style.background = '#ffffff';
+            clone.style.border = '1px solid #ddd';
+            document.body.appendChild(clone);
+            // 拖拽图像偏移量设为鼠标相对于标签的位置
+            const tabRect = tabEl.getBoundingClientRect();
+            const offsetX = e.clientX - tabRect.left;
+            const offsetY = e.clientY - tabRect.top;
+            e.dataTransfer.setDragImage(clone, offsetX, offsetY);
+            _dragClone = clone;
+        });
+
+        tabEl.addEventListener('dragend', (e) => {
+            e.stopPropagation();
+            tabEl.classList.remove('dragging');
+            // 清理拖拽图像克隆
+            if (_dragClone) {
+                if (_dragClone.parentNode){
+                     _dragClone.parentNode.removeChild(_dragClone);
+                }
+                _dragClone = null;
+            }
+            _dragSourceTabId = null;
+        });
+
+        tabEl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+
+            if (tabEl.classList.contains('dragging')) return;
+            if (!_dragSourceTabId || _dragSourceTabId === tabId) return;
+
+            const rect = tabEl.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            const insertBefore = offsetX < rect.width / 2;
+
+            const draggedEl = document.querySelector('.tab[data-id="' + _dragSourceTabId + '"]');
+            if (!draggedEl) return;
+
+            const tabs = Array.from(tabsContainer.children).filter(c => c.classList.contains('tab'));
+            const currentIndex = tabs.indexOf(draggedEl);
+            const targetIndex = tabs.indexOf(tabEl);
+            if (insertBefore) {
+                if (currentIndex === targetIndex - 1) return;
+            } else {
+                if (currentIndex === targetIndex + 1) return;
+            }
+
+            // FLIP 动画：记录所有非拖拽标签的旧位置
+            const flipTabs = tabs.filter(t => t !== draggedEl);
+            const oldRects = flipTabs.map(t => t.getBoundingClientRect());
+
+            const addBtn = document.getElementById('add-tab');
+            if (addBtn) addBtn.remove();
+
+            if (insertBefore) {
+                tabsContainer.insertBefore(draggedEl, tabEl);
+            } else {
+                tabsContainer.insertBefore(draggedEl, tabEl.nextSibling);
+            }
+
+            if (addBtn) tabsContainer.appendChild(addBtn);
+
+            // FLIP 动画
+            requestAnimationFrame(() => {
+                flipTabs.forEach(t => {
+                    const oldRect = oldRects[flipTabs.indexOf(t)];
+                    const newRect = t.getBoundingClientRect();
+                    const dx = oldRect.left - newRect.left;
+                    if (dx !== 0) {
+                        t.style.transform = `translateX(${dx}px)`;
+                        t.style.transition = 'none';
+                        requestAnimationFrame(() => {
+                            t.style.transition = 'transform 0.2s ease';
+                            t.style.transform = '';
+                        });
+                    }
+                });
+            });
+
+            // 通知主进程更新标签顺序
+            ipcRenderer.invoke('reorder-browser-view', _dragSourceTabId, tabId, insertBefore).catch(() => {});
+        });
+
+        tabEl.addEventListener('dragleave', (e) => {
+            e.stopPropagation();
+        });
+
+        tabEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
 
         // 创建标签favicon容器
         const faviconEl = document.createElement('span');
@@ -1588,21 +1703,30 @@ addressInput.addEventListener('dragstart', (e) => {
 // 为标签栏添加放置事件监听器
 toolbar.addEventListener('dragover', (e) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
 
-    // 检测是否拖动到了具体的标签上
+    // 如果是标签拖拽排序，让标签自己的 dragover 处理
+    if (_dragSourceTabId) return;
+
+    // 检测是否拖动到了具体的标签上（用于外部链接拖入激活标签）
     const targetTab = e.target.closest('.tab');
     if (targetTab) {
-        // 激活该标签
+        // 外部链接拖入，激活该标签
+        e.dataTransfer.dropEffect = 'copy';
         const tabId = Number(targetTab.dataset.id);
         activateTab(tabId);
+    } else if (!e.target.closest('.tab') && !e.target.closest('#add-tab')) {
+        // 拖到空白区域，允许放置
+        e.dataTransfer.dropEffect = 'copy';
     }
 });
 
 toolbar.addEventListener('drop', (e) => {
     e.preventDefault();
+    // 如果是标签拖拽排序，由标签自己的 drop 处理
+    if (_dragSourceTabId) return;
+
     const url = e.dataTransfer.getData('text/plain');
-    console.log(" 拖动结束:", url)
+    console.log(" 拖动结束:", url);
 
     if (url) {
         // 检查是否拖动到了书签管理标签

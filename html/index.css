@@ -241,6 +241,14 @@ body {
 .tab .close:hover {
     background-color: #bbb;
 }
+
+/* 标签拖拽排序 */
+.tab.dragging {
+    opacity: 0;
+}
+
+/* 拖入时其他标签的移动动画由 transition: transform 0.2s ease 驱动 */
+
 #add-tab {
     width: 28px;
     height: 34px;

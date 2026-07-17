@@ -713,6 +713,32 @@ function closeBrowserView2(window, tabId) {
 }
 
 /**
+ * 重新排序 WebContentsView，保持与标签 DOM 顺序一致
+ * 暂时意义不大，为后续改成多视图叠加显示或标签预览做准备
+ * @param {number} draggedId - 被拖动的标签页ID
+ * @param {number} targetId - 目标标签页ID
+ * @param {boolean} insertBefore - 是否插入到目标之前
+ */
+function reorderBrowserView(draggedId, targetId, insertBefore) {
+    const entries = Array.from(browserViews.entries());
+    const draggedEntry = entries.find(([id]) => id === draggedId);
+    const targetEntry = entries.find(([id]) => id === targetId);
+    if (!draggedEntry || !targetEntry) return;
+
+    // 从数组中移除被拖动的条目
+    const filtered = entries.filter(([id]) => id !== draggedId);
+    const targetIndex = filtered.findIndex(([id]) => id === targetId);
+    const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+    filtered.splice(insertIndex, 0, draggedEntry);
+
+    // 重建 Map 以反映新顺序
+    browserViews.clear();
+    filtered.forEach(([id, view]) => {
+        browserViews.set(id, view);
+    });
+}
+
+/**
  * 调整所有标签页 WebContentsView 的尺寸（当窗口大小改变时调用）
  * @param {BrowserWindow} window - 父窗口
  */
@@ -1266,6 +1292,7 @@ app.whenReady().then(() => {
         closeBrowserView,
         reloadBrowserView,
         reloadBrowserViewIgnoringCache,
+        reorderBrowserView,
         createSearchPanel,
         destroySearchPanel,
         showHistoryAutocomplete,

@@ -9,6 +9,7 @@ module.exports = function registerAppIpcHandlers(deps) {
         closeBrowserView,
         reloadBrowserView,
         reloadBrowserViewIgnoringCache,
+        reorderBrowserView,
         getMainWindow,
         newWindow
     } = deps;
@@ -35,6 +36,10 @@ module.exports = function registerAppIpcHandlers(deps) {
             throw new Error('无法获取窗口实例');
         }
         return await closeBrowserView(window, tabId);
+    });
+
+    ipcMain.handle('reorder-browser-view', (event, draggedId, targetId, insertBefore) => {
+        reorderBrowserView(draggedId, targetId, insertBefore);
     });
 
     ipcMain.handle('browser-view-go-back', (event, tabId) => {
