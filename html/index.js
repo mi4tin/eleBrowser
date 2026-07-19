@@ -1256,6 +1256,58 @@ ipcRenderer.on('browser-view-updated', async (_event, data) => {
 ipcRenderer.on('browser-view-loading-state', (_event, data) => {
     tabLoadingState[data.tabId] = data.loading;
     if (currentTabId === data.tabId) updateRefreshButton();
+
+    // 加载完成时，如果 favicon 仍处于加载状态则移除（页面无 favicon 的情况）
+    if (!data.loading) {
+        const tabEl = document.querySelector('.tab[data-id="' + data.tabId + '"]');
+        if (tabEl) {
+            const faviconEl = tabEl.querySelector('.tab-favicon');
+            if (faviconEl) {
+                faviconEl.classList.remove('tab-favicon-loading');
+            }
+        }
+        if (currentTabId === data.tabId) {
+            const addressFavicon = document.getElementById('address-favicon');
+            if (addressFavicon) {
+                addressFavicon.classList.remove('address-favicon-loading');
+            }
+        }
+    }
+});
+
+// 主进程通知清除 favicon（新页面开始加载时）
+ipcRenderer.on('browser-view-favicon-cleared', (_event, data) => {
+    try {
+        const tabId = Number(data.tabId);
+        const tabEl = document.querySelector('.tab[data-id="' + tabId + '"]');
+        if (tabEl) {
+            const faviconImg = tabEl.querySelector('.tab-favicon img');
+            if (faviconImg) {
+                faviconImg.src = '';
+                faviconImg.style.display = 'none';
+            }
+            // 添加加载中的旋转动画
+            const faviconEl = tabEl.querySelector('.tab-favicon');
+            if (faviconEl) {
+                faviconEl.classList.add('tab-favicon-loading');
+            }
+        }
+
+        // 如果是当前活动标签，同时清除地址栏的favicon
+        if (currentTabId === tabId) {
+            const addressFaviconImg = document.getElementById('address-favicon').querySelector('img');
+            if (addressFaviconImg) {
+                addressFaviconImg.src = '';
+                addressFaviconImg.style.display = 'none';
+            }
+            const addressFavicon = document.getElementById('address-favicon');
+            if (addressFavicon) {
+                addressFavicon.classList.add('address-favicon-loading');
+            }
+        }
+    } catch (e) {
+        console.error('处理 browser-view-favicon-cleared 失败:', e);
+    }
 });
 
 // 主进程通知 favicon 更新
@@ -1272,6 +1324,11 @@ ipcRenderer.on('browser-view-favicon-updated', async (_event, data) => {
                 faviconImg.src = faviconUrl;
                 faviconImg.style.display = 'block'; // 显示favicon图片
             }
+            // 移除加载状态
+            const faviconEl = tabEl.querySelector('.tab-favicon');
+            if (faviconEl) {
+                faviconEl.classList.remove('tab-favicon-loading');
+            }
         }
 
         // 如果是当前活动标签，则同时更新地址栏的favicon
@@ -1280,6 +1337,11 @@ ipcRenderer.on('browser-view-favicon-updated', async (_event, data) => {
             if (addressFaviconImg) {
                 addressFaviconImg.src = faviconUrl;
                 addressFaviconImg.style.display = 'block'; // 显示favicon图片
+            }
+            // 移除加载状态
+            const addressFavicon = document.getElementById('address-favicon');
+            if (addressFavicon) {
+                addressFavicon.classList.remove('address-favicon-loading');
             }
         }
     } catch (e) {

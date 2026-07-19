@@ -365,6 +365,8 @@ function createBrowserView(window, url = 'https://www.baidu.com',isAppPage) {
             try {
                 if (mainWindow && !mainWindow.isDestroyed()&&!willPreventUnloadMap.get(tabId)) {
                     mainWindow.webContents.send('browser-view-loading-state', { tabId, loading: true });
+                    // 通知渲染进程清除favicon，显示加载状态
+                    mainWindow.webContents.send('browser-view-favicon-cleared', { tabId });
                 }
             } catch (err) {
                 console.error('发送 browser-view-loading-state 失败:', err);
