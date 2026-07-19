@@ -4,6 +4,7 @@ module.exports = function createUnderlineContextMenu(deps) {
         ipcMain,
         BrowserWindow,
         Menu,
+        nativeImage,
         fs,
         path,
         setupProtocolBlocking,
@@ -1067,6 +1068,24 @@ module.exports = function createUnderlineContextMenu(deps) {
             console.error('错误堆栈:', error.stack);
         });
     }
+    
+    //方块色块
+     function createColorIcon(color) {
+        const size = 16;
+        const buffer = Buffer.alloc(size * size * 4);
+        // 解析颜色
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        // 填充像素 (RGBA)
+        for (let i = 0; i < size * size; i++) {
+            buffer[i * 4] = r;       // R
+            buffer[i * 4 + 1] = g;   // G
+            buffer[i * 4 + 2] = b;   // B
+            buffer[i * 4 + 3] = 255; // A
+        }
+        return nativeImage.createFromBuffer(buffer, { width: size, height: size });
+    }
 
     function registerWebContentsHandlers() {
         app.on('web-contents-created', (event, contents) => {
@@ -1116,6 +1135,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                         click: () => handleViewSource(contents)
                     }, {
                         label: '打开开发者工具',
+                        icon: createColorIcon('#FF0000'), // 加红色小图标
                         accelerator: 'F12',
                         click: () => {
                             try {

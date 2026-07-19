@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, BrowserWindow: BW, session, protocol, ipcMain, globalShortcut, nativeImage } = require('electron');
 const path = require('path');
 const registerIpcHandlers = require('./main/ipcHandlers');
 const createWindowManager = require('./main/windowManager');
@@ -1016,6 +1016,7 @@ const underlineContextMenu = createUnderlineContextMenu({
     ipcMain,
     BrowserWindow,
     Menu,
+    nativeImage,
     fs: require('fs'),
     path,
     setupProtocolBlocking,
