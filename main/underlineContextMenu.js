@@ -1366,7 +1366,12 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 click: () => {
                                     const mainWindow = getMainWindow();
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-other-tab', getLastActiveTabId());
+                                        // 先激活右键点击的标签，再关闭其他标签
+                                        const tabId = elementCheckResult.rightClickedTabId || getLastActiveTabId();
+                                        if (elementCheckResult.rightClickedTabId) {
+                                            mainWindow.webContents.send('activate-tab', elementCheckResult.rightClickedTabId);
+                                        }
+                                        mainWindow.webContents.send('close-other-tab', tabId);
                                     }
                                 }
                             }, {
@@ -1375,12 +1380,12 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 click: () => {
                                     const mainWindow = getMainWindow();
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        // 方案2：先关闭左侧标签，再激活右键点击的标签
+                                        // 先激活右键点击的标签，再关闭左侧标签
                                         const tabId = elementCheckResult.rightClickedTabId || getLastActiveTabId();
-                                        mainWindow.webContents.send('close-left-tab', tabId);
                                         if (elementCheckResult.rightClickedTabId) {
                                             mainWindow.webContents.send('activate-tab', elementCheckResult.rightClickedTabId);
                                         }
+                                        mainWindow.webContents.send('close-left-tab', tabId);
                                     }
                                 }
                             }, {
@@ -1389,12 +1394,12 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 click: () => {
                                     const mainWindow = getMainWindow();
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        // 方案2：先关闭右侧标签，再激活右键点击的标签
+                                        // 先激活右键点击的标签，再关闭右侧标签
                                         const tabId = elementCheckResult.rightClickedTabId || getLastActiveTabId();
-                                        mainWindow.webContents.send('close-right-tab', tabId);
                                         if (elementCheckResult.rightClickedTabId) {
                                             mainWindow.webContents.send('activate-tab', elementCheckResult.rightClickedTabId);
                                         }
+                                        mainWindow.webContents.send('close-right-tab', tabId);
                                     }
                                 }
                             }];

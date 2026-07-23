@@ -27,6 +27,7 @@ module.exports = function registerAppIpcHandlers(deps) {
         if (!window) {
             throw new Error('无法获取窗口实例');
         }
+        console.log(`[诊断主进程] activate-browser-view handler: tabId=${tabId}, 时间=${Date.now()}`);
         activateBrowserView(window, tabId);
     });
 
@@ -35,7 +36,10 @@ module.exports = function registerAppIpcHandlers(deps) {
         if (!window) {
             throw new Error('无法获取窗口实例');
         }
-        return await closeBrowserView(window, tabId);
+        console.log(`[诊断主进程] close-browser-view handler 开始: tabId=${tabId}, 时间=${Date.now()}`);
+        const result = await closeBrowserView(window, tabId);
+        console.log(`[诊断主进程] close-browser-view handler 结束: tabId=${tabId}, result=${result}, 时间=${Date.now()}`);
+        return result;
     });
 
     ipcMain.handle('reorder-browser-view', (event, draggedId, targetId, insertBefore) => {

@@ -304,7 +304,12 @@ function createBrowserView(window, url = 'https://www.baidu.com',isAppPage) {
                 viewData["url"] = navigationUrl;
                 sendUpdate(viewData);
             }
-            if (httpResponseCode >= 400 || httpResponseCode <= 0) {
+            // 跳过非 HTTP/HTTPS 协议的重试（如 about:blank, file://, data: 等）
+            // 否则 closeBrowserView 中 loadURL('about:blank') 会触发 httpResponseCode=0
+            // 导致创建一个新的 WebContentsView 覆盖到 contentView 最上层，整个区域显示空白
+            if (navigationUrl && !navigationUrl.startsWith('http')) {
+                console.log(`[诊断] 跳过非HTTP导航重试: url=${navigationUrl} status=${httpResponseCode}`);
+            } else if (httpResponseCode >= 400 || httpResponseCode <= 0) {
                 console.log(`[ERROR269] url=${navigationUrl} status=${httpResponseCode}, retrying with contextIsolation=false`);
                 if (!v._retriedWithoutContextIsolation) {
                     v._retriedWithoutContextIsolation = true;
@@ -628,8 +633,13 @@ async function closeBrowserView(window, tabId) {
         // 保存当前 URL
         const currentUrl = wc.getURL();
 
+        // 检查视图是否在 contentView 中（当前可见视图）
+        const isVisibleView = (lastActiveTabId === tabId);
+        console.log(`[诊断主进程] closeBrowserView tabId=${tabId}, lastActiveTabId=${lastActiveTabId}, 是可见视图=${isVisibleView}, 时间=${Date.now()}`);
+
         try {
             // 尝试导航到 about:blank 来触发 beforeunload
+            console.log(`[诊断主进程] closeBrowserView 准备 loadURL('about:blank'), 当前URL=${wc.getURL()}`);
             // 设置一个超时
             await new Promise((resolve) => {
                 const timeout = setTimeout(() => {

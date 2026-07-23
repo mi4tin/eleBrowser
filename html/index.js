@@ -687,6 +687,7 @@ async function closeOtherTabs(exceptTabId) {
 
 // 关闭右侧标签
 async function closeRightTabs(fromTabId) {
+    console.log(`[诊断] closeRightTabs 开始: fromTabId=${fromTabId}, currentTabId=${currentTabId}, 时间=${Date.now()}`);
     const allTabs = document.querySelectorAll('.tab');
     let startIndex = -1;
 
@@ -698,14 +699,21 @@ async function closeRightTabs(fromTabId) {
         }
     }
 
-    if (startIndex === -1) return;
+    if (startIndex === -1) {
+        console.log(`[诊断] closeRightTabs 未找到起始标签: ${fromTabId}`);
+        return;
+    }
+
+    console.log(`[诊断] closeRightTabs startIndex=${startIndex}, 总标签数=${allTabs.length}`);
 
     // 关闭右侧的所有标签
     for (let i = allTabs.length - 1; i > startIndex; i--) {
         const tab = allTabs[i];
         const tabId = Number(tab.dataset.id);
+        console.log(`[诊断] closeRightTabs 将关闭: tabId=${tabId}, 索引=${i}`);
         await closeTab(tabId);
     }
+    console.log(`[诊断] closeRightTabs 完成`);
 }
 
 // 关闭左侧标签
@@ -1030,7 +1038,11 @@ async function createTab(url = DEFAULT_URL, title = '新标签页') {
 }
 
 async function activateTab(id) {
-    if (id === currentTabId) return;
+    console.log(`[诊断] activateTab 调用: id=${id}, currentTabId=${currentTabId}, 时间戳=${Date.now()}`);
+    if (id === currentTabId) {
+        console.log(`[诊断] activateTab 提前返回: 目标${id}已激活`);
+        return;
+    }
 
     currentTabId = id;
     // 切换 tab 样式
@@ -1040,19 +1052,23 @@ async function activateTab(id) {
 
     // 通知主进程激活对应的 BrowserView
     try {
+        console.log(`[诊断] activateTab 发送 activate-browser-view: tabId=${id}`);
         await ipcRenderer.invoke('activate-browser-view', id);
+        console.log(`[诊断] activateTab activate-browser-view 完成: tabId=${id}`);
 
         // 获取当前标签页的URL并更新地址栏
         const url = await ipcRenderer.invoke('browser-view-get-url', id);
         updateAddressBar(url);
     } catch (error) {
-        console.error('激活标签页失败:', error);
+        console.error('[诊断] activateTab 激活标签页失败:', error);
     }
 
     await updateNavButtons();
+    console.log(`[诊断] activateTab 完成: tabId=${id}`);
 }
 
 async function closeTab(id) {
+    console.log(`[诊断] closeTab 开始: tabId=${id}, currentTabId=${currentTabId}, 时间=${Date.now()}`);
     const tabEl = document.querySelector('.tab[data-id="' + id + '"]');
 
     // 保存加号按钮引用
@@ -1065,14 +1081,15 @@ async function closeTab(id) {
     // 通知主进程关闭对应的 BrowserView
     try {
         const result = await ipcRenderer.invoke('close-browser-view', id);
+        console.log(`[诊断] closeTab close-browser-view 结果: tabId=${id}, result=${result}`);
         if (!result) {
-            console.log('关闭BrowserView标签页失败.不允许关闭:', id);
+            console.log('[诊断] closeTab 不允许关闭:', id);
             return;
         }
 
         console.log('成功关闭BrowserView标签页:', id);
     } catch (error) {
-        console.error('关闭BrowserView标签页失败:', error);
+        console.error('[诊断] closeTab IPC 调用失败:', error);
         // 如果IPC调用失败，仍然移除DOM元素
     }
 
@@ -1086,13 +1103,16 @@ async function closeTab(id) {
     // 如果关的是当前标签，自动激活一个相邻的
     if (currentTabId === id) {
         const remainingTabs = document.querySelectorAll('.tab');
+        console.log(`[诊断] closeTab 关闭的是激活标签, 剩余标签数=${remainingTabs.length}`);
         if (remainingTabs.length > 0) {
             const lastTab = remainingTabs[remainingTabs.length - 1];
+            console.log('[诊断] closeTab 自动激活:', lastTab.dataset.id);
             await activateTab(Number(lastTab.dataset.id));
         } else {
             currentTabId = null;
         }
     }
+    console.log(`[诊断] closeTab 完成: tabId=${id}`);
 }
 
 // "+" 按钮：新建标签
@@ -1400,28 +1420,34 @@ ipcRenderer.on('open-sync-tab', () => {
     openSyncTab();
 });
 
-ipcRenderer.on('close-tab', (_event, tabid) => {
+ipcRenderer.on('close-tab', async (_event, tabid) => {
     console.log('收到主进程消息: 关闭标签页', tabid);
-    closeTab(tabid);
+    await closeTab(tabid);
 });
 
-ipcRenderer.on('close-other-tab', (_event, tabid) => {
-    console.log('收到主进程消息: 关闭其它标签页', tabid);
-    closeOtherTabs(tabid);
+ipcRenderer.on('close-other-tab', async (_event, tabid) => {
+    console.log(`[诊断] IPC close-other-tab 收到: tabId=${tabid}, currentTabId=${currentTabId}, 时间=${Date.now()}`);
+    await activateTab(tabid);
+    await closeOtherTabs(tabid);
+    console.log(`[诊断] IPC close-other-tab 完成: tabId=${tabid}`);
 });
 
-ipcRenderer.on('close-left-tab', (_event, tabid) => {
-    console.log('收到主进程消息: 关闭左侧标签页', tabid);
-    closeLeftTabs(tabid);
+ipcRenderer.on('close-left-tab', async (_event, tabid) => {
+    console.log(`[诊断] IPC close-left-tab 收到: tabId=${tabid}, currentTabId=${currentTabId}, 时间=${Date.now()}`);
+    await activateTab(tabid);
+    await closeLeftTabs(tabid);
+    console.log(`[诊断] IPC close-left-tab 完成: tabId=${tabid}`);
 });
 
-ipcRenderer.on('close-right-tab', (_event, tabid) => {
-    console.log('收到主进程消息: 关闭右侧标签页', tabid);
-    closeRightTabs(tabid);
+ipcRenderer.on('close-right-tab', async (_event, tabid) => {
+    console.log(`[诊断] IPC close-right-tab 收到: tabId=${tabid}, currentTabId=${currentTabId}, 时间=${Date.now()}`);
+    await activateTab(tabid);
+    await closeRightTabs(tabid);
+    console.log(`[诊断] IPC close-right-tab 完成: tabId=${tabid}`);
 });
 
 ipcRenderer.on('activate-tab', (_event, tabid) => {
-    console.log('收到主进程消息: 激活标签页', tabid);
+    console.log(`[诊断] IPC activate-tab 收到: tabId=${tabid}, currentTabId=${currentTabId}, 时间=${Date.now()}`);
     activateTab(tabid);
 });
 
