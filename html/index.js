@@ -672,17 +672,65 @@ async function openSyncTab() {
 }
 
 
+/**
+ * 批量关闭标签页（优化性能：一次IPC并行关闭 + 一次DOM批量移除）
+ * @param {number[]} tabIds - 要关闭的标签页ID数组
+ * @param {boolean} [activateNext=true] - 如果关闭了当前激活标签，是否自动激活下一个
+ */
+async function batchCloseTabs(tabIds, activateNext = true) {
+    if (!tabIds || tabIds.length === 0) return;
+    console.log(`[诊断] batchCloseTabs 开始: ids=[${tabIds}], 时间=${Date.now()}`);
+
+    const wasCurrentActive = tabIds.includes(currentTabId);
+
+    // 1. 暂存加号按钮（只需一次）
+    const addButton = document.getElementById('add-tab');
+    if (addButton) addButton.remove();
+
+    // 2. 一次性移除所有 DOM 标签
+    for (const id of tabIds) {
+        const tabEl = document.querySelector(`.tab[data-id="${id}"]`);
+        if (tabEl) tabEl.remove();
+    }
+
+    // 3. 重新添加加号按钮（只需一次）
+    if (addButton) {
+        document.getElementById('tabs').appendChild(addButton);
+    }
+
+    // 4. 并行 IPC 关闭 BrowserView（主进程用 Promise.allSettled 并行）
+    try {
+        await ipcRenderer.invoke('close-browser-views', tabIds);
+    } catch (error) {
+        console.error('[诊断] batchCloseTabs IPC 调用失败:', error);
+    }
+
+    // 5. 如果关闭了当前激活标签，激活相邻标签
+    if (wasCurrentActive && activateNext) {
+        const remainingTabs = document.querySelectorAll('.tab');
+        if (remainingTabs.length > 0) {
+            const lastTab = remainingTabs[remainingTabs.length - 1];
+            console.log('[诊断] batchCloseTabs 自动激活:', lastTab.dataset.id);
+            await activateTab(Number(lastTab.dataset.id));
+        } else {
+            currentTabId = null;
+        }
+    }
+
+    console.log(`[诊断] batchCloseTabs 完成, 时间=${Date.now()}`);
+}
+
 // 关闭其他标签
 async function closeOtherTabs(exceptTabId) {
     const allTabs = document.querySelectorAll('.tab');
-    for (let i = 0; i < allTabs.length; i++) {
-        const tab = allTabs[i];
+    const idsToClose = [];
+    for (const tab of allTabs) {
         const tabId = Number(tab.dataset.id);
-
         if (tabId !== exceptTabId) {
-            await closeTab(tabId);
+            idsToClose.push(tabId);
         }
     }
+    await batchCloseTabs(idsToClose);
 }
 
 // 关闭右侧标签
@@ -706,13 +754,14 @@ async function closeRightTabs(fromTabId) {
 
     console.log(`[诊断] closeRightTabs startIndex=${startIndex}, 总标签数=${allTabs.length}`);
 
-    // 关闭右侧的所有标签
+    // 收集右侧标签 ID，用批量关闭
+    const idsToClose = [];
     for (let i = allTabs.length - 1; i > startIndex; i--) {
-        const tab = allTabs[i];
-        const tabId = Number(tab.dataset.id);
-        console.log(`[诊断] closeRightTabs 将关闭: tabId=${tabId}, 索引=${i}`);
-        await closeTab(tabId);
+        const tabId = Number(allTabs[i].dataset.id);
+        idsToClose.push(tabId);
     }
+    await batchCloseTabs(idsToClose);
+
     console.log(`[诊断] closeRightTabs 完成`);
 }
 
@@ -731,22 +780,23 @@ async function closeLeftTabs(fromTabId) {
 
     if (startIndex === -1) return;
 
-    // 关闭左侧的所有标签
+    // 收集左侧标签 ID，用批量关闭
+    const idsToClose = [];
     for (let i = 0; i < startIndex; i++) {
-        const tab = allTabs[i];
-        const tabId = Number(tab.dataset.id);
-        await closeTab(tabId);
+        const tabId = Number(allTabs[i].dataset.id);
+        idsToClose.push(tabId);
     }
+    await batchCloseTabs(idsToClose);
 }
 
 // 关闭所有标签
 async function closeAllTabs() {
     const allTabs = document.querySelectorAll('.tab');
-    for (let i = allTabs.length - 1; i >= 0; i--) {
-        const tab = allTabs[i];
-        const tabId = Number(tab.dataset.id);
-        await closeTab(tabId);
+    const idsToClose = [];
+    for (const tab of allTabs) {
+        idsToClose.push(Number(tab.dataset.id));
     }
+    await batchCloseTabs(idsToClose, false);
 }
 
 // 记录浏览历史
