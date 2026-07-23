@@ -1269,6 +1269,13 @@ module.exports = function createUnderlineContextMenu(deps) {
                         if ((element.nextElementSibling && element.nextElementSibling.classList.contains('tab')) ||
                             (element.parentElement && element.parentElement.nextElementSibling && element.parentElement.nextElementSibling.classList.contains('tab'))) hasRightTab = true;
                         const isTab = !!(element.classList.contains('tab-text') || element.classList.contains('tab'));
+                        let rightClickedTabId = null;
+                        if (isTab) {
+                            const tabEl = element.classList.contains('tab') ? element : element.closest('.tab');
+                            if (tabEl && tabEl.dataset.id) {
+                                rightClickedTabId = Number(tabEl.dataset.id);
+                            }
+                        }
                         let isImage = false;
                         let imageSrc = '';
                         if (element.tagName === 'IMG') {
@@ -1313,7 +1320,7 @@ module.exports = function createUnderlineContextMenu(deps) {
                             }
                         }
                         
-                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, isImage, imageSrc, isLink, linkHref, isBookmarkBar, bookmarkItemId, bookmarkItemType };
+                        return { hasUnderline: false, underlineText: '', isTab, hasLeftTab, hasRightTab, rightClickedTabId, isImage, imageSrc, isLink, linkHref, isBookmarkBar, bookmarkItemId, bookmarkItemType };
                     })()`
                     ).then((elementCheckResult) => {
                         console.log('元素检查结果:', elementCheckResult,hasSelection);
@@ -1368,7 +1375,12 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 click: () => {
                                     const mainWindow = getMainWindow();
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-left-tab', getLastActiveTabId());
+                                        // 方案2：先关闭左侧标签，再激活右键点击的标签
+                                        const tabId = elementCheckResult.rightClickedTabId || getLastActiveTabId();
+                                        mainWindow.webContents.send('close-left-tab', tabId);
+                                        if (elementCheckResult.rightClickedTabId) {
+                                            mainWindow.webContents.send('activate-tab', elementCheckResult.rightClickedTabId);
+                                        }
                                     }
                                 }
                             }, {
@@ -1377,7 +1389,12 @@ module.exports = function createUnderlineContextMenu(deps) {
                                 click: () => {
                                     const mainWindow = getMainWindow();
                                     if (mainWindow && !mainWindow.isDestroyed()) {
-                                        mainWindow.webContents.send('close-right-tab', getLastActiveTabId());
+                                        // 方案2：先关闭右侧标签，再激活右键点击的标签
+                                        const tabId = elementCheckResult.rightClickedTabId || getLastActiveTabId();
+                                        mainWindow.webContents.send('close-right-tab', tabId);
+                                        if (elementCheckResult.rightClickedTabId) {
+                                            mainWindow.webContents.send('activate-tab', elementCheckResult.rightClickedTabId);
+                                        }
                                     }
                                 }
                             }];

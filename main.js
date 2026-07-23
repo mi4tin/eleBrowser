@@ -636,6 +636,7 @@ async function closeBrowserView(window, tabId) {
                     resolve();
                 }, 300);
 
+                console.log("close.url:",wc.getURL())
                 wc.loadURL('about:blank').then(() => {
                     clearTimeout(timeout);
                     resolve();

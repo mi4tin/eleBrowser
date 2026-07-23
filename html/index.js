@@ -1420,6 +1420,11 @@ ipcRenderer.on('close-right-tab', (_event, tabid) => {
     closeRightTabs(tabid);
 });
 
+ipcRenderer.on('activate-tab', (_event, tabid) => {
+    console.log('收到主进程消息: 激活标签页', tabid);
+    activateTab(tabid);
+});
+
 ipcRenderer.on('update-user-data', (_event, userData) => {
     console.log('收到主进程消息: 更新用户数据', userData);
     // loadAndValidateUser();
